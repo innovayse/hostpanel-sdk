@@ -1,3 +1,5 @@
+using Innovayse.SDK.Plugins.Enums;
+
 namespace Innovayse.SDK.Plugins;
 
 /// <summary>Result of <see cref="IPaymentPlugin.GetStatusAsync"/>.</summary>

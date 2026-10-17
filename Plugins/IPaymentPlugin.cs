@@ -15,6 +15,14 @@ public interface IPaymentPlugin
     /// </summary>
     string CurrencyCode { get; }
 
+    /// <summary>
+    /// Whether this plugin can charge an invoice in the given currency. Defaults to an exact match with
+    /// <see cref="CurrencyCode"/>; a multi-currency gateway overrides it.
+    /// </summary>
+    /// <param name="currencyNumeric">ISO 4217 numeric code of the invoice currency.</param>
+    /// <returns><see langword="true"/> when the plugin charges in that currency.</returns>
+    bool AcceptsCurrency(string currencyNumeric) => string.Equals(currencyNumeric, CurrencyCode, StringComparison.Ordinal);
+
     /// <summary>Registers a payment at the gateway and returns the redirect session.</summary>
     /// <param name="request">Order number, amount in minor units, return URL and optional metadata.</param>
     /// <param name="ct">Cancellation token.</param>

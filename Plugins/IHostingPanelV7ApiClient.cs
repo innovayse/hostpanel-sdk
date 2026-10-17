@@ -1,7 +1,7 @@
 namespace Innovayse.SDK.Plugins;
 
 /// <summary>Abstraction over the CWP7 REST API client for provisioning and server info operations.</summary>
-public interface ICwp7ApiClient
+public interface IHostingPanelV7ApiClient
 {
     /// <summary>Fetches server metadata by listing packages to verify connectivity.</summary>
     /// <param name="host">CWP7 server hostname or IP.</param>

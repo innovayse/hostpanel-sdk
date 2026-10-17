@@ -1,7 +1,7 @@
 namespace Innovayse.SDK.Plugins;
 
 /// <summary>Abstraction over the CWP REST API client for provisioning and server info operations.</summary>
-public interface ICwpApiClient
+public interface IHostingPanelApiClient
 {
     /// <summary>
     /// The port a CWP server answers its REST API on when a deployment has not configured one.
@@ -16,7 +16,7 @@ public interface ICwpApiClient
     /// nothing under <c>/v1/</c>, which is the only path anything built from this constant
     /// requests. Every other consumer in this repository — <c>CwpApiClient</c>,
     /// <c>Cwp7ApiClient</c>, <c>ProvisioningProviderFactory</c>, <c>ServerConnectionTester</c> —
-    /// already used 2304; <c>GetCwpServerInfoHandler</c> was the last holder of a 2031 fallback,
+    /// already used 2304; <c>GetHostingPanelServerInfoHandler</c> was the last holder of a 2031 fallback,
     /// and a deployment that had configured a host and an API key but no port therefore probed
     /// the UI port and reported the server as unreachable.
     /// </para>
