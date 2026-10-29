@@ -9,7 +9,7 @@ public interface IPaymentPlugin
     /// <summary>
     /// Gets the ISO 4217 numeric currency code (e.g. "840" for USD, "051" for AMD) that this
     /// plugin instance will charge in, as configured by the admin. Callers must verify this
-    /// matches the currency of the invoice being paid before calling <see cref="CreatePaymentAsync"/> —
+    /// matches the currency of the invoice being paid before calling <see cref="CreatePaymentAsync"/>:
     /// the gateway itself has no notion of the panel's billing currency and will happily charge
     /// the requested minor-unit amount in whatever currency it is configured for.
     /// </summary>

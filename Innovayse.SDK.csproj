@@ -12,7 +12,7 @@
          the major for a removed or renamed one; sdk:publish in .gitlab-ci.yml pushes a
          version the feed does not have yet and skips one it does. -->
     <PackageId>Innovayse.SDK</PackageId>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>Innovayse</Authors>
     <Description>Plugin contracts for hostpanel: provisioning, payment, registrar, identity, fulfilment and hosted plugins.</Description>
     <PackageLicenseExpression>BUSL-1.1</PackageLicenseExpression>

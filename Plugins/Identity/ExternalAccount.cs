@@ -1,7 +1,7 @@
 namespace Innovayse.SDK.Plugins.Identity;
 
 /// <summary>
-/// "This client is account <see cref="Id"/> in system <see cref="Provider"/>" — a CRM id, a
+/// "This client is account <see cref="Id"/> in system <see cref="Provider"/>": a CRM id, a
 /// tenant id, anything the deployment links its clients to. The host stores the pair on the
 /// client and keeps it unique per provider.
 /// </summary>

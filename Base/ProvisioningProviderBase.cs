@@ -3,22 +3,23 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace Innovayse.SDK.Base;
+
 /// <summary>
 /// Base class for all provisioning provider plugins.
 /// Provides <see cref="GetConfig"/> and a structured <see cref="Logger"/>.
 /// </summary>
 public abstract class ProvisioningProviderBase : IProvisioningPlugin
 {
-    /// <summary>The plugin id this class uses.</summary>
+    /// <summary>The plugin's id, the middle segment of every configuration key it reads.</summary>
     private readonly string _pluginId;
 
-    /// <summary>The configuration this class uses.</summary>
+    /// <summary>Where <see cref="GetConfig"/> reads the plugin's saved settings.</summary>
     private readonly IConfiguration _configuration;
 
     /// <summary>Initializes a new instance of the <see cref="ProvisioningProviderBase"/> class.</summary>
-    /// <param name="pluginId">The plugin id this class uses.</param>
-    /// <param name="configuration">The configuration this class uses.</param>
-    /// <param name="logger">The logger this class uses.</param>
+    /// <param name="pluginId">The plugin's id, the middle segment of every configuration key it reads.</param>
+    /// <param name="configuration">Where <see cref="GetConfig"/> reads the plugin's saved settings.</param>
+    /// <param name="logger">The structured logger exposed to the plugin as <see cref="Logger"/>.</param>
     protected ProvisioningProviderBase(string pluginId, IConfiguration configuration, ILogger logger)
     {
         _pluginId = pluginId;

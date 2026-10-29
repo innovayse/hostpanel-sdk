@@ -1,6 +1,7 @@
 using Innovayse.SDK.Plugins.Identity;
 
 namespace Innovayse.SDK.Plugins.Fulfilment;
+
 /// <summary>Handed to <see cref="IFulfilmentPlugin.AdviseRefundAsync"/> before any money moves back.</summary>
 /// <param name="InvoiceId">The paid invoice an admin wants to refund.</param>
 /// <param name="ClientId">The host's client id.</param>

@@ -3,18 +3,19 @@ using Innovayse.SDK.Plugins.Hosting;
 using Innovayse.SDK.Plugins.Identity;
 
 namespace Innovayse.SDK.Plugins.Enums;
+
 /// <summary>
 /// Categorises the service a plugin provides.
 /// </summary>
 public enum PluginType
 {
-    /// <summary>Hosting / server provisioning (cPanel, Plesk, CWP, etc.).</summary>
+    /// <summary>Hosting and server provisioning through a hosting panel.</summary>
     Provisioning,
 
-    /// <summary>Payment gateway (Stripe, PayPal, etc.).</summary>
+    /// <summary>Payment gateway.</summary>
     Payment,
 
-    /// <summary>Domain registrar (Namecheap, ENOM, etc.).</summary>
+    /// <summary>Domain registrar.</summary>
     Registrar,
 
     /// <summary>
@@ -24,7 +25,7 @@ public enum PluginType
     Identity,
 
     /// <summary>
-    /// Fulfils digital products after money moved — and is asked before a refund moves it back
+    /// Fulfils digital products after money moved, and is asked before a refund moves it back
     /// (<see cref="IFulfilmentPlugin"/>). Every loaded fulfilment plugin sees every digital invoice.
     /// </summary>
     Fulfilment,

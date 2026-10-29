@@ -1,6 +1,7 @@
 using System.Security.Claims;
 
 namespace Innovayse.SDK.Plugins.Identity;
+
 /// <summary>
 /// Contract for an identity plugin (<see cref="Enums.PluginType.Identity"/>): answers "which client is
 /// this principal acting for, and may it purchase?". When one is loaded and enabled, every

@@ -7,7 +7,7 @@ namespace Innovayse.SDK.Plugins;
 /// </summary>
 public sealed class PluginManifest
 {
-    /// <summary>Gets or sets the unique plugin identifier (e.g. "innovayse-cwp").</summary>
+    /// <summary>Gets or sets the unique plugin identifier, the <c>id</c> field of <c>plugin.json</c>.</summary>
     public required string Id { get; init; }
 
     /// <summary>Gets or sets the human-readable display name.</summary>

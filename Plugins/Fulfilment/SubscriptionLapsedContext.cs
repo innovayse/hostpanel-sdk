@@ -1,6 +1,7 @@
 using Innovayse.SDK.Plugins.Identity;
 
 namespace Innovayse.SDK.Plugins.Fulfilment;
+
 /// <summary>
 /// Handed to <see cref="IFulfilmentPlugin.OnSubscriptionLapsedAsync"/> when a renewal invoice
 /// stayed unpaid past every line's grace period. Nothing is deleted by the host; the plugin
