@@ -1,6 +1,6 @@
 name: Publish
 
-# Packs the SDK and pushes it to a NuGet feed, so plugin authors pin a package version instead of
+# Packs the SDK and pushes it to nuget.org, so plugin authors pin a package version instead of
 # referencing source.
 #
 # Runs once the CI workflow has finished green for a push to main or to a version tag (vX.Y.Z), on
@@ -12,11 +12,11 @@ name: Publish
 # into a no-op, so a merge that does not raise <Version> publishes nothing and fails nothing, and a
 # tag on a version main already published is a no-op too.
 #
-# Repository variable: SDK_NUGET_SOURCE (the feed's push URL, e.g. https://api.nuget.org/v3/index.json).
-# Repository secret: SDK_NUGET_API_KEY. Without both the run says so and ends green: an unconfigured
-# feed is not a failed workflow.
-#
-# Third-party actions are pinned to a commit SHA with the version in a comment.
+# No stored API key: nuget.org trusted publishing trusts this repository, this workflow file and the
+# `nuget` environment, and exchanges the job's GitHub identity token for a short lived key on every
+# run. The only setting is the repository variable NUGET_USER, the nuget.org account that owns the
+# trusted publishing policy. Without it the run says so and ends green: an unconfigured feed is not a
+# failed workflow.
 on:
   workflow_run:
     workflows: [CI]
@@ -40,19 +40,25 @@ jobs:
       && github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # The trusted publishing policy on nuget.org names this environment.
+    environment: nuget
+    permissions:
+      contents: read
+      # Lets the job ask GitHub for the identity token nuget.org trusts.
+      id-token: write
     env:
       DOTNET_CLI_TELEMETRY_OPTOUT: "1"
       DOTNET_NOLOGO: "1"
-      SDK_NUGET_SOURCE: ${{ vars.SDK_NUGET_SOURCE }}
-      SDK_NUGET_API_KEY: ${{ secrets.SDK_NUGET_API_KEY }}
+      NUGET_USER: ${{ vars.NUGET_USER }}
+      NUGET_SOURCE: https://api.nuget.org/v3/index.json
       # The branch or tag name the CI run was for.
       SOURCE_REF: ${{ github.event.workflow_run.head_branch }}
     steps:
-      - name: Check the feed is configured
+      - name: Check publishing is configured
         id: feed
         run: |
-          if [ -z "$SDK_NUGET_SOURCE" ] || [ -z "$SDK_NUGET_API_KEY" ]; then
-            echo "::notice::SDK package not published: set the repository variable SDK_NUGET_SOURCE and the secret SDK_NUGET_API_KEY to publish it."
+          if [ -z "$NUGET_USER" ]; then
+            echo "::notice::SDK package not published: set the repository variable NUGET_USER to the nuget.org account that owns the trusted publishing policy."
             echo "configured=false" >> "$GITHUB_OUTPUT"
           else
             echo "configured=true" >> "$GITHUB_OUTPUT"
@@ -79,6 +85,14 @@ jobs:
       - name: Pack
         if: steps.feed.outputs.configured == 'true'
         run: dotnet pack Innovayse.SDK.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true
+      - name: Get a short lived nuget.org key
+        id: login
+        if: steps.feed.outputs.configured == 'true'
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
       - name: Push (a version the feed already has is skipped)
         if: steps.feed.outputs.configured == 'true'
-        run: dotnet nuget push "artifacts/*.nupkg" --source "$SDK_NUGET_SOURCE" --api-key "$SDK_NUGET_API_KEY" --skip-duplicate
+        env:
+          NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
+        run: dotnet nuget push "artifacts/*.nupkg" --source "$NUGET_SOURCE" --api-key "$NUGET_API_KEY" --skip-duplicate
