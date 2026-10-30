@@ -9,21 +9,31 @@
     <RootNamespace>Innovayse.SDK</RootNamespace>
 
     <!-- Package identity. The version is the contract: bump the minor for an added member,
-         the major for a removed or renamed one; sdk:publish in .gitlab-ci.yml pushes a
-         version the feed does not have yet and skips one it does. -->
+         the major for a removed or renamed one. backend:publish:sdk in .gitlab-ci.yml and
+         .github/workflows/publish-sdk.yml push a version the feed does not have yet and skip
+         one it does, so a change that keeps the version publishes nothing. -->
     <PackageId>Innovayse.SDK</PackageId>
     <Version>1.2.0</Version>
-    <Authors>Innovayse</Authors>
-    <Description>Plugin contracts for hostpanel: provisioning, payment, registrar, identity, fulfilment and hosted plugins.</Description>
-    <PackageLicenseExpression>BUSL-1.1</PackageLicenseExpression>
+    <Authors>Hostpanel contributors</Authors>
+    <Copyright>Copyright (c) 2024-2026 the Hostpanel contributors</Copyright>
+    <Description>Plugin contracts for hostpanel: provisioning, payment, registrar, identity, fulfilment and hosted plugins. MIT licensed, so a plugin may be free or paid, open or closed source.</Description>
+    <PackageTags>hostpanel;plugin;sdk;hosting;billing;payment;registrar;provisioning</PackageTags>
+
+    <!-- MIT, unlike the AGPL-3.0 rest of the repository: a plugin compiled against these contracts
+         is its author's to license, free or paid, open or closed. The expression is what NuGet
+         shows; the LICENSE file beside this project carries the full text and is packed too.
+         SdkPackageTests in the Architecture suite pins both. -->
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/innovayse/hostpanel</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/innovayse/hostpanel</RepositoryUrl>
+    <RepositoryUrl>https://github.com/innovayse/hostpanel.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="LICENSE" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>
