@@ -43,6 +43,52 @@ manifest's `sdkVersion` field records the major and minor version you built agai
 | `Fulfilment` | `IFulfilmentPlugin` | Delivers digital products once an invoice is paid, and is asked before a refund moves money back. Every enabled fulfilment plugin sees every digital invoice. |
 | `Hosted` | `IHostedPlugin` | A background worker the host starts after its own services are up and stops on shutdown. A plugin of another type may implement it too. |
 
+### Fulfilment plugins
+
+`IFulfilmentPlugin` delivers digital products. When a payment is recorded for an invoice with at
+least one digital line, the host writes a fulfilment row in the same transaction as the payment and
+delivers it to every enabled fulfilment plugin in the background.
+
+- **At least once.** A delivery is retried with back-off until the plugin returns normally; throw to
+  fail an attempt and have it retried. The same paid invoice can therefore reach you more than once, so
+  **every method must be idempotent on `InvoiceId`**: delivering twice must leave the same result as once.
+- `OnInvoicePaidAsync` runs when a paid invoice has a digital line. `OnInvoiceRefundedAsync` runs after the
+  money moved back, to reverse the fulfilment. `OnSubscriptionLapsedAsync` runs when a renewal invoice passes
+  its grace period unpaid.
+- `AdviseRefundAsync` runs **before** a refund moves money, with the amount the administrator asked for.
+  Return a `RefundAdvice`: `MaxRefundableAmount` is the most that may still be refunded in the invoice's
+  currency (return the requested amount to allow it in full) and `Reason` is a short sentence for the
+  administrator. The host takes the smallest cap across all plugins. A cap of zero or less refuses the refund,
+  a smaller positive cap reduces it and your reason is written to the refund's notes. If the call throws or
+  does not answer in time the refund is refused: the host cannot tell whether you would have capped it.
+
+### Identity plugins
+
+`IClientResolver` decides which client a signed-in principal acts for. When one is enabled, every
+client-portal route calls `ResolveAsync` with the caller's `ClaimsPrincipal` instead of using the host's
+default rule (the client whose owner equals the principal's subject). Return `null` when the principal acts
+for no account; the host then answers that there is no client profile. Otherwise return a `ClientAccess`:
+
+- `Account` is an `ExternalAccount`: a `Provider` name you choose and never change (for example `crm`), the
+  account's `Id` in that system, and optionally a `DisplayName` and a `Currency` for a client created on the
+  first order. The host stores the pair on its own client row, unique per provider, and creates the row
+  when needed; the plugin never touches persistence.
+- `CanPurchase` and `CanManagePaymentMethods` map to the host's client permissions. Every admitted
+  principal can read services, domains, open support tickets and emails. `CanPurchase` adds placing orders and
+  viewing and paying invoices. `CanManagePaymentMethods` adds viewing invoices, which is the permission that
+  guards the saved payment method actions. A plugin cannot grant any other permission.
+
+At most one identity plugin may be enabled: two enabled at once is a configuration error and is refused, not
+resolved by picking one.
+
+### Hosted plugins
+
+`IHostedPlugin` is a background worker. The host calls `StartAsync` once per process, after its own services
+are up, and `StopAsync` when it begins to stop (the token is cancelled when the shutdown grace period ends).
+Return from `StartAsync` once the worker is running; do not block on its loop. A plugin of another type may
+implement `IHostedPlugin` too and is then started the same way. A plugin that throws while starting or
+stopping is logged with its id and never stops the host or the other plugins.
+
 ## Manifest
 
 `plugin.json` sits beside the plugin assembly and declares `id`, `name`, `version`, `author`,
