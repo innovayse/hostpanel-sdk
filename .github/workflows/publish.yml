@@ -1,0 +1,84 @@
+name: Publish
+
+# Packs the SDK and pushes it to a NuGet feed, so plugin authors pin a package version instead of
+# referencing source.
+#
+# Runs once the CI workflow has finished green for a push to main or to a version tag (vX.Y.Z), on
+# exactly the commit CI tested. A pull request run of CI never publishes, even from a fork branch that
+# happens to be named main. On a tag the tag must equal <Version> in Innovayse.SDK.csproj, so a tag can
+# never publish a package whose version says something else.
+#
+# Idempotent per version: `dotnet nuget push --skip-duplicate` turns a version the feed already has
+# into a no-op, so a merge that does not raise <Version> publishes nothing and fails nothing, and a
+# tag on a version main already published is a no-op too.
+#
+# Repository variable: SDK_NUGET_SOURCE (the feed's push URL, e.g. https://api.nuget.org/v3/index.json).
+# Repository secret: SDK_NUGET_API_KEY. Without both the run says so and ends green: an unconfigured
+# feed is not a failed workflow.
+#
+# Third-party actions are pinned to a commit SHA with the version in a comment.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  contents: read
+
+# One publish at a time; a later one waits rather than cancelling a push in flight.
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish the package
+    # CI runs on push only for main and version tags, so a successful push run is one of those two.
+    if: >-
+      github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+      SDK_NUGET_SOURCE: ${{ vars.SDK_NUGET_SOURCE }}
+      SDK_NUGET_API_KEY: ${{ secrets.SDK_NUGET_API_KEY }}
+      # The branch or tag name the CI run was for.
+      SOURCE_REF: ${{ github.event.workflow_run.head_branch }}
+    steps:
+      - name: Check the feed is configured
+        id: feed
+        run: |
+          if [ -z "$SDK_NUGET_SOURCE" ] || [ -z "$SDK_NUGET_API_KEY" ]; then
+            echo "::notice::SDK package not published: set the repository variable SDK_NUGET_SOURCE and the secret SDK_NUGET_API_KEY to publish it."
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.feed.outputs.configured == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Check a tag matches the package version
+        if: steps.feed.outputs.configured == 'true' && env.SOURCE_REF != 'main'
+        run: |
+          set -eu
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Innovayse.SDK.csproj)
+          if [ "$SOURCE_REF" != "v$version" ]; then
+            echo "Tag $SOURCE_REF does not match <Version>$version</Version> in Innovayse.SDK.csproj, refusing to publish."
+            exit 1
+          fi
+          echo "Tag $SOURCE_REF matches the package version."
+      - if: steps.feed.outputs.configured == 'true'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: "9.0.x"
+      - name: Pack
+        if: steps.feed.outputs.configured == 'true'
+        run: dotnet pack Innovayse.SDK.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true
+      - name: Push (a version the feed already has is skipped)
+        if: steps.feed.outputs.configured == 'true'
+        run: dotnet nuget push "artifacts/*.nupkg" --source "$SDK_NUGET_SOURCE" --api-key "$SDK_NUGET_API_KEY" --skip-duplicate

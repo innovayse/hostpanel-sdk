@@ -1,0 +1,57 @@
+name: CI
+
+# Builds the SDK with every warning as an error (an undocumented public member is one), packs it and
+# keeps the package as an artifact of the run, so a reviewer can try exactly what a merge would publish.
+#
+# Runs on every pull request and on pushes to main and to version tags; publish.yml waits for a green
+# run of this workflow on a push before it publishes anything. It needs no secrets, which is also what
+# makes it safe to run on pull requests from forks.
+#
+# Third-party actions are pinned to a commit SHA with the version in a comment.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+
+# The .NET SDK the package is built with; the package itself targets net8.0.
+env:
+  DOTNET_VERSION: "9.0.x"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "1"
+
+# A newer push to a pull request supersedes the older run. Pushes to main and tags are never
+# cancelled: publish.yml only follows a run that finished.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build and pack
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+      - name: Restore
+        run: dotnet restore Innovayse.SDK.csproj
+      - name: Build (warnings are errors)
+        run: dotnet build Innovayse.SDK.csproj -c Release --no-restore -warnaserror -p:ContinuousIntegrationBuild=true
+      - name: Pack
+        run: dotnet pack Innovayse.SDK.csproj -c Release --no-build -o artifacts -p:ContinuousIntegrationBuild=true
+      - name: Upload the package
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sdk-package
+          path: artifacts/*.nupkg
+          if-no-files-found: error
+          retention-days: 14

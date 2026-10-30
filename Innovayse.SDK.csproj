@@ -6,12 +6,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>12</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <RootNamespace>Innovayse.SDK</RootNamespace>
 
+    <!-- This project builds on its own (this repository) and as a git submodule inside the host's
+         backend, which manages package versions centrally. The SDK opts out of that and pins its
+         own versions below, so both builds restore the same packages. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+
     <!-- Package identity. The version is the contract: bump the minor for an added member,
-         the major for a removed or renamed one. backend:publish:sdk in .gitlab-ci.yml and
-         .github/workflows/publish-sdk.yml push a version the feed does not have yet and skip
-         one it does, so a change that keeps the version publishes nothing. -->
+         the major for a removed or renamed one. .github/workflows/publish.yml pushes a version
+         the feed does not have yet and skips one it does, so a change that keeps the version
+         publishes nothing. -->
     <PackageId>Innovayse.SDK</PackageId>
     <Version>1.2.0</Version>
     <Authors>Hostpanel contributors</Authors>
@@ -19,13 +25,13 @@
     <Description>Plugin contracts for hostpanel: provisioning, payment, registrar, identity, fulfilment and hosted plugins. MIT licensed, so a plugin may be free or paid, open or closed source.</Description>
     <PackageTags>hostpanel;plugin;sdk;hosting;billing;payment;registrar;provisioning</PackageTags>
 
-    <!-- MIT, unlike the AGPL-3.0 rest of the repository: a plugin compiled against these contracts
-         is its author's to license, free or paid, open or closed. The expression is what NuGet
-         shows; the LICENSE file beside this project carries the full text and is packed too.
-         SdkPackageTests in the Architecture suite pins both. -->
+    <!-- MIT, unlike the AGPL-3.0 host: a plugin compiled against these contracts is its author's
+         to license, free or paid, open or closed. The expression is what NuGet shows; the LICENSE
+         file beside this project carries the full text and is packed too. SdkPackageTests in the
+         host's Architecture suite pins both. -->
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/innovayse/hostpanel</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/innovayse/hostpanel.git</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/innovayse/hostpanel-sdk</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/innovayse/hostpanel-sdk.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IsPackable>true</IsPackable>
@@ -37,8 +43,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <!-- The lowest versions the contracts need, equal to the host's own pins, so a plugin built
+         against the package and the host that loads it agree on them. -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
   </ItemGroup>
 
 </Project>

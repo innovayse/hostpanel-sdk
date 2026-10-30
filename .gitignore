@@ -1,0 +1,12 @@
+# Build output, restore state and packed packages.
+bin/
+obj/
+artifacts/
+*.nupkg
+*.snupkg
+
+# Editor and IDE state.
+.vs/
+.idea/
+*.user
+*.suo

@@ -6,9 +6,9 @@ or more of the contracts below, and ships as its own assembly plus a `plugin.jso
 ## License
 
 This package is MIT licensed (see `LICENSE` in the package). You decide how to license your
-plugin: it may be free or paid, open source or closed source. The rest of the hostpanel
-repository is AGPL-3.0-or-later; compiling against this package does not put your plugin under
-the AGPL.
+plugin: it may be free or paid, open source or closed source. The hostpanel host
+([innovayse/hostpanel](https://github.com/innovayse/hostpanel)) is AGPL-3.0-or-later; compiling
+against this package does not put your plugin under the AGPL.
 
 ## Referencing the package
 
@@ -176,3 +176,20 @@ Zip the plugin's own assembly, its own dependencies and `plugin.json` with the m
 root of the archive, and upload it in the admin panel under Plugins, or place the folder in the
 host's `plugins/<id>/` folder. Never ship `Innovayse.SDK.dll` or a host assembly inside the plugin:
 the host refuses such an archive, and a second copy of the SDK on disk would make every cast fail.
+
+## Versioning
+
+The package follows [semantic versioning](https://semver.org/): a patch release fixes, a minor
+release adds members, a major release removes or renames them. A version is published by raising
+`<Version>` in `Innovayse.SDK.csproj`: the publish workflow pushes a version the feed does not have
+yet and skips one it already has, so a change that keeps the version publishes nothing. Each
+release is listed in `CHANGELOG.md`.
+
+## Contributing
+
+Issues and pull requests are welcome in
+[innovayse/hostpanel-sdk](https://github.com/innovayse/hostpanel-sdk); see `CONTRIBUTING.md` there.
+A change the host has to support as well (a new contract, a new manifest field, a new plugin
+type) also needs a pull request in [innovayse/hostpanel](https://github.com/innovayse/hostpanel),
+which includes this repository as a git submodule at `backend/src/Innovayse.SDK` and moves it to
+the new commit.
