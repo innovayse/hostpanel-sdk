@@ -45,4 +45,11 @@ public sealed class PluginManifest
 
     /// <summary>Gets the category name shown in the integrations grid (e.g. "Provisioning").</summary>
     public string? IntegrationsCategory { get; init; }
+
+    /// <summary>
+    /// Gets the optional capabilities the plugin declares, named in <see cref="PluginCapabilities"/> (for example
+    /// <c>storedCredentials</c>). Lets the admin and the client portal show what a plugin can do without activating
+    /// it; each entry must agree with the interfaces the plugin class implements.
+    /// </summary>
+    public IReadOnlyList<string> Capabilities { get; init; } = [];
 }

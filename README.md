@@ -89,12 +89,39 @@ Return from `StartAsync` once the worker is running; do not block on its loop. A
 implement `IHostedPlugin` too and is then started the same way. A plugin that throws while starting or
 stopping is logged with its id and never stops the host or the other plugins.
 
+### Stored credential plugins
+
+A payment plugin may also implement `IStoredCredentialPlugin` to keep payment methods at the gateway and charge
+them later without the payer present. `IPaymentPlugin` does not change. The host checks for the interface at run
+time; a disabled plugin, or one without the interface, has no such capability. List `storedCredentials` in the
+manifest's `capabilities` so the admin and the client portal know without activating the plugin; the list must
+agree with the code.
+
+- **Outcomes.** `ChargeAsync` answers a `StoredChargeOutcome`. `Succeeded` means the money is taken: set
+  `TransactionId` and report the amount and currency so the host can refuse a mismatch. `Declined` is final.
+  `ActionRequired` means the payer must authenticate; set `ActionUrl`. `Pending` is accepted but not settled: the
+  host never treats it as paid and resolves it later through `FindChargeAsync`.
+- **A refusal is an outcome, not an exception.** Throw only when the outcome is unknown, for example when the
+  gateway could not be reached.
+- **Idempotency.** The host creates the `IdempotencyKey` once per attempt and stores it before calling you. A
+  retry of the same attempt reuses it, so a repeated `ChargeAsync` with the same key must never charge twice:
+  pass the key to the gateway, or look it up yourself first when the gateway has no native idempotency. The key
+  is opaque ASCII, at most 64 characters.
+- **`FindChargeAsync`** answers whether a key ever charged. It is the recovery path after a timeout or a crash.
+  `Found = false` is trusted only when the lookup itself succeeded; if it cannot be answered, throw.
+- **Saving a method.** `BeginSaveMethodAsync` returns a `SaveMethodMode`. With `EmbeddedToken` your own front end
+  part mounts its card field with `ClientToken`; with `Redirect` the payer goes to `RedirectUrl` and comes back,
+  and the host calls `CompleteSaveMethodAsync`. The consent wording and the tick box stay in the host.
+- The host stores no methods: it lists them live through `ListMethodsAsync` and keeps only its consent link to a
+  `MethodRef`.
+
 ## Manifest
 
 `plugin.json` sits beside the plugin assembly and declares `id`, `name`, `version`, `author`,
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
-`showInIntegrations` and `integrationsCategory`. The `id` is lower-case letters and digits,
+`showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
+implements, for example `storedCredentials`). The `id` is lower-case letters and digits,
 words joined by single hyphens.
 
 ## How the host builds a plugin

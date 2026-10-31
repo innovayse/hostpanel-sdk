@@ -7,6 +7,17 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- The optional `IStoredCredentialPlugin` capability for payment plugins (namespace
+  `Innovayse.SDK.Plugins.StoredCredentials`): a payment plugin may keep payment methods at the gateway and charge
+  them without the payer present. It comes with `CredentialCustomerDetails`, `CredentialCustomerResult`,
+  `SaveMethodContext`, `SaveMethodSession`, `SavedMethod`, `SavedMethodResult`, `StoredChargeInstruction`,
+  `StoredChargeResult` and `StoredChargeLookup`, and the enums `StoredChargeOutcome` and `SaveMethodMode`.
+  `IPaymentPlugin` does not change, so existing plugins keep compiling.
+- The optional `capabilities` list in the manifest (`PluginManifest.Capabilities`), with the names in
+  `PluginCapabilities` (`storedCredentials`).
+
 ### Changed
 
 - The SDK has its own repository, [innovayse/hostpanel-sdk](https://github.com/innovayse/hostpanel-sdk), with its
