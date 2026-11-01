@@ -5,7 +5,7 @@ All notable changes to the `Innovayse.SDK` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0]
 
 ### Added
 
@@ -14,7 +14,10 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   them without the payer present. It comes with `CredentialCustomerDetails`, `CredentialCustomerResult`,
   `SaveMethodContext`, `SaveMethodSession`, `SavedMethod`, `SavedMethodResult`, `StoredChargeInstruction`,
   `StoredChargeResult` and `StoredChargeLookup`, and the enums `StoredChargeOutcome` and `SaveMethodMode`.
-  `IPaymentPlugin` does not change, so existing plugins keep compiling.
+  `IPaymentPlugin` does not change, so existing plugins keep compiling. The enum values start at 1 (0 is not
+  valid), `SaveMethodContext.ReturnUrl` is always an absolute address, `SavedMethod.Brand` and `Last4` are nullable
+  for methods that are not cards, and `StoredChargeLookup` carries the `ActionUrl` of a charge that still needs
+  the payer to authenticate.
 - The optional `capabilities` list in the manifest (`PluginManifest.Capabilities`), with the names in
   `PluginCapabilities` (`storedCredentials`).
 

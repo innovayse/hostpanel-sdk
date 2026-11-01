@@ -30,31 +30,38 @@ namespace Innovayse.SDK.Plugins.StoredCredentials;
 public interface IStoredCredentialPlugin
 {
     /// <summary>Finds or creates the gateway customer for a client. Safe to call repeatedly with the same client reference.</summary>
-    /// <param name="request">The host's client reference and optional contact details.</param>
+    /// <param name="details">The host's client reference and optional contact details.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The gateway customer reference.</returns>
-    Task<CredentialCustomerResult> EnsureCustomerAsync(CredentialCustomerDetails request, CancellationToken ct);
+    Task<CredentialCustomerResult> EnsureCustomerAsync(CredentialCustomerDetails details, CancellationToken ct);
 
     /// <summary>Opens a session in which the payer enters a method to store.</summary>
-    /// <param name="request">The customer and, for the redirect mode, the return address.</param>
+    /// <param name="context">The customer and the absolute return address; an embedded plugin ignores the address.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The session, with the client token or the redirect URL according to its mode.</returns>
-    Task<SaveMethodSession> BeginSaveMethodAsync(SaveMethodContext request, CancellationToken ct);
+    Task<SaveMethodSession> BeginSaveMethodAsync(SaveMethodContext context, CancellationToken ct);
 
-    /// <summary>Finishes a session after the payer entered the method, and reads what was stored.</summary>
+    /// <summary>
+    /// Finishes a session after the payer entered the method, and reads what was stored. The host calls it in both
+    /// modes, <see cref="Enums.SaveMethodMode.EmbeddedToken"/> and <see cref="Enums.SaveMethodMode.Redirect"/>, and may
+    /// call it more than once for the same session, so it must be idempotent per <see cref="SaveMethodSession.SessionId"/>:
+    /// every call answers the same method and never stores it twice. An abandoned or expired session answers
+    /// <c>Saved = false</c> and does not throw. The plugin resolves the result from the session id alone; the host passes
+    /// nothing else, so any state the plugin needs must be found at the gateway or in its own store by that id.
+    /// </summary>
     /// <param name="sessionId">The session id from <see cref="SaveMethodSession.SessionId"/>.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns>Whether a method was stored and which.</returns>
+    /// <returns>Whether a method was stored and which; <c>Saved = false</c> for an abandoned or expired session.</returns>
     Task<SavedMethodResult> CompleteSaveMethodAsync(string sessionId, CancellationToken ct);
 
     /// <summary>
     /// Charges a stored method. Idempotent on <see cref="StoredChargeInstruction.IdempotencyKey"/>: a repeated call
     /// never charges twice.
     /// </summary>
-    /// <param name="request">The customer, method, amount, currency, invoice reference and idempotency key.</param>
+    /// <param name="instruction">The customer, method, amount, currency, invoice reference and idempotency key.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>How the charge ended. A refusal is a <see cref="Enums.StoredChargeOutcome.Declined"/> result, not an exception.</returns>
-    Task<StoredChargeResult> ChargeAsync(StoredChargeInstruction request, CancellationToken ct);
+    Task<StoredChargeResult> ChargeAsync(StoredChargeInstruction instruction, CancellationToken ct);
 
     /// <summary>Answers whether an idempotency key ever charged, and how that charge stands now. The recovery path after a timeout or a crash.</summary>
     /// <param name="customerRef">The customer reference the charge was made for.</param>

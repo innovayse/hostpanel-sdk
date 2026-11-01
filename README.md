@@ -109,9 +109,21 @@ agree with the code.
   is opaque ASCII, at most 64 characters.
 - **`FindChargeAsync`** answers whether a key ever charged. It is the recovery path after a timeout or a crash.
   `Found = false` is trusted only when the lookup itself succeeded; if it cannot be answered, throw.
-- **Saving a method.** `BeginSaveMethodAsync` returns a `SaveMethodMode`. With `EmbeddedToken` your own front end
-  part mounts its card field with `ClientToken`; with `Redirect` the payer goes to `RedirectUrl` and comes back,
-  and the host calls `CompleteSaveMethodAsync`. The consent wording and the tick box stay in the host.
+- **Saving a method.** `BeginSaveMethodAsync` returns a `SaveMethodMode`; the values start at 1 and 0 is not valid,
+  as for `StoredChargeOutcome`. `SaveMethodContext.ReturnUrl` is always an absolute address: a `Redirect` plugin
+  sends the payer back to it, an `EmbeddedToken` plugin ignores it. With `EmbeddedToken` your own front end part
+  mounts its card field with `ClientToken`; with `Redirect` the payer goes to `RedirectUrl` and comes back. The host
+  calls `CompleteSaveMethodAsync` in both modes, and may call it more than once for a session, so it must be
+  idempotent per `SessionId`: every call answers the same method and never stores it twice. An abandoned or
+  expired session answers `Saved = false` and does not throw. Resolve the result from the `SessionId` alone, the
+  host passes nothing else. The consent wording and the tick box stay in the host.
+- **`ActionRequired`.** Set `ActionUrl`. After the payer authenticates, the host resolves the final outcome with
+  `FindChargeAsync` and the same idempotency key, so report the settled outcome there. While the charge still
+  waits for the payer, `FindChargeAsync` returns `ActionRequired` with the `ActionUrl`, so the host can offer it again.
+- **The instruction.** `StoredChargeInstruction.AmountMinor` is positive, and the host checks `AcceptsCurrency`
+  before it calls `ChargeAsync`.
+- A `SavedMethod` that is not a card leaves `Brand` and `Last4` null, and a method that does not expire reports
+  `ExpiryMonth` and `ExpiryYear` as 0.
 - The host stores no methods: it lists them live through `ListMethodsAsync` and keeps only its consent link to a
   `MethodRef`.
 
@@ -120,7 +132,7 @@ agree with the code.
 `plugin.json` sits beside the plugin assembly and declares `id`, `name`, `version`, `author`,
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
-`showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
+`showInIntegrations`, `integrationsCategory` and `capabilities` (for payment plugins: the optional capabilities the plugin
 implements, for example `storedCredentials`). The `id` is lower-case letters and digits,
 words joined by single hyphens.
 

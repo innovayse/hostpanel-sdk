@@ -3,7 +3,7 @@ namespace Innovayse.SDK.Plugins.StoredCredentials;
 /// <summary>Input for <see cref="IStoredCredentialPlugin.ChargeAsync"/>.</summary>
 /// <param name="CustomerRef">The customer reference from <see cref="CredentialCustomerResult"/>.</param>
 /// <param name="MethodRef">The stored method to charge, from <see cref="SavedMethod"/>.</param>
-/// <param name="AmountMinor">Amount in minor currency units.</param>
+/// <param name="AmountMinor">Amount in minor currency units. Always positive; the host checks <see cref="IPaymentPlugin.AcceptsCurrency"/> for the currency before it calls <see cref="IStoredCredentialPlugin.ChargeAsync"/>.</param>
 /// <param name="Currency">ISO 4217 numeric code of the currency, in the same form as <see cref="IPaymentPlugin.CurrencyCode"/>.</param>
 /// <param name="InvoiceReference">The host's invoice reference, for the gateway's records and the payer's statement.</param>
 /// <param name="IdempotencyKey">
