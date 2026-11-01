@@ -10,8 +10,12 @@ public static class HostingPanelAddress
     /// <param name="host">The panel server's hostname or IP address. An IPv6 address is written in brackets in the URL.</param>
     /// <param name="port">The port the endpoint answers on.</param>
     /// <returns>The URL, e.g. <c>https://panel.example.com:2304</c> or <c>https://[2001:db8::1]:2304</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="host"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="host"/> is empty or white space.</exception>
     public static string BaseUrl(string host, int port)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(host);
+
         // A bare IPv6 literal contains colons, which a URL would read as the start of the port; only a
         // literal that is not bracketed yet is wrapped, so a caller that already brackets it is unchanged.
         var needsBrackets = !host.StartsWith('[')

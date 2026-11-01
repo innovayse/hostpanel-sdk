@@ -3,7 +3,10 @@ namespace Innovayse.SDK.Plugins.Endpoints;
 /// <summary>
 /// Who is calling, as much as a plugin may know. The references are opaque and stable for one plugin: the same client
 /// gets the same <see cref="ClientRef"/> on every call to that plugin, a different one on every other plugin, and no
-/// plugin can turn one into a host id. There is no access token or credential of any kind.
+/// plugin can turn one into a host id. A client area call carries only these two references, never a host client or
+/// user id. An admin call is different: the administrator is staff, and the host ids of the records the admin page
+/// shows (<c>clientId</c>, <c>serviceId</c>) arrive in <see cref="PluginCall.Context"/>. There is no access token or
+/// credential of any kind.
 /// </summary>
 public sealed record PluginCaller
 {
@@ -11,8 +14,9 @@ public sealed record PluginCaller
     private readonly IReadOnlyList<string> _permissions = [];
 
     /// <summary>
-    /// Gets the opaque reference of the client the call acts for, or <see langword="null"/> when the call is not about
-    /// a client (an admin route outside any client context).
+    /// Gets the opaque reference of the client the call acts for. The host refuses a client area call that has no
+    /// client, so it is never <see langword="null"/> there. It is <see langword="null"/> only on an admin call that is
+    /// not about a client (an admin route outside any client context).
     /// </summary>
     public string? ClientRef { get; init; }
 

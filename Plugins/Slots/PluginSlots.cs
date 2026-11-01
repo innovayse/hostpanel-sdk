@@ -4,7 +4,8 @@ namespace Innovayse.SDK.Plugins.Slots;
 
 /// <summary>
 /// The stable, versioned list of slots the host offers (the <c>slot</c> of a <c>PluginSlotEntry</c>) and the context
-/// each one passes. A manifest may name only a slot listed here and only the context keys that slot offers. The list
+/// each one passes. A manifest may name only a slot listed here and only the context keys that slot offers; a host
+/// validates the keys with <see cref="PluginSlot.Offers"/>. The list
 /// follows semantic versioning through <see cref="Version"/>: adding a slot or a context key is a minor change,
 /// removing or changing one is a major change.
 /// </summary>

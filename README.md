@@ -33,7 +33,7 @@ contract: a new minor version adds members, a new major version removes or renam
 manifest's `sdkVersion` field is the plugin contract level the host checks, not the package version: see
 "Manifest" below for the value to declare.
 
-Upgrading from 1.x? Version 2.0.0 moves types into one namespace per area and renames a few members. The migration table in [`CHANGELOG.md`](CHANGELOG.md#migrating-from-1x) lists every move and rename.
+Upgrading from 1.x? Version 2.0.0 moves types into one namespace per area and renames a few members. The migration table in [`CHANGELOG.md`](CHANGELOG.md#migrating-from-1x) lists every move and rename. A plugin built against 1.x cannot load in a 2.0.0 host: it must be rebuilt against 2.0.0.
 
 ## Plugin types
 
@@ -102,19 +102,31 @@ plugin sees no HTTP request, no token and no web framework type.
 - `PluginCall` carries the matched route template, route values, query, body, language, the verified slot
   `Context` and the call-bound `Host` and `Store`. `PluginCaller` holds an opaque `ClientRef` and `UserRef`
   (stable for your plugin, different for every other plugin) and the permission names of the caller.
-- Reply with `PluginReply.Json`, `NoContent`, `Problem(status, code)` or `Stream(events)`. A stream is a sequence of
-  `PluginEvent` values the host forwards as server-sent events and stops enumerating when the caller disconnects.
-  An exception is reported as a plugin failure without its detail; return `Problem` for an expected failure.
-- `IPluginHostApi` gives read-only facts about the call's client: profile, services and invoices. It is bound to
-  that client, so no method takes a client id. `IPluginStore` is your own text key and value storage, scoped to
-  your plugin and the call's client.
+- Ids: a client area call carries only the opaque `ClientRef` and `UserRef`, never a host client or user id. An admin
+  call carries real host ids in `Context` (`clientId`, `serviceId`), because an administrator is staff.
+  `PluginClientService.Id` and `PluginClientInvoice.Id` are host ids of the caller's own records.
+- Reply with `PluginReply.Json` (status 200, 201, 202 or 203), `NoContent`, `Problem(status, code)` or `Stream(events)`.
+  `Problem` refuses 401 and 407, which the host answers itself: refuse a caller with 403. An exception is reported as
+  a plugin failure without its detail; return `Problem` for an expected failure.
+- A stream is a sequence of `PluginEvent` values the host forwards as server-sent events. A `PluginEvent` refuses a
+  `null` `Data` and a `Name` or `Id` containing a carriage return or line feed. Cancellation reaches the stream
+  through its enumerator: when the caller disconnects the host cancels the token it passes to `GetAsyncEnumerator`,
+  so an iterator method needs a parameter marked `[EnumeratorCancellation]` and must pass it to every awaited call.
+  The token given to `HandleAsync` is not used for the stream. `call.Host` and `call.Store` stay valid until the
+  stream ends, and not after.
+- `IPluginHostApi` gives read-only facts about the call's client: profile, services and invoices (each list is at
+  most the 50 most recent). It is bound to that client, so no method takes a client id. `IPluginStore` is your own
+  text key and value storage, scoped to your plugin and the call's client. The host refuses a client area call
+  without a client, so the store is never plugin wide there; only an admin call outside any client has a plugin wide
+  store.
 - Optional: implement `IPluginStatus` to report health, and `IPluginMigrations` to bring data kept outside the
   host up to date before the first call.
 
 ### Slots
 
 A slot is a place in a host page where a plugin adds content (`ui.slots` in the manifest). `PluginSlots` is the
-stable, versioned list; `PluginSlots.Version` is `1.0`. A widget may declare only the context keys its slot offers.
+stable, versioned list; `PluginSlots.Version` is `1.0`. A widget may declare only the context keys its slot offers;
+the host checks them with `PluginSlot.Offers(key)`. The context values are host ids (see "Ids" above).
 
 | Slot id | Area | Context keys |
 |---|---|---|

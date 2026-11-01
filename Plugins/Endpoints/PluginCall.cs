@@ -35,10 +35,17 @@ public sealed class PluginCall
     /// <summary>Gets who is calling.</summary>
     public required PluginCaller Caller { get; init; }
 
-    /// <summary>Gets the read-only host facts about the call's client.</summary>
+    /// <summary>
+    /// Gets the read-only host facts about the call's client. Valid for the call, and for a streamed reply until the
+    /// stream ends (see <see cref="PluginReply.Stream"/>).
+    /// </summary>
     public required IPluginHostApi Host { get; init; }
 
-    /// <summary>Gets the plugin's own data store, scoped to this plugin and the call's client.</summary>
+    /// <summary>
+    /// Gets the plugin's own data store, scoped to this plugin and the call's client. It is plugin wide only on an
+    /// admin call that has no client; the host refuses a client area call without a client. Valid for the call, and
+    /// for a streamed reply until the stream ends (see <see cref="PluginReply.Stream"/>).
+    /// </summary>
     public required IPluginStore Store { get; init; }
 
     /// <summary>Gets the values of the route parameters, by name.</summary>
@@ -57,7 +64,9 @@ public sealed class PluginCall
 
     /// <summary>
     /// Gets the slot context the host verified for the caller, restricted to the context keys the widget declared, for
-    /// example <c>serviceId</c>. Empty on a call that does not come from a slot.
+    /// example <c>serviceId</c>. The values are host ids. In the client area they name only the caller's own records;
+    /// in the admin area they name the client and service the admin page shows. Empty on a call that does not come
+    /// from a slot.
     /// </summary>
     public IReadOnlyDictionary<string, string> Context
     {

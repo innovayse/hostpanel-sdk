@@ -2,8 +2,9 @@ namespace Innovayse.SDK.Plugins.Store;
 
 /// <summary>
 /// The plugin's own key and value storage, kept by the host. It is scoped to the plugin and to the opaque client
-/// reference of the current call; on a call without a client it is scoped to the plugin alone. A plugin never reaches
-/// another plugin's or another client's values, and no method takes a scope argument. Values are text; a plugin that
+/// reference of the current call. The host refuses a client area call without a client, so in the client area the
+/// store is never plugin wide; only an admin call that is not about a client is scoped to the plugin alone. A plugin
+/// never reaches another plugin's or another client's values, and no method takes a scope argument. Values are text; a plugin that
 /// stores JSON serialises it itself.
 /// </summary>
 public interface IPluginStore

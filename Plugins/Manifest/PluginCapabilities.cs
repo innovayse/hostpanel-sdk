@@ -1,5 +1,3 @@
-using Innovayse.SDK.Plugins.StoredCredentials;
-
 namespace Innovayse.SDK.Plugins.Manifest;
 
 /// <summary>
@@ -9,6 +7,6 @@ namespace Innovayse.SDK.Plugins.Manifest;
 /// </summary>
 public static class PluginCapabilities
 {
-    /// <summary>The payment plugin also implements <see cref="IStoredCredentialPlugin"/>.</summary>
+    /// <summary>The payment plugin also implements <see cref="Innovayse.SDK.Plugins.StoredCredentials.IStoredCredentialPlugin"/>.</summary>
     public const string StoredCredentials = "storedCredentials";
 }

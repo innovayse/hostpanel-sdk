@@ -9,6 +9,8 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This is a major release. A plugin built against 1.x recompiles after updating its `using` lines and the renames below; the table in "Migrating from 1.x" lists every move and rename.
 
+**A plugin built against 1.x cannot load in a 2.0.0 host and must be rebuilt against 2.0.0.** The types it was compiled against moved namespaces and some were renamed, so the compiled plugin fails on a type load; updating the host does not fix it, only a rebuild does.
+
 ### Breaking: renames and changed shapes
 
 - `PaymentRequest` is renamed `PaymentInstruction` (same members). `IPaymentPlugin.CreatePaymentAsync` takes it, and its parameter is now called `instruction`, so a caller that passes it by name changes too.
@@ -51,10 +53,14 @@ The plugin contracts are regrouped so a type is where its area says: every enum 
   - `PluginCaller`: opaque `ClientRef` and `UserRef`, the permission names and `HasPermission`. The references are
     opaque and differ per plugin.
   - `PluginReply`: the factories `Json`, `NoContent`, `Problem` and `Stream`, and `Kind`, `Status`, `Body`, `Code`,
-    `Detail` and `Events`.
-  - `PluginEvent`: `Data`, `Name`, `Id` and `FromJson`.
+    `Detail` and `Events`. `Json` accepts only 200, 201, 202 and 203; `Problem` refuses 401 and 407, which the host
+    answers itself, so a plugin that refuses a caller answers 403. `Stream` documents cancellation (the host cancels
+    the enumerator, so an iterator needs `[EnumeratorCancellation]`; the `HandleAsync` token is not used for the
+    stream) and that `Host` and `Store` stay valid until the stream ends.
+  - `PluginEvent`: `Data`, `Name`, `Id` and `FromJson`. The constructor refuses a `null` `Data` and a `Name` or `Id`
+    with a carriage return or line feed, because they become single lines of a server-sent event.
 - The read-only host API, in `Plugins.Host`: the interface `IPluginHostApi` (`GetProfileAsync`, `ListServicesAsync`,
-  `ListInvoicesAsync`) bound to the call's client, so no method takes a client id, and its shapes
+  `ListInvoicesAsync`; each list is at most the 50 most recent) bound to the call's client, so no method takes a client id, and its shapes
   `PluginClientProfile`, `PluginClientService` and `PluginClientInvoice`.
 - `IPluginStore` in `Plugins.Store`: text key and value storage scoped to the plugin and the call's client.
 - Optional lifecycle capabilities, in `Plugins.Lifecycle`: `IPluginStatus` (`GetStatusAsync`, answering the record
@@ -65,7 +71,8 @@ The plugin contracts are regrouped so a type is where its area says: every enum 
 - `PluginPermissions.Any`, the documented marker (`"Any"`) that admits every signed-in caller in the `permission`
   of a client route, page or slot entry.
 - The slot list, in `Plugins.Slots`: `PluginSlots` with `Version` (`1.0`), `All`, `Find` and the id constants,
-  `PluginSlot` and `PluginSlotContextKeys`. Slot list 1.0:
+  `PluginSlot` (with `Offers(key)`, which a host uses to validate the context keys of a widget) and
+  `PluginSlotContextKeys`. Slot list 1.0:
 
   | Slot id | Area | Context keys |
   |---|---|---|
@@ -85,8 +92,13 @@ holds is a major change of both.
 - `PluginManifest.Fields` reads a missing or `null` `fields` as an empty list, like the other lists of the manifest.
 - The base classes (`PaymentGatewayBase`, `ProvisioningProviderBase`, `RegistrarProviderBase`) refuse a `null`
   argument with `ArgumentNullException`, and an empty plugin id or key with `ArgumentException`.
-- `HostingPanelAddress.BaseUrl` writes an IPv6 host in brackets (`https://[2001:db8::1]:2304`).
+- `HostingPanelAddress.BaseUrl` writes an IPv6 host in brackets (`https://[2001:db8::1]:2304`), and refuses a `null` host with `ArgumentNullException` and an empty or blank host with `ArgumentException`.
 - A host that does not know the app type refuses a manifest that declares it.
+- Every `PluginType` member now carries its value explicitly (`Provisioning` 0 to `Hosted` 5, `App` 6). The values
+  are unchanged.
+- The ids a plugin sees are documented: a client area call carries only the opaque `ClientRef` and `UserRef`, and the
+  host never lets the store be plugin wide there; an admin call carries the real host ids (`clientId`, `serviceId`)
+  in `Context`; `PluginClientService.Id` and `PluginClientInvoice.Id` are host ids of the caller's own records.
 
 ## [1.4.0]
 

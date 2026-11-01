@@ -12,12 +12,12 @@ public interface IPluginHostApi
     /// <returns>The profile, or <see langword="null"/> when the call has no client.</returns>
     Task<PluginClientProfile?> GetProfileAsync(CancellationToken ct);
 
-    /// <summary>Lists the services of the call's client, newest first.</summary>
+    /// <summary>Lists the services of the call's client, newest first. The host returns at most the 50 most recent; older ones are not reachable.</summary>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The services; empty when there are none or the call has no client.</returns>
     Task<IReadOnlyList<PluginClientService>> ListServicesAsync(CancellationToken ct);
 
-    /// <summary>Lists the invoices of the call's client, newest first.</summary>
+    /// <summary>Lists the invoices of the call's client, newest first. The host returns at most the 50 most recent; older ones are not reachable.</summary>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The invoices; empty when there are none or the call has no client.</returns>
     Task<IReadOnlyList<PluginClientInvoice>> ListInvoicesAsync(CancellationToken ct);

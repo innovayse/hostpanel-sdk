@@ -37,16 +37,19 @@ public sealed class PluginReply
 
     /// <summary>Builds a JSON reply.</summary>
     /// <param name="body">The value to serialise.</param>
-    /// <param name="status">A success status from 200 to 299 other than 204; 200 by default.</param>
+    /// <param name="status">
+    /// One of 200, 201, 202 or 203; 200 by default. 204 has no body (use <see cref="NoContent"/>), and the other 2xx
+    /// statuses either have no body or are not an answer to a call.
+    /// </param>
     /// <returns>The reply.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="status"/> is not a success status with a body.</exception>
     public static PluginReply Json(object body, int status = 200)
     {
         ArgumentNullException.ThrowIfNull(body);
-        if (status is < 200 or > 299 or 204)
+        if (status is not (200 or 201 or 202 or 203))
         {
-            throw new ArgumentOutOfRangeException(nameof(status), status, "A JSON reply needs a 2xx status other than 204.");
+            throw new ArgumentOutOfRangeException(nameof(status), status, "A JSON reply needs a status of 200, 201, 202 or 203.");
         }
 
         return new PluginReply(PluginReplyKind.Json, status) { Body = body };
@@ -60,7 +63,11 @@ public sealed class PluginReply
     }
 
     /// <summary>Builds a problem; the host maps it to its standard error response.</summary>
-    /// <param name="status">A failure status from 400 to 599.</param>
+    /// <param name="status">
+    /// A failure status from 400 to 599 except 401 and 407. Those two are authentication challenges the host answers
+    /// itself (they would make a client sign out or ask for proxy credentials), so a plugin that refuses a caller
+    /// answers 403.
+    /// </param>
     /// <param name="code">The stable error code, for example <c>invoice_not_found</c>.</param>
     /// <param name="detail">A short explanation, or <see langword="null"/>.</param>
     /// <returns>The reply.</returns>
@@ -70,17 +77,29 @@ public sealed class PluginReply
     public static PluginReply Problem(int status, string code, string? detail = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        if (status is < 400 or > 599)
+        if (status is < 400 or > 599 or 401 or 407)
         {
-            throw new ArgumentOutOfRangeException(nameof(status), status, "A problem needs a 4xx or 5xx status.");
+            throw new ArgumentOutOfRangeException(nameof(status), status, "A problem needs a 4xx or 5xx status other than 401 and 407; answer 403 to refuse a caller.");
         }
 
         return new PluginReply(PluginReplyKind.Problem, status) { Code = code, Detail = detail };
     }
 
     /// <summary>
-    /// Builds a streamed reply. The host enumerates <paramref name="events"/> with the call's cancellation token, so a
-    /// caller that disconnects stops the enumeration.
+    /// Builds a streamed reply, forwarded as server-sent events.
+    /// <para>
+    /// Cancellation: the host enumerates <paramref name="events"/> after <see cref="IPluginEndpoints.HandleAsync"/> has
+    /// returned, so the token given to <c>HandleAsync</c> is not used for the stream and must not be captured by it.
+    /// When the caller disconnects, the host cancels the token it passes to <c>GetAsyncEnumerator</c>. An iterator
+    /// method receives that token only through a parameter marked
+    /// <see cref="System.Runtime.CompilerServices.EnumeratorCancellationAttribute"/>; without the attribute the stream
+    /// never learns that the caller left. Pass that token to every awaited call inside the iterator.
+    /// </para>
+    /// <para>
+    /// Lifetime: <see cref="PluginCall.Host"/> and <see cref="PluginCall.Store"/> stay valid until the stream ends
+    /// (completes, throws or is cancelled), so an iterator may keep using them. The host disposes them after that, and
+    /// a plugin must not use them later.
+    /// </para>
     /// </summary>
     /// <param name="events">The events, produced as they become available.</param>
     /// <returns>The reply.</returns>
