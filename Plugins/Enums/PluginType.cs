@@ -10,26 +10,32 @@ namespace Innovayse.SDK.Plugins.Enums;
 public enum PluginType
 {
     /// <summary>Hosting and server provisioning through a hosting panel.</summary>
-    Provisioning,
+    Provisioning = 0,
 
     /// <summary>Payment gateway.</summary>
-    Payment,
+    Payment = 1,
 
     /// <summary>Domain registrar.</summary>
-    Registrar,
+    Registrar = 2,
 
     /// <summary>
     /// Decides which client a signed-in principal acts for and what it may do there
     /// (<see cref="IClientResolver"/>). At most one identity plugin is consulted.
     /// </summary>
-    Identity,
+    Identity = 3,
 
     /// <summary>
     /// Fulfils digital products after money moved, and is asked before a refund moves it back
     /// (<see cref="IFulfilmentPlugin"/>). Every loaded fulfilment plugin sees every digital invoice.
     /// </summary>
-    Fulfilment,
+    Fulfilment = 4,
 
     /// <summary>Runs a background worker for the life of the host (<see cref="IHostedPlugin"/>).</summary>
-    Hosted,
+    Hosted = 5,
+
+    /// <summary>
+    /// Answers requests the host forwards to it and may add pages and slot content (<see cref="Endpoints.IPluginEndpoints"/>). All
+    /// values are explicit, and this one is appended, so the members above keep theirs.
+    /// </summary>
+    App = 6,
 }

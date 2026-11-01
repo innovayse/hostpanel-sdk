@@ -1,9 +1,9 @@
 using System.Text.Json.Serialization;
 
-namespace Innovayse.SDK.Plugins;
+namespace Innovayse.SDK.Plugins.HostingPanel;
 
 /// <summary>The JSON envelope a hosting panel's REST API answers account calls with.</summary>
-public sealed class HostingPanelApiWire
+public sealed record HostingPanelApiWire
 {
     /// <summary>The <see cref="Status"/> value a panel returns on success.</summary>
     public const string OkStatus = "OK";
@@ -11,13 +11,13 @@ public sealed class HostingPanelApiWire
     /// <summary>The <see cref="Status"/> value this envelope carries for a failure.</summary>
     public const string ErrorStatus = "Error";
 
-    /// <summary>Gets or sets the result status: "OK" on success, "Error" on failure.</summary>
+    /// <summary>Gets the result status: "OK" on success, "Error" on failure.</summary>
     [JsonPropertyName("status")]
-    public string Status { get; set; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
 
-    /// <summary>Gets or sets the human-readable message returned by the panel.</summary>
+    /// <summary>Gets the human-readable message returned by the panel.</summary>
     [JsonPropertyName("msj")]
-    public string Message { get; set; } = string.Empty;
+    public string Message { get; init; } = string.Empty;
 
     /// <summary>Gets a value indicating whether <see cref="Status"/> equals "OK" (case-insensitive).</summary>
     [JsonIgnore]

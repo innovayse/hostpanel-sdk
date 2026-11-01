@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins;
+namespace Innovayse.SDK.Plugins.HostingPanel;
 
 /// <summary>What a hosting panel reports about itself.</summary>
 /// <param name="AccountsCount">The number of hosting accounts on the server.</param>

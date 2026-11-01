@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins;
+namespace Innovayse.SDK.Plugins.HostingPanel;
 
 /// <summary>Abstraction over the hosting panel (v7) REST API client for server info operations.</summary>
 public interface IHostingPanelV7ApiClient

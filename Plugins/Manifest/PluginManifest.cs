@@ -1,13 +1,15 @@
 using Innovayse.SDK.Plugins.Enums;
-using Innovayse.SDK.Plugins.Manifest;
 
-namespace Innovayse.SDK.Plugins;
+namespace Innovayse.SDK.Plugins.Manifest;
 
 /// <summary>
 /// Deserialised representation of a plugin's <c>plugin.json</c> manifest file.
 /// </summary>
 public sealed class PluginManifest
 {
+    /// <summary>Backing field of <see cref="Fields"/>; empty unless the manifest lists some.</summary>
+    private readonly IReadOnlyList<PluginField> _fields = [];
+
     /// <summary>Backing field of <see cref="Capabilities"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<string> _capabilities = [];
 
@@ -34,41 +36,46 @@ public sealed class PluginManifest
     /// </summary>
     public int ManifestVersion { get; init; } = 1;
 
-    /// <summary>Gets or sets the unique plugin identifier, the <c>id</c> field of <c>plugin.json</c>.</summary>
+    /// <summary>Gets the unique plugin identifier, the <c>id</c> field of <c>plugin.json</c>.</summary>
     public required string Id { get; init; }
 
-    /// <summary>Gets or sets the human-readable display name.</summary>
+    /// <summary>Gets the human-readable display name.</summary>
     public required string Name { get; init; }
 
-    /// <summary>Gets or sets the semver version string.</summary>
+    /// <summary>Gets the semver version string.</summary>
     public required string Version { get; init; }
 
-    /// <summary>Gets or sets the author name or organisation.</summary>
+    /// <summary>Gets the author name or organisation.</summary>
     public required string Author { get; init; }
 
-    /// <summary>Gets or sets a short description shown in the admin panel.</summary>
+    /// <summary>Gets a short description shown in the admin panel.</summary>
     public required string Description { get; init; }
 
-    /// <summary>Gets or sets the plugin category type.</summary>
+    /// <summary>Gets the plugin category type.</summary>
     public required PluginType Type { get; init; }
 
-    /// <summary>Gets or sets the display category label (e.g. "Hosting / Provisioning").</summary>
+    /// <summary>Gets the display category label (e.g. "Hosting / Provisioning").</summary>
     public required string Category { get; init; }
 
-    /// <summary>Gets or sets the hex colour used for the plugin logo block.</summary>
+    /// <summary>Gets the hex colour used for the plugin logo block.</summary>
     public string Color { get; init; } = "#6366f1";
 
-    /// <summary>Gets or sets the fully-qualified type name of the provider implementation.</summary>
+    /// <summary>Gets the fully-qualified type name of the provider implementation.</summary>
     public required string EntryPoint { get; init; }
 
-    /// <summary>Gets or sets the SDK version this plugin was compiled against.</summary>
+    /// <summary>Gets the SDK version this plugin was compiled against.</summary>
     public required string SdkVersion { get; init; }
 
     /// <summary>
-    /// Gets or sets the legacy list of configuration fields. Still read as written; <see cref="Settings"/>
-    /// supersedes it, and <see cref="GetSettings"/> answers one list whichever of the two a manifest uses.
+    /// Gets the legacy list of configuration fields. Still read as written; <see cref="Settings"/>
+    /// supersedes it, and <see cref="GetSettings"/> answers one list whichever of the two a manifest uses. A missing
+    /// or <c>null</c> <c>fields</c> reads as an empty list, never <see langword="null"/>.
     /// </summary>
-    public IReadOnlyList<PluginField> Fields { get; init; } = [];
+    public IReadOnlyList<PluginField> Fields
+    {
+        get => _fields;
+        init => _fields = value ?? [];
+    }
 
     /// <summary>
     /// Gets the typed settings an administrator fills in. A missing or <c>null</c> <c>settings</c> reads as an

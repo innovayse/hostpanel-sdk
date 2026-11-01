@@ -15,7 +15,7 @@ public sealed class PluginRoute
     public required string Path { get; init; }
 
     /// <summary>
-    /// Gets the permission the caller needs: a client permission name, or <c>Any</c> for every signed-in caller.
+    /// Gets the permission the caller needs: a client permission name, or <see cref="PluginPermissions.Any"/> for every signed-in caller.
     /// <see langword="null"/> when the route declares none, and always so for a route of <c>api.admin</c>, which
     /// takes no permission.
     /// </summary>

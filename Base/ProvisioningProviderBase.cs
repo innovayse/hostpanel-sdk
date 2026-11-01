@@ -1,4 +1,4 @@
-using Innovayse.SDK.Plugins;
+using Innovayse.SDK.Plugins.Provisioning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -20,8 +20,14 @@ public abstract class ProvisioningProviderBase : IProvisioningPlugin
     /// <param name="pluginId">The plugin's id, the middle segment of every configuration key it reads.</param>
     /// <param name="configuration">Where <see cref="GetConfig"/> reads the plugin's saved settings.</param>
     /// <param name="logger">The structured logger exposed to the plugin as <see cref="Logger"/>.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="pluginId"/>, <paramref name="configuration"/> or <paramref name="logger"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="pluginId"/> is empty or white space.</exception>
     protected ProvisioningProviderBase(string pluginId, IConfiguration configuration, ILogger logger)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
+        ArgumentNullException.ThrowIfNull(configuration);
+        ArgumentNullException.ThrowIfNull(logger);
+
         _pluginId = pluginId;
         _configuration = configuration;
         Logger = logger;
@@ -36,6 +42,12 @@ public abstract class ProvisioningProviderBase : IProvisioningPlugin
     /// </summary>
     /// <param name="key">The field key as declared in <c>plugin.json</c>.</param>
     /// <returns>The stored value, or <see langword="null"/> if not set.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="key"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is empty or white space.</exception>
     protected string? GetConfig(string key)
-        => _configuration[$"integration:{_pluginId}:{key}"];
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+
+        return _configuration[$"integration:{_pluginId}:{key}"];
+    }
 }

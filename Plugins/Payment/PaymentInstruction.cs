@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins;
+namespace Innovayse.SDK.Plugins.Payment;
 
 /// <summary>Input for <see cref="IPaymentPlugin.CreatePaymentAsync"/>.</summary>
 /// <param name="OrderNumber">Merchant-side order number, unique per attempt, gateway limits apply (some gateways accept at most 25 characters).</param>
@@ -6,7 +6,7 @@ namespace Innovayse.SDK.Plugins;
 /// <param name="ReturnUrl">Absolute URL the gateway redirects the payer back to.</param>
 /// <param name="Description">Optional free-form description; providers sanitize per their rules.</param>
 /// <param name="Language">Optional ISO 639-1 language for the payment page; provider default applies when null.</param>
-public sealed record PaymentRequest(
+public sealed record PaymentInstruction(
     string OrderNumber,
     long AmountMinor,
     string ReturnUrl,

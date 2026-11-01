@@ -28,7 +28,7 @@ public sealed class PluginSlotEntry
     public int Order { get; init; }
 
     /// <summary>
-    /// Gets the permission the viewer needs on a client slot: a client permission name, or <c>Any</c>.
+    /// Gets the permission the viewer needs on a client slot: a client permission name, or <see cref="PluginPermissions.Any"/>.
     /// <see langword="null"/> when none is declared, and always so on an admin slot.
     /// </summary>
     public string? Permission { get; init; }
