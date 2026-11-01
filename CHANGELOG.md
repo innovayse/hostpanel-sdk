@@ -5,6 +5,26 @@ All notable changes to the `Innovayse.SDK` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0]
+
+### Added
+
+- Manifest version 2. `PluginManifest` gains `ManifestVersion` (`1` when `manifestVersion` is absent, so a version 1
+  manifest reads exactly as before), `Locales` (locale code to text key to text), `Settings`, `Api`, `Ui` and
+  `ExternalOrigins`. Every new list, map and block reads as empty when absent or `null`, never as `null`.
+- Typed settings: `PluginSetting` (`Key`, `Label`, `Type`, `Required`, `Options`), `PluginSettingOption` and the
+  enum `PluginSettingType` (`Text`, `Url`, `Select`, `Secret`, `Number`, `Boolean`, `Textarea`, values 1 to 7).
+  They supersede `PluginField`, which stays readable. `PluginManifest.GetSettings()` answers one list for either
+  format and `PluginSetting.FromField` converts a legacy field (`secret` and `password` become `Secret`, an unknown
+  type becomes `Text`).
+- The declared surface, in namespace `Innovayse.SDK.Plugins.Manifest`: `PluginApi` and `PluginRoute` (with the enum
+  `PluginRouteMethod`, `Get` to `Delete`, values 1 to 5), `PluginUi`, `PluginUiArea` (menus and pages for the
+  client and the admin panel), `PluginMenuItem`, `PluginPage` and `PluginSlotEntry`.
+
+### Changed
+
+- Nothing is removed or renamed. The package only reads and carries the new blocks; checking them is up to the host.
+
 ## [1.3.0]
 
 ### Added

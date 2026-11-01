@@ -136,6 +136,47 @@ agree with the code.
 implements, for example `storedCredentials`). The `id` is lower-case letters and digits,
 words joined by single hyphens.
 
+### Manifest version 2
+
+`manifestVersion` names the format of the manifest. It is `1` when absent, and a version 1 manifest reads exactly
+as before. Version 2 declares everything a plugin offers up front, so the host can check it before any plugin
+code runs. Every block is optional and an absent or `null` block reads as empty.
+
+| Member | What it declares |
+|---|---|
+| `settings` | Typed settings an administrator fills in; supersedes `fields`. Each has `key`, `label`, `type` (`text`, `url`, `select`, `secret`, `number`, `boolean`, `textarea`) and optional `required` and `options` (`value` and `label`, for `select`). |
+| `locales` | Texts per locale code: `{ "en": { "menu.reports": "Reports" } }`. A `label` or `title` may be a key of it. |
+| `api.routes` | The routes the plugin answers: `method` (`get`, `post`, `put`, `patch`, `delete`), `path` and an optional `permission`. |
+| `ui.client`, `ui.admin` | What the plugin adds to each panel: `menus` (`id`, `label`, `page`, optional `icon`) and `pages` (`id`, `path`, `title`, `view`, optional `permission` on the client panel). |
+| `ui.slots` | Content for the slots the host offers: `slot`, `view` and an optional `title`. |
+| `externalOrigins` | The web origins the plugin's pages may load content from or link to. |
+
+`fields` stays readable. `PluginManifest.GetSettings()` answers one list whichever format a manifest uses: the
+`settings` when there are any, otherwise each field converted to a setting (`secret` and `password` become
+`secret`, an unknown type becomes `text`).
+
+```json
+{
+  "manifestVersion": 2,
+  "settings": [
+    { "key": "baseUrl", "label": "setting.baseUrl", "type": "url", "required": true },
+    { "key": "mode", "label": "setting.mode", "type": "select",
+      "options": [ { "value": "live", "label": "Live" }, { "value": "test", "label": "Test" } ] }
+  ],
+  "api": { "routes": [ { "method": "get", "path": "/invoices/{id}", "permission": "Any" } ] },
+  "ui": {
+    "client": {
+      "menus": [ { "id": "reports", "label": "menu.reports", "page": "reports" } ],
+      "pages": [ { "id": "reports", "path": "/reports", "title": "menu.reports", "view": "views/reports.json" } ]
+    },
+    "slots": [ { "slot": "client.dashboard.cards", "view": "views/card.json" } ]
+  },
+  "externalOrigins": [ "https://example.com" ]
+}
+```
+
+This release only reads and carries the declared surface. Checking it and acting on it is the host's job.
+
 ## How the host builds a plugin
 
 The host creates the `entryPoint` type once the plugin is enabled in the admin panel and every
