@@ -19,7 +19,7 @@
          the feed does not have yet and skips one it does, so a change that keeps the version
          publishes nothing. -->
     <PackageId>Innovayse.SDK</PackageId>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Authors>Hostpanel contributors</Authors>
     <Copyright>Copyright (c) 2024-2026 the Hostpanel contributors</Copyright>
     <Description>Plugin contracts for hostpanel: provisioning, payment, registrar, identity, fulfilment and hosted plugins. MIT licensed, so a plugin may be free or paid, open or closed source.</Description>
