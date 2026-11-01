@@ -1,3 +1,6 @@
+using Innovayse.SDK.Plugins.Manifest;
+using Innovayse.SDK.Plugins.Payment;
+
 namespace Innovayse.SDK.Plugins.StoredCredentials;
 
 /// <summary>
@@ -30,10 +33,10 @@ namespace Innovayse.SDK.Plugins.StoredCredentials;
 public interface IStoredCredentialPlugin
 {
     /// <summary>Finds or creates the gateway customer for a client. Safe to call repeatedly with the same client reference.</summary>
-    /// <param name="details">The host's client reference and optional contact details.</param>
+    /// <param name="context">The host's client reference and optional contact details.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The gateway customer reference.</returns>
-    Task<CredentialCustomerResult> EnsureCustomerAsync(CredentialCustomerDetails details, CancellationToken ct);
+    Task<CredentialCustomerResult> EnsureCustomerAsync(CredentialCustomerContext context, CancellationToken ct);
 
     /// <summary>Opens a session in which the payer enters a method to store.</summary>
     /// <param name="context">The customer and the absolute return address; an embedded plugin ignores the address.</param>

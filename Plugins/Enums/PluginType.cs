@@ -32,4 +32,10 @@ public enum PluginType
 
     /// <summary>Runs a background worker for the life of the host (<see cref="IHostedPlugin"/>).</summary>
     Hosted,
+
+    /// <summary>
+    /// Answers requests the host forwards to it and may add pages and slot content (<see cref="Endpoints.IPluginEndpoints"/>). The
+    /// value is explicit and appended, so the members above keep theirs.
+    /// </summary>
+    App = 6,
 }

@@ -1,3 +1,5 @@
+using Innovayse.SDK.Plugins.Payment;
+
 namespace Innovayse.SDK.Plugins.StoredCredentials;
 
 /// <summary>Input for <see cref="IStoredCredentialPlugin.ChargeAsync"/>.</summary>

@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins;
+namespace Innovayse.SDK.Plugins.Registrar;
 
 /// <summary>
 /// Marker interface for all domain registrar plugins.

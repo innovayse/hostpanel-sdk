@@ -16,7 +16,7 @@ public sealed class PluginPage
     public required string View { get; init; }
 
     /// <summary>
-    /// Gets the permission the viewer needs on the client panel: a client permission name, or <c>Any</c>.
+    /// Gets the permission the viewer needs on the client panel: a client permission name, or <see cref="PluginPermissions.Any"/>.
     /// <see langword="null"/> when none is declared, and always so on the admin panel.
     /// </summary>
     public string? Permission { get; init; }

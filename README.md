@@ -15,7 +15,7 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Innovayse.SDK --version 1.2.0
+dotnet add package Innovayse.SDK --version 2.0.0
 ```
 
 or, in the plugin's `.csproj`:
@@ -24,7 +24,7 @@ or, in the plugin's `.csproj`:
 <ItemGroup>
   <!-- ExcludeAssets="runtime" keeps Innovayse.SDK.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Innovayse.SDK" Version="1.2.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Innovayse.SDK" Version="2.0.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -32,6 +32,8 @@ The package targets `net8.0`, so a plugin can target `net8.0` or later. The vers
 contract: a new minor version adds members, a new major version removes or renames them. The
 manifest's `sdkVersion` field is the plugin contract level the host checks, not the package version: see
 "Manifest" below for the value to declare.
+
+Upgrading from 1.x? Version 2.0.0 moves types into one namespace per area and renames a few members. The migration table in [`CHANGELOG.md`](CHANGELOG.md#migrating-from-1x) lists every move and rename.
 
 ## Plugin types
 
@@ -43,6 +45,7 @@ manifest's `sdkVersion` field is the plugin contract level the host checks, not 
 | `Identity` | `IClientResolver` | Decides which client a signed-in principal acts for and what it may do there. At most one identity plugin may be enabled. |
 | `Fulfilment` | `IFulfilmentPlugin` | Delivers digital products once an invoice is paid, and is asked before a refund moves money back. Every enabled fulfilment plugin sees every digital invoice. |
 | `Hosted` | `IHostedPlugin` | A background worker the host starts after its own services are up and stops on shutdown. A plugin of another type may implement it too. |
+| `App` | `IPluginEndpoints` | Answers the routes its manifest declares and adds pages and slot content, without web framework types or user tokens. |
 
 ### Fulfilment plugins
 
@@ -89,6 +92,38 @@ are up, and `StopAsync` when it begins to stop (the token is cancelled when the 
 Return from `StartAsync` once the worker is running; do not block on its loop. A plugin of another type may
 implement `IHostedPlugin` too and is then started the same way. A plugin that throws while starting or
 stopping is logged with its id and never stops the host or the other plugins.
+
+### App plugins
+
+An app plugin (`PluginType.App`, value `6`) answers requests. It implements `IPluginEndpoints` (namespace `Innovayse.SDK.Plugins.Endpoints`, one method, `HandleAsync(PluginCall, CancellationToken)`) and declares its routes in the manifest `api` block. The host
+matches the request to a declared route, checks the caller's permission and only then calls the plugin, so the
+plugin sees no HTTP request, no token and no web framework type.
+
+- `PluginCall` carries the matched route template, route values, query, body, language, the verified slot
+  `Context` and the call-bound `Host` and `Store`. `PluginCaller` holds an opaque `ClientRef` and `UserRef`
+  (stable for your plugin, different for every other plugin) and the permission names of the caller.
+- Reply with `PluginReply.Json`, `NoContent`, `Problem(status, code)` or `Stream(events)`. A stream is a sequence of
+  `PluginEvent` values the host forwards as server-sent events and stops enumerating when the caller disconnects.
+  An exception is reported as a plugin failure without its detail; return `Problem` for an expected failure.
+- `IPluginHostApi` gives read-only facts about the call's client: profile, services and invoices. It is bound to
+  that client, so no method takes a client id. `IPluginStore` is your own text key and value storage, scoped to
+  your plugin and the call's client.
+- Optional: implement `IPluginStatus` to report health, and `IPluginMigrations` to bring data kept outside the
+  host up to date before the first call.
+
+### Slots
+
+A slot is a place in a host page where a plugin adds content (`ui.slots` in the manifest). `PluginSlots` is the
+stable, versioned list; `PluginSlots.Version` is `1.0`. A widget may declare only the context keys its slot offers.
+
+| Slot id | Area | Context keys |
+|---|---|---|
+| `client.dashboard.cards` | client | none (the caller's client is implied) |
+| `client.service.tabs` | client | `serviceId` |
+| `admin.client.panels` | admin | `clientId` |
+| `admin.service.panels` | admin | `serviceId`, `clientId` |
+
+Versioning rule: adding a slot or a context key is a minor change; removing or changing one is a major change.
 
 ### Stored credential plugins
 
@@ -185,7 +220,7 @@ host starts to support a new contract level.
 }
 ```
 
-This release only reads and carries the declared surface. Checking it and acting on it is the host's job.
+The package only reads and carries the declared surface; checking it and acting on it is the host's job.
 
 ## How the host builds a plugin
 
@@ -206,7 +241,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Innovayse.SDK" Version="1.2.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Innovayse.SDK" Version="2.0.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

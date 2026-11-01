@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins;
+namespace Innovayse.SDK.Plugins.Payment;
 
 /// <summary>
 /// Contract for redirect-based payment gateway plugins (hosted payment page model).
@@ -10,7 +10,7 @@ public interface IPaymentPlugin
     /// Gets the ISO 4217 numeric currency code (e.g. "840" for USD, "051" for AMD) that this
     /// plugin instance will charge in, as configured by the admin. Callers must verify this
     /// matches the currency of the invoice being paid before calling <see cref="CreatePaymentAsync"/>:
-    /// the gateway itself has no notion of the panel's billing currency and will happily charge
+    /// the gateway itself has no notion of the host's billing currency and will happily charge
     /// the requested minor-unit amount in whatever currency it is configured for.
     /// </summary>
     string CurrencyCode { get; }
@@ -24,10 +24,10 @@ public interface IPaymentPlugin
     bool AcceptsCurrency(string currencyNumeric) => string.Equals(currencyNumeric, CurrencyCode, StringComparison.Ordinal);
 
     /// <summary>Registers a payment at the gateway and returns the redirect session.</summary>
-    /// <param name="request">Order number, amount in minor units, return URL and optional metadata.</param>
+    /// <param name="instruction">Order number, amount in minor units, return URL and optional metadata.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The gateway-side order id and the URL to redirect the payer to.</returns>
-    Task<PaymentSession> CreatePaymentAsync(PaymentRequest request, CancellationToken ct);
+    Task<PaymentSession> CreatePaymentAsync(PaymentInstruction instruction, CancellationToken ct);
 
     /// <summary>Queries the gateway for the current state of a previously created payment.</summary>
     /// <param name="gatewayOrderId">The gateway-side order id returned by <see cref="CreatePaymentAsync"/>.</param>

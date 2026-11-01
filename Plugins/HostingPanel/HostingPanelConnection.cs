@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins;
+namespace Innovayse.SDK.Plugins.HostingPanel;
 
 /// <summary>Where and how to reach a hosting panel's REST API.</summary>
 /// <param name="Host">The panel server's hostname or IP address.</param>
