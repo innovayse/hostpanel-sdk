@@ -30,7 +30,8 @@ or, in the plugin's `.csproj`:
 
 The package targets `net8.0`, so a plugin can target `net8.0` or later. The version follows the
 contract: a new minor version adds members, a new major version removes or renames them. The
-manifest's `sdkVersion` field records the major and minor version you built against.
+manifest's `sdkVersion` field is the plugin contract level the host checks, not the package version: see
+"Manifest" below for the value to declare.
 
 ## Plugin types
 
@@ -144,12 +145,16 @@ code runs. Every block is optional and an absent or `null` block reads as empty.
 
 | Member | What it declares |
 |---|---|
-| `settings` | Typed settings an administrator fills in; supersedes `fields`. Each has `key`, `label`, `type` (`text`, `url`, `select`, `secret`, `number`, `boolean`, `textarea`) and optional `required` and `options` (`value` and `label`, for `select`). |
+| `settings` | Typed settings an administrator fills in; supersedes `fields`. Each has `key`, `label`, `type` (`text`, `url`, `select`, `secret`, `number`, `boolean`, `textarea`) and optional `required`, `description`, `default` (always text, for example `"30"` or `"true"`), `placeholder`, `min` and `max` (for `number`) and `options` (`value` and `label`, for `select`). |
 | `locales` | Texts per locale code: `{ "en": { "menu.reports": "Reports" } }`. A `label` or `title` may be a key of it. |
-| `api.routes` | The routes the plugin answers: `method` (`get`, `post`, `put`, `patch`, `delete`), `path` and an optional `permission`. |
-| `ui.client`, `ui.admin` | What the plugin adds to each panel: `menus` (`id`, `label`, `page`, optional `icon`) and `pages` (`id`, `path`, `title`, `view`, optional `permission` on the client panel). |
-| `ui.slots` | Content for the slots the host offers: `slot`, `view` and an optional `title`. |
+| `api.client`, `api.admin` | The routes the plugin answers, one list per panel. Each has `method` (`get`, `post`, `put`, `patch`, `delete`), `path`, an optional `rateLimit` (`default`, `strict`, `heavy`; absent means `default`) and `streaming` (`true` for a route that replies with a stream of events). A client route may have a `permission`; an admin route never has one, so its `Permission` reads as `null`. |
+| `ui.client`, `ui.admin` | What the plugin adds to each panel: `menus` (`id`, `label`, `page`, optional `icon` and `order`) and `pages` (`id`, `path`, `title`, `view`, optional `permission` on the client panel). |
+| `ui.slots` | Content for the slots the host offers: `id` (the widget id, unique within the plugin), `slot`, `view` and optional `title`, `order` (lowest first), `permission` (client slots only), `productIds` (show only for services of these products; empty means every product) and `contextKeys` (the slot context the widget needs, for example `serviceId`). |
 | `externalOrigins` | The web origins the plugin's pages may load content from or link to. |
+
+A version 2 manifest declares `"sdkVersion": "1.0"`. The host accepts exactly that value today and skips or
+refuses a plugin that declares another, whatever package version it was built with; the value moves only when the
+host starts to support a new contract level.
 
 `fields` stays readable. `PluginManifest.GetSettings()` answers one list whichever format a manifest uses: the
 `settings` when there are any, otherwise each field converted to a setting (`secret` and `password` become
@@ -158,18 +163,23 @@ code runs. Every block is optional and an absent or `null` block reads as empty.
 ```json
 {
   "manifestVersion": 2,
+  "sdkVersion": "1.0",
   "settings": [
     { "key": "baseUrl", "label": "setting.baseUrl", "type": "url", "required": true },
     { "key": "mode", "label": "setting.mode", "type": "select",
       "options": [ { "value": "live", "label": "Live" }, { "value": "test", "label": "Test" } ] }
   ],
-  "api": { "routes": [ { "method": "get", "path": "/invoices/{id}", "permission": "Any" } ] },
+  "api": {
+    "client": [ { "method": "get", "path": "/invoices/{id}", "permission": "Any" },
+                { "method": "post", "path": "/chat", "rateLimit": "strict", "streaming": true } ],
+    "admin": [ { "method": "get", "path": "/status" } ]
+  },
   "ui": {
     "client": {
       "menus": [ { "id": "reports", "label": "menu.reports", "page": "reports" } ],
       "pages": [ { "id": "reports", "path": "/reports", "title": "menu.reports", "view": "views/reports.json" } ]
     },
-    "slots": [ { "slot": "client.dashboard.cards", "view": "views/card.json" } ]
+    "slots": [ { "id": "summary", "slot": "client.dashboard.cards", "view": "views/card.json", "order": 10 } ]
   },
   "externalOrigins": [ "https://example.com" ]
 }
@@ -289,7 +299,7 @@ The manifest, `plugin.json`:
   "type": "Hosted",
   "category": "Utilities",
   "entryPoint": "Example.Heartbeat.HeartbeatPlugin",
-  "sdkVersion": "1.2",
+  "sdkVersion": "1.0",
   "fields": [
     { "key": "interval_seconds", "label": "Seconds between heartbeats", "type": "text", "required": false }
   ]

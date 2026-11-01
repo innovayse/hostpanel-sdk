@@ -1,7 +1,7 @@
 namespace Innovayse.SDK.Plugins.Enums;
 
 /// <summary>
-/// The HTTP method of one route a plugin declares in <c>api.routes</c>. Values start at 1; 0 is not a method.
+/// The HTTP method of one route a plugin declares in <c>api</c>. Values start at 1; 0 is not a method.
 /// </summary>
 public enum PluginRouteMethod
 {

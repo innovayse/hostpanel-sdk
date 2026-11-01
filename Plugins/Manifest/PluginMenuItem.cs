@@ -14,4 +14,7 @@ public sealed class PluginMenuItem
 
     /// <summary>Gets the icon name, or <see langword="null"/> for the default icon of the panel.</summary>
     public string? Icon { get; init; }
+
+    /// <summary>Gets the position among the entries of the menu, lowest first. Absent reads as <c>0</c>.</summary>
+    public int Order { get; init; }
 }

@@ -23,6 +23,24 @@ public sealed class PluginSetting
     /// <summary>Gets a value indicating whether the setting must be non-empty before the plugin can be enabled.</summary>
     public bool Required { get; init; }
 
+    /// <summary>Gets the help text shown under the setting: a key of the manifest locales, or plain text; <see langword="null"/> for none.</summary>
+    public string? Description { get; init; }
+
+    /// <summary>
+    /// Gets the value used while the administrator has not set one. Always written as text, whatever the kind: for
+    /// example <c>"30"</c> for a number or <c>"true"</c> for a boolean. <see langword="null"/> for none.
+    /// </summary>
+    public string? Default { get; init; }
+
+    /// <summary>Gets the hint shown in an empty input: a key of the manifest locales, or plain text; <see langword="null"/> for none.</summary>
+    public string? Placeholder { get; init; }
+
+    /// <summary>Gets the lowest value of a <see cref="PluginSettingType.Number"/> setting; <see langword="null"/> for no lower bound.</summary>
+    public decimal? Min { get; init; }
+
+    /// <summary>Gets the highest value of a <see cref="PluginSettingType.Number"/> setting; <see langword="null"/> for no upper bound.</summary>
+    public decimal? Max { get; init; }
+
     /// <summary>
     /// Gets the choices of a <see cref="PluginSettingType.Select"/> setting; empty for every other kind. A missing or
     /// <c>null</c> <c>options</c> in the JSON reads as an empty list, never <see langword="null"/>.
