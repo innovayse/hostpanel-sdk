@@ -5,6 +5,32 @@ All notable changes to the `Innovayse.SDK` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0]
+
+### Added
+
+- Manifest version 2. `PluginManifest` gains `ManifestVersion` (`1` when `manifestVersion` is absent, so a version 1
+  manifest reads exactly as before), `Locales` (locale code to text key to text), `Settings`, `Api`, `Ui` and
+  `ExternalOrigins`. Every new list, map and block reads as empty when absent or `null`, never as `null`.
+- Typed settings: `PluginSetting` (`Key`, `Label`, `Type`, `Required`, `Options`), `PluginSettingOption` and the
+  enum `PluginSettingType` (`Text`, `Url`, `Select`, `Secret`, `Number`, `Boolean`, `Textarea`, values 1 to 7).
+  A setting also carries `Description`, `Default` (text), `Placeholder` and, for a number, `Min` and `Max`.
+  They supersede `PluginField`, which stays readable. `PluginManifest.GetSettings()` answers one list for either
+  format and `PluginSetting.FromField` converts a legacy field (`secret` and `password` become `Secret`, an unknown
+  type becomes `Text`).
+- The declared surface, in namespace `Innovayse.SDK.Plugins.Manifest`: `PluginApi` (routes in two lists, `Client` and
+  `Admin`, like `PluginUi`; an admin route has no `Permission`) and `PluginRoute` (`Method`, `Path`, `Permission`,
+  `RateLimit` and `Streaming`), with the enums `PluginRouteMethod` (`Get` to `Delete`, values 1 to 5) and
+  `PluginRateLimitPolicy` (`Default`, `Strict`, `Heavy`, values 1 to 3; no policy named means `Default`), `PluginUi`,
+  `PluginUiArea` (menus and pages for the client and the admin panel), `PluginMenuItem` (with `Order`),
+  `PluginPage` and `PluginSlotEntry` (`Id`, `Slot`, `View`, `Title`, `Order`, `Permission`, `ProductIds` and
+  `ContextKeys`).
+- A version 2 manifest declares `sdkVersion` `1.0`, the one value the host supports; see the readme.
+
+### Changed
+
+- Nothing is removed or renamed. The package only reads and carries the new blocks; checking them is up to the host.
+
 ## [1.3.0]
 
 ### Added
