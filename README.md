@@ -141,6 +141,16 @@ the host checks them with `PluginSlot.Offers(key)`. The context values are host 
 
 Versioning rule: adding a slot or a context key is a minor change; removing or changing one is a major change.
 
+### Endpoints on any plugin type
+
+An app plugin implements `IPluginEndpoints` and the host serves its routes, pages, menus and slots. Any other plugin
+type can have the same by also implementing `IPluginEndpoints` and listing `endpoints` (`PluginCapabilities.Endpoints`)
+in the manifest's `capabilities`. The host then serves the declared `api` routes and the `ui` pages, menus and slots of
+that plugin exactly as it does for an app plugin, while the plugin keeps its own type's contract: a `Fulfilment`
+plugin that grants credits on a paid invoice can also give the client a screen, and both sides see the same
+`ClientRef`. Without the capability a plugin that is not an app plugin has its `api` and `ui` blocks refused, and a
+declared capability whose class does not implement `IPluginEndpoints` is refused when the plugin is activated.
+
 ### Stored credential plugins
 
 A payment plugin may also implement `IStoredCredentialPlugin` to keep payment methods at the gateway and charge
@@ -184,8 +194,8 @@ agree with the code.
 `plugin.json` sits beside the plugin assembly and declares `id`, `name`, `version`, `author`,
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
-`showInIntegrations`, `integrationsCategory` and `capabilities` (for payment plugins: the optional capabilities the plugin
-implements, for example `storedCredentials`). The `id` is lower-case letters and digits,
+`showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
+implements: `storedCredentials` for a payment plugin, `endpoints` for any type). The `id` is lower-case letters and digits,
 words joined by single hyphens.
 
 ### Manifest version 2
