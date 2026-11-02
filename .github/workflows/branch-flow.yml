@@ -1,0 +1,42 @@
+name: Branch flow
+
+# main is the published branch: publish.yml ships a package from every green push to it. So main is
+# only ever fed by develop, through a pull request:
+#
+#   main    <- develop
+#   develop <- feature branches, via pull request
+#
+# Branch protection answers "who may merge", never "from where", so this check is marked as a
+# required status check on main: a pull request from any other branch cannot be merged.
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the source branch
+        env:
+          SRC: ${{ github.head_ref }}
+        run: |
+          echo "Pull request: $SRC -> main"
+          case "$SRC" in
+            develop)
+              echo "OK: '$SRC' is the allowed source for main."
+              ;;
+            *)
+              echo ""
+              echo "BLOCKED: main only accepts pull requests from 'develop'."
+              echo "  this PR:  $SRC -> main"
+              echo ""
+              echo "Retarget it at develop instead — Edit -> base: develop."
+              echo "main is then updated by a single develop -> main pull request."
+              exit 1
+              ;;
+          esac
