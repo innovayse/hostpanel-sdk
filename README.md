@@ -28,6 +28,10 @@ or, in the plugin's `.csproj`:
 </ItemGroup>
 ```
 
+A version still being built on `develop` ships as a prerelease, `X.Y.Z-preview.N`, published from a
+`vX.Y.Z-preview.N` tag. Pin it the same way (`Version="2.1.0-preview.1"`) to build against an API that is
+not released yet, and move to `X.Y.Z` once it is. NuGet never picks a prerelease for you.
+
 The package targets `net8.0`, so a plugin can target `net8.0` or later. The version follows the
 contract: a new minor version adds members, a new major version removes or renames them. The
 manifest's `sdkVersion` field is the plugin contract level the host checks, not the package version: see
