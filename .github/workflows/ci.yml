@@ -3,9 +3,9 @@ name: CI
 # Builds the SDK with every warning as an error (an undocumented public member is one), packs it and
 # keeps the package as an artifact of the run, so a reviewer can try exactly what a merge would publish.
 #
-# Runs on every pull request and on pushes to develop, main and version tags; publish.yml waits for a green
-# run of this workflow on a push before it publishes anything. It needs no secrets, which is also what
-# makes it safe to run on pull requests from forks.
+# Runs on every pull request and on pushes to develop, main, release tags (vX.Y.Z) and prerelease tags
+# (vX.Y.Z-preview.N); publish.yml waits for a green run of this workflow on a push before it publishes
+# anything. It needs no secrets, which is also what makes it safe to run on pull requests from forks.
 #
 # Third-party actions are pinned to a commit SHA with the version in a comment.
 
@@ -13,7 +13,7 @@ on:
   pull_request:
   push:
     branches: [main, develop]
-    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+    tags: ["v[0-9]+.[0-9]+.[0-9]+", "v[0-9]+.[0-9]+.[0-9]+-preview.[0-9]+"]
 
 permissions:
   contents: read

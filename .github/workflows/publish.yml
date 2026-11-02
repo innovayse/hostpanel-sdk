@@ -3,10 +3,13 @@ name: Publish
 # Packs the SDK and pushes it to nuget.org, so plugin authors pin a package version instead of
 # referencing source.
 #
-# Runs once the CI workflow has finished green for a push to main or to a version tag (vX.Y.Z), on
-# exactly the commit CI tested. A pull request run of CI never publishes, even from a fork branch that
-# happens to be named main. On a tag the tag must equal <Version> in Innovayse.SDK.csproj, so a tag can
-# never publish a package whose version says something else.
+# Runs once the CI workflow has finished green for a push to main or to a version tag, on exactly the
+# commit CI tested. A pull request run of CI never publishes, even from a fork branch that happens to be
+# named main. A release tag vX.Y.Z must equal <Version> in Innovayse.SDK.csproj. A prerelease tag
+# vX.Y.Z-preview.N publishes X.Y.Z-preview.N from a commit whose <Version> is X.Y.Z, so plugin authors can
+# pin an unreleased version from develop like any other package; NuGet never offers a prerelease to a
+# consumer who did not ask for one. Either way a tag can never publish a package whose version says
+# something else.
 #
 # Idempotent per version: `dotnet nuget push --skip-duplicate` turns a version the feed already has
 # into a no-op, so a merge that does not raise <Version> publishes nothing and fails nothing, and a
@@ -69,23 +72,37 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
-      - name: Check a tag matches the package version
-        if: steps.feed.outputs.configured == 'true' && env.SOURCE_REF != 'main'
+      - name: Work out the package version
+        id: version
+        if: steps.feed.outputs.configured == 'true'
         run: |
           set -eu
           version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Innovayse.SDK.csproj)
-          if [ "$SOURCE_REF" != "v$version" ]; then
-            echo "Tag $SOURCE_REF does not match <Version>$version</Version> in Innovayse.SDK.csproj, refusing to publish."
-            exit 1
-          fi
-          echo "Tag $SOURCE_REF matches the package version."
+          case "$SOURCE_REF" in
+            main)
+              package="$version" ;;
+            "v$version")
+              package="$version" ;;
+            "v$version"-preview.*)
+              suffix="${SOURCE_REF#"v$version-"}"
+              if ! printf '%s' "$suffix" | grep -Eq '^preview\.[0-9]+$'; then
+                echo "Tag $SOURCE_REF is not v$version-preview.N, refusing to publish."
+                exit 1
+              fi
+              package="$version-$suffix" ;;
+            *)
+              echo "Tag $SOURCE_REF does not match <Version>$version</Version> in Innovayse.SDK.csproj, refusing to publish."
+              exit 1 ;;
+          esac
+          echo "Publishing $package from $SOURCE_REF."
+          echo "package=$package" >> "$GITHUB_OUTPUT"
       - if: steps.feed.outputs.configured == 'true'
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "9.0.x"
       - name: Pack
         if: steps.feed.outputs.configured == 'true'
-        run: dotnet pack Innovayse.SDK.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true
+        run: dotnet pack Innovayse.SDK.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true -p:Version=${{ steps.version.outputs.package }}
       - name: Get a short lived nuget.org key
         id: login
         if: steps.feed.outputs.configured == 'true'
