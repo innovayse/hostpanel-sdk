@@ -238,6 +238,45 @@ host starts to support a new contract level.
 
 The package only reads and carries the declared surface; checking it and acting on it is the host's job.
 
+### View documents
+
+The `view` member of a page or slot names a JSON file of the package. The document is declarative: it describes what
+a page shows and the plugin routes it calls, and the panel renders it. The shape is described by `PluginViews`.
+
+```json
+{
+  "schema": 1,
+  "blocks": [
+    { "kind": "header", "title": "pages.site",
+      "actions": [ { "kind": "action", "label": "actions.publish", "confirm": "actions.publishConfirm",
+                     "route": { "method": "post", "path": "/services/{serviceId}/site/publish" } } ] },
+    { "kind": "table", "source": { "route": { "method": "get", "path": "/services/{serviceId}/site" } },
+      "columns": [ { "label": "columns.name" } ] }
+  ]
+}
+```
+
+- **Document.** An object with `schema` (`PluginViews.SchemaVersion`, today `1`) and `blocks`, an array of blocks.
+- **Block.** Any object in the document that has a `kind` member: the top-level blocks, the `blocks` of a tab, the
+  `actions` of a header. `kind` is one of `PluginViews.BlockKinds` (`header`, `text`, `stat`, `table`, `form`,
+  `action`, `link`, `badge`, `empty`, `alert`, `tabs`, `chat`, `progress`). Every other member is the block's own data.
+- **Labels.** A string under a member of `PluginViews.LabelProperties` (`title`, `label`, `confirm`, `placeholder`,
+  `text`), at any depth, is a label: a key of the manifest `locales` or plain text, like a menu `label`. The host
+  replaces it with its text in the caller's language, English when that language lacks the key, before the document
+  reaches a panel, so a panel never sees a key.
+- **Route references.** An object under a member of `PluginViews.RouteProperties` (`route`, `send`, `history`), at any
+  depth, names one route of the plugin as a `PluginViewRoute`: `{ "method": "post", "path": "/services/{serviceId}/site/publish" }`.
+  Routes have no ids, so a view names a route by method and the path template exactly as `api` declares it. The area
+  is the one of the page or slot that shows the view (a client page uses `api.client`, an admin page `api.admin`, a
+  slot the area of the slot). Each `{parameter}` is filled from the page path parameter or the slot context key of
+  the same name.
+
+The host checks every view document when it loads a plugin and when one is installed, before any plugin code runs: the
+file exists (`PLUGIN_VIEW_MISSING`), is a JSON object (`PLUGIN_VIEW_INVALID`), has a supported `schema`
+(`PLUGIN_VIEW_SCHEMA_UNSUPPORTED`), uses only known block kinds (`PLUGIN_VIEW_BLOCK_KIND_UNKNOWN`), every label that
+looks like a key exists in the `en` locale (`PLUGIN_LABEL_KEY_MISSING`) and every route reference names a route
+declared in the area (`PLUGIN_VIEW_ROUTE_UNDECLARED`). A plugin that fails one is refused.
+
 ## How the host builds a plugin
 
 The host creates the `entryPoint` type once the plugin is enabled in the admin panel and every

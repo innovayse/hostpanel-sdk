@@ -14,6 +14,8 @@ A plugin built against 2.0.0 loads unchanged: it only reads the fulfilment conte
 - `ClientRef`, a record parameter after `ClientId`, on `InvoicePaidContext`, `InvoiceRefundedContext`, `RefundAdviceContext` and `SubscriptionLapsedContext`: the same plugin-scoped client reference an endpoint call of that plugin receives in `PluginCaller.ClientRef`, so what a plugin sold can be joined with what its endpoints see (innovayse/hostpanel#757).
 - SSH access to a bound hosting service (innovayse/hostpanel#758): `IPluginHostApi.IssueSshAccessAsync(serviceId, label)` returns a `PluginSshAccess` (key id, host, port, user name, domain, the Ed25519 private key in OpenSSH format and the pinned host key fingerprint) and `IPluginHostApi.RevokeSshAccessAsync(serviceId, keyId)` takes it back. A refusal is a `PluginHostAccessException` carrying a `PluginHostAccessFailure`. `PluginSshAccess.ToString()` leaves the private key out.
 - `PluginManifest.HostAccess` (`"hostAccess": ["ssh"]`), the kinds of hosting access a plugin asks for, named in `PluginHostAccess`.
+- `PluginViews`, the view document schema a page or slot `view` file follows: `SchemaVersion` (1), `BlockKinds` (`header`, `text`, `stat`, `table`, `form`, `action`, `link`, `badge`, `empty`, `alert`, `tabs`, `chat`, `progress`), `LabelProperties` (members whose text is a label the host resolves in the caller's language) and `RouteProperties` (members that name a plugin route) (innovayse/hostpanel#643).
+- `PluginViewRoute`, how a view names a route of the plugin: by `Method` and the path template exactly as declared in `api`, the area being the one of the page or slot that shows the view; `Names(route)` tells whether it names a declared route (innovayse/hostpanel#643).
 
 ### Documentation
 
