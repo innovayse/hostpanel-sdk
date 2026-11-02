@@ -15,6 +15,10 @@ A plugin built against 2.0.0 loads unchanged: it only reads the fulfilment conte
 - SSH access to a bound hosting service (innovayse/hostpanel#758): `IPluginHostApi.IssueSshAccessAsync(serviceId, label)` returns a `PluginSshAccess` (key id, host, port, user name, domain, the Ed25519 private key in OpenSSH format and the pinned host key fingerprint) and `IPluginHostApi.RevokeSshAccessAsync(serviceId, keyId)` takes it back. A refusal is a `PluginHostAccessException` carrying a `PluginHostAccessFailure`. `PluginSshAccess.ToString()` leaves the private key out.
 - `PluginManifest.HostAccess` (`"hostAccess": ["ssh"]`), the kinds of hosting access a plugin asks for, named in `PluginHostAccess`.
 
+### Documentation
+
+- `PluginBillingCycle` and `FulfilmentLine.BillingCycle` list every cycle the host sends with its value (`Monthly` 1, `Annual` 2, `Quarterly` 3, `SemiAnnual` 4, `Biennial` 5) and tell a plugin to treat a cycle it does not know as a renewing line of unknown period, never as one-off and never by throwing (innovayse/hostpanel#761).
+
 ## [2.0.0]
 
 This is a major release. A plugin built against 1.x recompiles after updating its `using` lines and the renames below; the table in "Migrating from 1.x" lists every move and rename.
