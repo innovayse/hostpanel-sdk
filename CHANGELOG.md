@@ -16,6 +16,7 @@ A plugin built against 2.0.0 loads unchanged: it only reads the fulfilment conte
 - `PluginManifest.HostAccess` (`"hostAccess": ["ssh"]`), the kinds of hosting access a plugin asks for, named in `PluginHostAccess`.
 - `PluginViews`, the view document schema a page or slot `view` file follows: `SchemaVersion` (1), `BlockKinds` (`header`, `text`, `stat`, `table`, `form`, `action`, `link`, `badge`, `empty`, `alert`, `tabs`, `chat`, `progress`), `LabelProperties` (members whose text is a label the host resolves in the caller's language) and `RouteProperties` (members that name a plugin route) (innovayse/hostpanel#643).
 - `PluginViewRoute`, how a view names a route of the plugin: by `Method` and the path template exactly as declared in `api`, the area being the one of the page or slot that shows the view; `Names(route)` tells whether it names a declared route (innovayse/hostpanel#643).
+- `PluginCapabilities.Endpoints` (`"endpoints"`), a capability any plugin type may declare in `capabilities`: the plugin class also implements `IPluginEndpoints`, and the host serves its declared `api` routes and its `ui` pages, menus and slots. An app plugin needs no declaration (innovayse/hostpanel#818).
 
 ### Documentation
 

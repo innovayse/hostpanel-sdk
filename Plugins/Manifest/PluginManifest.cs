@@ -134,8 +134,9 @@ public sealed class PluginManifest
     /// <summary>
     /// Gets the optional capabilities the plugin declares, named in <see cref="PluginCapabilities"/> (for example
     /// <c>storedCredentials</c>). Lets the admin and the client portal show what a plugin can do without activating
-    /// it; each entry must agree with the interfaces the plugin class implements. Valid for payment plugins
-    /// (<see cref="PluginType.Payment"/>); other types leave it empty. A missing or <c>null</c> <c>capabilities</c>
+    /// it; each entry must agree with the interfaces the plugin class implements. <c>storedCredentials</c> fits
+    /// payment plugins (<see cref="PluginType.Payment"/>) only; <c>endpoints</c> fits any plugin type. A type
+    /// leaves the list empty when no capability applies to it. A missing or <c>null</c> <c>capabilities</c>
     /// in the JSON reads as an empty list, never <see langword="null"/>.
     /// </summary>
     public IReadOnlyList<string> Capabilities
