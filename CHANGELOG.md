@@ -5,6 +5,16 @@ All notable changes to the `Innovayse.SDK` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0]
+
+A plugin built against 2.0.0 loads unchanged: it only reads the fulfilment contexts and calls `IPluginHostApi`. The host builds the contexts and implements `IPluginHostApi`, so a host, and a plugin test that builds a context itself, passes the new `ClientRef` argument and implements the two new members.
+
+### Added
+
+- `ClientRef`, a record parameter after `ClientId`, on `InvoicePaidContext`, `InvoiceRefundedContext`, `RefundAdviceContext` and `SubscriptionLapsedContext`: the same plugin-scoped client reference an endpoint call of that plugin receives in `PluginCaller.ClientRef`, so what a plugin sold can be joined with what its endpoints see (innovayse/hostpanel#757).
+- SSH access to a bound hosting service (innovayse/hostpanel#758): `IPluginHostApi.IssueSshAccessAsync(serviceId, label)` returns a `PluginSshAccess` (key id, host, port, user name, domain, the Ed25519 private key in OpenSSH format and the pinned host key fingerprint) and `IPluginHostApi.RevokeSshAccessAsync(serviceId, keyId)` takes it back. A refusal is a `PluginHostAccessException` carrying a `PluginHostAccessFailure`. `PluginSshAccess.ToString()` leaves the private key out.
+- `PluginManifest.HostAccess` (`"hostAccess": ["ssh"]`), the kinds of hosting access a plugin asks for, named in `PluginHostAccess`.
+
 ## [2.0.0]
 
 This is a major release. A plugin built against 1.x recompiles after updating its `using` lines and the renames below; the table in "Migrating from 1.x" lists every move and rename.

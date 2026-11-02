@@ -13,6 +13,9 @@ public sealed class PluginManifest
     /// <summary>Backing field of <see cref="Capabilities"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<string> _capabilities = [];
 
+    /// <summary>Backing field of <see cref="HostAccess"/>; empty unless the manifest lists some.</summary>
+    private readonly IReadOnlyList<string> _hostAccess = [];
+
     /// <summary>Backing field of <see cref="Settings"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginSetting> _settings = [];
 
@@ -139,6 +142,17 @@ public sealed class PluginManifest
     {
         get => _capabilities;
         init => _capabilities = value ?? [];
+    }
+
+    /// <summary>
+    /// Gets the kinds of access to a client's hosting the plugin asks for, named in <see cref="Host.PluginHostAccess"/>
+    /// (for example <c>ssh</c>); empty when it asks for none. A missing or <c>null</c> <c>hostAccess</c> in the JSON
+    /// reads as an empty list. The admin plugins page shows each entry.
+    /// </summary>
+    public IReadOnlyList<string> HostAccess
+    {
+        get => _hostAccess;
+        init => _hostAccess = value ?? [];
     }
 
     /// <summary>
