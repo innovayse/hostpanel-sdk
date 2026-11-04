@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.StoredCredentials;
+namespace Hostpanel.Sdk.Plugins.StoredCredentials;
 
 /// <summary>Input for <see cref="IStoredCredentialPlugin.EnsureCustomerAsync"/>.</summary>
 /// <param name="ClientReference">The host's stable reference for the client, opaque to the plugin. Asking twice with the same reference must answer the same customer.</param>

@@ -1,7 +1,7 @@
-using Innovayse.SDK.Plugins.Manifest;
-using Innovayse.SDK.Plugins.Payment;
+using Hostpanel.Sdk.Plugins.Manifest;
+using Hostpanel.Sdk.Plugins.Payment;
 
-namespace Innovayse.SDK.Plugins.StoredCredentials;
+namespace Hostpanel.Sdk.Plugins.StoredCredentials;
 
 /// <summary>
 /// Optional capability of a payment plugin: it can keep payment methods at the gateway and charge them later
@@ -9,6 +9,11 @@ namespace Innovayse.SDK.Plugins.StoredCredentials;
 /// <see cref="IPaymentPlugin"/>, which does not change; the host checks for it at run time and the manifest lists
 /// <see cref="PluginCapabilities.StoredCredentials"/>. A disabled plugin, or one without this interface, has no
 /// capability.
+/// <para>
+/// The implementing class must also be a payment plugin: this interface extends <see cref="IPaymentPlugin"/>, so the
+/// compiler requires the payment members too, and the host resolves the capability on top of the payment plugin it
+/// found by module id. A class that implemented both interfaces before this inheritance compiles unchanged.
+/// </para>
 /// </summary>
 /// <remarks>
 /// <para>
@@ -30,7 +35,7 @@ namespace Innovayse.SDK.Plugins.StoredCredentials;
 /// Saved methods are not stored by the host: <see cref="ListMethodsAsync"/> is read live.
 /// </para>
 /// </remarks>
-public interface IStoredCredentialPlugin
+public interface IStoredCredentialPlugin : IPaymentPlugin
 {
     /// <summary>Finds or creates the gateway customer for a client. Safe to call repeatedly with the same client reference.</summary>
     /// <param name="context">The host's client reference and optional contact details.</param>
@@ -51,6 +56,7 @@ public interface IStoredCredentialPlugin
     /// every call answers the same method and never stores it twice. An abandoned or expired session answers
     /// <c>Saved = false</c> and does not throw. The plugin resolves the result from the session id alone; the host passes
     /// nothing else, so any state the plugin needs must be found at the gateway or in its own store by that id.
+    /// <see cref="StoredCredentialContract.AssertCompleteSaveMethodIsIdempotentAsync"/> checks this in a plugin's own tests.
     /// </summary>
     /// <param name="sessionId">The session id from <see cref="SaveMethodSession.SessionId"/>.</param>
     /// <param name="ct">Cancellation token.</param>

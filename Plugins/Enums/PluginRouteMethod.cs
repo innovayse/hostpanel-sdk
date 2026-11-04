@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// The HTTP method of one route a plugin declares in <c>api</c>. Values start at 1; 0 is not a method.

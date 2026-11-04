@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Fulfilment;
+namespace Hostpanel.Sdk.Plugins.Fulfilment;
 
 /// <summary>A fulfilment plugin's answer to "how much of this invoice may still be refunded?".</summary>
 /// <param name="MaxRefundableAmount">

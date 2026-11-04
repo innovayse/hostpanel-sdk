@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Payment;
+namespace Hostpanel.Sdk.Plugins.Payment;
 
 /// <summary>Result of <see cref="IPaymentPlugin.GetStatusAsync"/>.</summary>
 /// <param name="State">The mapped payment state.</param>

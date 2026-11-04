@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Fulfilment;
+namespace Hostpanel.Sdk.Plugins.Fulfilment;
 
 /// <summary>One product line of an invoice, as a fulfilment plugin sees it.</summary>
 /// <param name="ProductId">The host's product id.</param>

@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Endpoints;
+namespace Hostpanel.Sdk.Plugins.Endpoints;
 
 /// <summary>
 /// What a plugin answers to a <see cref="PluginCall"/>, without any web framework type: a JSON document, no content,
@@ -34,6 +34,12 @@ public sealed class PluginReply
 
     /// <summary>Gets the events to forward; set for <see cref="PluginReplyKind.Stream"/> only.</summary>
     public IAsyncEnumerable<PluginEvent>? Events { get; private init; }
+
+    /// <summary>Gets the bytes written to the response as is; set for <see cref="PluginReplyKind.Raw"/> only, empty otherwise.</summary>
+    public ReadOnlyMemory<byte> RawBody { get; private init; }
+
+    /// <summary>Gets the media type of <see cref="RawBody"/>, for example <c>text/plain</c>; set for <see cref="PluginReplyKind.Raw"/> only.</summary>
+    public string? ContentType { get; private init; }
 
     /// <summary>Builds a JSON reply.</summary>
     /// <param name="body">The value to serialise.</param>
@@ -83,6 +89,37 @@ public sealed class PluginReply
         }
 
         return new PluginReply(PluginReplyKind.Problem, status) { Code = code, Detail = detail };
+    }
+
+    /// <summary>
+    /// Builds a raw reply: the bytes are written to the response unchanged, with the given status and media type.
+    /// Use it where the caller expects a fixed answer that is not JSON, such as the acknowledgement a gateway waits for
+    /// after a callback. The host may still refuse a body over its size cap.
+    /// </summary>
+    /// <param name="status">
+    /// Any status from 200 to 599 except 401 and 407. Those two are authentication challenges the host answers itself
+    /// (see <see cref="Problem"/>), so a plugin that refuses a caller answers 403.
+    /// </param>
+    /// <param name="body">The bytes to send; may be empty.</param>
+    /// <param name="contentType">The media type, for example <c>text/plain; charset=utf-8</c>; it must not contain a line break.</param>
+    /// <returns>The reply.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="contentType"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="contentType"/> is empty, white space or contains a line break.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="status"/> is outside 200 to 599, or is 401 or 407.</exception>
+    public static PluginReply Raw(int status, ReadOnlyMemory<byte> body, string contentType)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
+        if (status is < 200 or > 599 or 401 or 407)
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), status, "A raw reply needs a status from 200 to 599 other than 401 and 407; answer 403 to refuse a caller.");
+        }
+
+        if (contentType.Contains('\r') || contentType.Contains('\n'))
+        {
+            throw new ArgumentException("A media type must not contain a line break.", nameof(contentType));
+        }
+
+        return new PluginReply(PluginReplyKind.Raw, status) { RawBody = body, ContentType = contentType };
     }
 
     /// <summary>

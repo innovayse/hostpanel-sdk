@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Host;
+namespace Hostpanel.Sdk.Plugins.Host;
 
 /// <summary>
 /// Read-only facts the host shares with a plugin about the client of the current call. The instance is bound to that

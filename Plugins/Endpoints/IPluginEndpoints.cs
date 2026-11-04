@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Endpoints;
+namespace Hostpanel.Sdk.Plugins.Endpoints;
 
 /// <summary>
 /// Contract for a plugin that answers HTTP-shaped requests (<see cref="Enums.PluginType.App"/>). The host receives the

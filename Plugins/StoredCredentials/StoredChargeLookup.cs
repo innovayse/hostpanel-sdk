@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.StoredCredentials;
+namespace Hostpanel.Sdk.Plugins.StoredCredentials;
 
 /// <summary>
 /// Result of <see cref="IStoredCredentialPlugin.FindChargeAsync"/>: whether an idempotency key ever charged, and how

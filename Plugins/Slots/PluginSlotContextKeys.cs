@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Slots;
+namespace Hostpanel.Sdk.Plugins.Slots;
 
 /// <summary>
 /// The context key names a slot may offer, as listed on <see cref="PluginSlots"/>. A host checks the keys a manifest

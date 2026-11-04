@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Host;
+namespace Hostpanel.Sdk.Plugins.Host;
 
 /// <summary>The profile of the call's client, as much as a plugin may read. No address, phone or notes.</summary>
 /// <param name="Name">The client's display name: the company when there is one, otherwise the person.</param>

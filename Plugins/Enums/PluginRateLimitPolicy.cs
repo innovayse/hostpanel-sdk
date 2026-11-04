@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// The rate limit policy a plugin route asks for, the <c>rateLimit</c> member of an <c>api</c> route. Values start at 1;

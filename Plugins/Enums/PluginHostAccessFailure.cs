@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>Why the host refused a request for access to a client's hosting (<see cref="Host.PluginHostAccessException"/>).</summary>
 public enum PluginHostAccessFailure

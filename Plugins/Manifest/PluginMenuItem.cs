@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>One entry a plugin adds to a panel menu, an entry of <c>menus</c> in <c>plugin.json</c>.</summary>
 public sealed class PluginMenuItem

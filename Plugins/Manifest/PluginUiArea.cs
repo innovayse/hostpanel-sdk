@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>What a plugin adds to one panel: the <c>client</c> or the <c>admin</c> member of <c>ui</c>.</summary>
 public sealed class PluginUiArea

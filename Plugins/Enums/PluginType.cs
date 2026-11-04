@@ -1,8 +1,8 @@
-using Innovayse.SDK.Plugins.Fulfilment;
-using Innovayse.SDK.Plugins.Hosting;
-using Innovayse.SDK.Plugins.Identity;
+using Hostpanel.Sdk.Plugins.Fulfilment;
+using Hostpanel.Sdk.Plugins.Hosting;
+using Hostpanel.Sdk.Plugins.Identity;
 
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// Categorises the service a plugin provides.

@@ -1,7 +1,7 @@
-using Innovayse.SDK.Plugins.Enums;
-using Innovayse.SDK.Plugins.Manifest;
+using Hostpanel.Sdk.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Manifest;
 
-namespace Innovayse.SDK.Plugins.Ui;
+namespace Hostpanel.Sdk.Plugins.Ui;
 
 /// <summary>
 /// A reference from a view document to one route of the plugin, the value of a member named in

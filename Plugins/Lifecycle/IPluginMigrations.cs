@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Store;
+using Hostpanel.Sdk.Plugins.Store;
 
-namespace Innovayse.SDK.Plugins.Lifecycle;
+namespace Hostpanel.Sdk.Plugins.Lifecycle;
 
 /// <summary>
 /// Optional capability of an app plugin that keeps data outside the host (its own database or files): the host calls

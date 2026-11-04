@@ -1,7 +1,7 @@
 using System.Text;
-using Innovayse.SDK.Plugins.Diagnostics;
+using Hostpanel.Sdk.Plugins.Diagnostics;
 
-namespace Innovayse.SDK.Plugins.HostingPanel;
+namespace Hostpanel.Sdk.Plugins.HostingPanel;
 
 /// <summary>Where and how to reach a hosting panel's REST API.</summary>
 /// <param name="Host">The panel server's hostname or IP address.</param>

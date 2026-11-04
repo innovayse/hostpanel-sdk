@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>One HTTP route a plugin answers, an entry of <c>api.client</c> or <c>api.admin</c> in <c>plugin.json</c>.</summary>
 public sealed class PluginRoute

@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.StoredCredentials;
+namespace Hostpanel.Sdk.Plugins.StoredCredentials;
 
 /// <summary>A payment method stored at the gateway. The host does not keep these; it lists them live.</summary>
 /// <param name="MethodRef">The gateway-side method reference the host passes to a charge.</param>

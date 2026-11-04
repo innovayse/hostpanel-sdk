@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.StoredCredentials;
+namespace Hostpanel.Sdk.Plugins.StoredCredentials;
 
 /// <summary>Input for <see cref="IStoredCredentialPlugin.BeginSaveMethodAsync"/>.</summary>
 /// <param name="CustomerRef">The customer reference from <see cref="CredentialCustomerResult"/>.</param>

@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// How the payer enters a payment method that is to be stored. The values start at 1 and 0 is not valid: a

@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Payment;
+using Hostpanel.Sdk.Plugins.Payment;
 
-namespace Innovayse.SDK.Plugins.StoredCredentials;
+namespace Hostpanel.Sdk.Plugins.StoredCredentials;
 
 /// <summary>Input for <see cref="IStoredCredentialPlugin.ChargeAsync"/>.</summary>
 /// <param name="CustomerRef">The customer reference from <see cref="CredentialCustomerResult"/>.</param>

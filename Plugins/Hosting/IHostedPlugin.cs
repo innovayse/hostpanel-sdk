@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Hosting;
+namespace Hostpanel.Sdk.Plugins.Hosting;
 
 /// <summary>
 /// Contract for a hosted plugin (<see cref="Enums.PluginType.Hosted"/>): a background worker the host

@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Host;
+namespace Hostpanel.Sdk.Plugins.Host;
 
 /// <summary>Thrown by <see cref="IPluginHostApi"/> when the host refuses a request for access to a client's hosting.</summary>
 public sealed class PluginHostAccessException : Exception
