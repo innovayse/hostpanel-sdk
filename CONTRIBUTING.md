@@ -17,11 +17,13 @@ contract. Say what you are building and what the current contracts do not let yo
    ```bash
    dotnet build Hostpanel.Sdk.csproj -c Release -warnaserror
    dotnet pack Hostpanel.Sdk.csproj -c Release -o artifacts
+   dotnet build Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release -warnaserror
+   dotnet pack Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release -o artifacts
    ```
 
 3. Document every type and member with XML doc comments (private ones too), and brace every
    block. An undocumented public member fails the build.
-4. Raise `<Version>` in `Hostpanel.Sdk.csproj` when the change should be published (see
+4. Raise `<Version>` in `Directory.Build.props`, the one version both packages share, when the change should be published (see
    "Versioning" in `README.md`) and add an entry to `CHANGELOG.md`.
 5. Open the pull request against `main`.
 
