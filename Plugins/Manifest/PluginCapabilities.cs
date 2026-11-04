@@ -10,6 +10,9 @@ public static class PluginCapabilities
     /// <summary>The payment plugin also implements <see cref="Hostpanel.Sdk.Plugins.StoredCredentials.IStoredCredentialPlugin"/>.</summary>
     public const string StoredCredentials = "storedCredentials";
 
+    /// <summary>The provisioning plugin also implements <see cref="Hostpanel.Sdk.Plugins.Provisioning.IProvisioningPanelPlugin"/>, the account operations of a hosting control panel.</summary>
+    public const string ProvisioningPanel = "provisioningPanel";
+
     /// <summary>
     /// Any plugin type may declare it. It means the plugin class also implements
     /// <see cref="Hostpanel.Sdk.Plugins.Endpoints.IPluginEndpoints"/>, so the host serves the plugin's declared

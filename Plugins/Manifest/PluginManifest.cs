@@ -16,6 +16,9 @@ public sealed class PluginManifest
     /// <summary>Backing field of <see cref="HostAccess"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<string> _hostAccess = [];
 
+    /// <summary>Backing field of <see cref="ServerModules"/>; empty unless the manifest lists some.</summary>
+    private readonly IReadOnlyList<string> _serverModules = [];
+
     /// <summary>Backing field of <see cref="Settings"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginSetting> _settings = [];
 
@@ -162,6 +165,20 @@ public sealed class PluginManifest
     {
         get => _hostAccess;
         init => _hostAccess = value ?? [];
+    }
+
+    /// <summary>
+    /// Gets the server module ids a provisioning plugin serves (the <c>serverModules</c> field, for example
+    /// <c>["examplepanel"]</c>): the host sends a server whose module is listed here to this plugin. Required for a plugin
+    /// that implements <see cref="Provisioning.IProvisioningPanelPlugin"/> (and so lists
+    /// <see cref="PluginCapabilities.ProvisioningPanel"/>), and ignored for every other plugin. Each id follows
+    /// <see cref="PluginServerModules"/>, which also validates the list. A missing or <c>null</c> <c>serverModules</c>
+    /// reads as an empty list, never <see langword="null"/>.
+    /// </summary>
+    public IReadOnlyList<string> ServerModules
+    {
+        get => _serverModules;
+        init => _serverModules = value ?? [];
     }
 
     /// <summary>

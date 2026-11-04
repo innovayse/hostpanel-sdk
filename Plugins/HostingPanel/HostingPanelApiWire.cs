@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 namespace Hostpanel.Sdk.Plugins.HostingPanel;
 
 /// <summary>The JSON envelope a hosting panel's REST API answers account calls with.</summary>
+[Obsolete("Superseded by Hostpanel.Sdk.Plugins.Provisioning.IProvisioningPanelPlugin: a panel plugin implements it and reaches its panel through IPanelTransport. This type will be removed in the next major version.")]
 public sealed record HostingPanelApiWire
 {
     /// <summary>The <see cref="Status"/> value a panel returns on success.</summary>
