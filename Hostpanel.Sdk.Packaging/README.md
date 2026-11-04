@@ -28,4 +28,4 @@ Sign the folder that will be zipped, after its last change: any later change to 
 The first line of the signed payload, `PluginSignaturePayload.Header` (`innovayse-plugin-signature-v1`), is a fixed
 identifier of the signature format, not a product name to be renamed or localised. Every signature ever made covers
 these exact bytes, so changing the string would invalidate all of them. A new payload format gets a new header
-(`...-v2`) and a new reader; the v1 text stays as it is.
+(for example `-v2` at the end) and a new reader; the v1 text stays as it is.

@@ -137,10 +137,11 @@ public sealed class PluginSignaturePayloadTests
         using var folder = new TempFolder();
         Skip.If(OperatingSystem.IsWindows(), "A backslash is a path separator here, so the two names cannot both exist.");
         folder.Write("a/b", "one");
-        folder.Write("a\b", "two");
+        folder.Write("a\\b", "two");
 
         var act = () => PluginSignaturePayload.Build(folder.Path, GoldenKeyId);
 
-        act.Should().Throw<InvalidDataException>();
+        // The message names the duplicate path: a refusal for a control character or anything else would not match.
+        act.Should().Throw<InvalidDataException>().WithMessage("*have the same path*");
     }
 }

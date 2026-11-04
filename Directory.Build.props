@@ -8,7 +8,7 @@
   <PropertyGroup>
     <HostBackendProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</HostBackendProps>
     <HostBackendFolder Condition="'$(HostBackendProps)' != ''">$([System.IO.Path]::GetDirectoryName('$(HostBackendProps)').Replace('\', '/'))</HostBackendFolder>
-    <HostBackendIsExpected Condition="'$(HostBackendFolder)' != '' And $(HostBackendFolder.EndsWith('/backend/src'))">true</HostBackendIsExpected>
+    <HostBackendIsExpected Condition="'$(HostBackendFolder)' != '' And $(HostBackendFolder.ToLowerInvariant().EndsWith('/backend/src'))">true</HostBackendIsExpected>
   </PropertyGroup>
   <Import Project="$(HostBackendProps)" Condition="'$(HostBackendIsExpected)' == 'true'" />
 

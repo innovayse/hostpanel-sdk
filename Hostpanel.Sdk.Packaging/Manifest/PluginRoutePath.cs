@@ -7,12 +7,12 @@ public static partial class PluginRoutePath
 {
     /// <summary>Matches one literal route segment: lowercase letters, digits, hyphen and underscore, with nothing after it, not even a newline.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_-]*\z", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_-]*\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex LiteralSegmentPattern();
 
     /// <summary>Matches one route parameter segment such as <c>{id}</c>, with nothing after it, not even a newline.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A\{[A-Za-z][A-Za-z0-9]*\}\z", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\A\{[A-Za-z][A-Za-z0-9]*\}\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex ParameterSegmentPattern();
 
     /// <summary>

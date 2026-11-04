@@ -11,7 +11,7 @@ public static partial class TrustedKeyId
     /// or a space. The end is <c>\z</c>, not <c>$</c>, because <c>$</c> also matches before a trailing newline.
     /// </summary>
     /// <returns>The pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9][a-z0-9._-]{0,63}\z", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\A[a-z0-9][a-z0-9._-]{0,63}\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex Pattern();
 
     /// <summary>Whether a text is a valid key id.</summary>

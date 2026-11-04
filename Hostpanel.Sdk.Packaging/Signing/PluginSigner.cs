@@ -36,16 +36,33 @@ public static class PluginSigner
 
     /// <summary>
     /// Signs the package in a folder and writes <c>plugin.sig</c> at its root, replacing an earlier one. Sign only
-    /// after every other file is final: a change to any file afterwards makes the signature invalid.
+    /// after every other file is final: a change to any file afterwards makes the signature invalid. A file named
+    /// <c>plugin.sig.tmp</c> in the package folder is removed first, as the leftover of an earlier run that died.
     /// </summary>
     /// <param name="packageDir">The package root: the folder holding <c>plugin.json</c>.</param>
     /// <param name="keyId">The id the host's trusted key list knows this key by.</param>
     /// <param name="privateKey">The 32-byte private key.</param>
     /// <returns>The signature that was written.</returns>
     /// <exception cref="InvalidDataException">The key id is not valid, or a file name in the package cannot be signed.</exception>
-    /// <exception cref="ArgumentException">The private key is not 32 bytes.</exception>
+    /// <exception cref="ArgumentException">The package folder is empty, or the private key is not 32 bytes.</exception>
+    /// <exception cref="DirectoryNotFoundException">The package folder does not exist.</exception>
+    /// <exception cref="UnauthorizedAccessException">The leftover temporary file or the signature file cannot be removed or written.</exception>
     public static PluginSignatureFile Sign(string packageDir, string keyId, byte[] privateKey)
     {
+        // Every argument is checked before anything on disk is touched, so a refused call never deletes a file.
+        ArgumentException.ThrowIfNullOrEmpty(packageDir);
+        if (!Directory.Exists(packageDir))
+        {
+            throw new DirectoryNotFoundException("The package folder does not exist.");
+        }
+
+        if (!TrustedKeyId.IsValid(keyId))
+        {
+            throw new InvalidDataException("The key id is not a valid key id.");
+        }
+
+        var parameters = PrivateParameters(privateKey);
+
         // A temporary file left by an earlier run that died between the write and the move would be listed in the payload
         // (only plugin.sig itself is skipped) and then deleted after signing, leaving a signature no one can verify.
         var leftover = Path.Combine(packageDir, PluginSignatureFile.FileName + TemporarySuffix);
@@ -57,7 +74,7 @@ public static class PluginSigner
         var payload = PluginSignaturePayload.Build(packageDir, keyId);
 
         var signer = new Ed25519Signer();
-        signer.Init(forSigning: true, PrivateParameters(privateKey));
+        signer.Init(forSigning: true, parameters);
         signer.BlockUpdate(payload, 0, payload.Length);
 
         var file = new PluginSignatureFile(keyId, signer.GenerateSignature());
