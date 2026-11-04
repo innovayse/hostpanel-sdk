@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Hostpanel.Sdk.Packaging.Enums;
 using Hostpanel.Sdk.Packaging.Icons;
 using Hostpanel.Sdk.Packaging.Tests.Support;
@@ -249,5 +250,61 @@ public sealed class PluginIconCheckerTests
 
         result.Icon.Should().BeNull();
         result.Violation!.Rule.Should().Be(PluginIconRule.Invalid);
+    }
+
+    /// <summary>
+    /// Makes patterns that cannot finish inside their timeout on <c>aaaa...b</c>: nested quantifiers, a 20 ms limit. They stand
+    /// in for the generated ones to prove a timeout is handled.
+    /// </summary>
+    /// <returns>Four slow patterns.</returns>
+    private static IconPatterns SlowPatterns()
+    {
+        var slow = new Regex(@"(a+)+\z", RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(20));
+        return new IconPatterns(slow, slow, slow, slow);
+    }
+
+    /// <summary>
+    /// Makes patterns whose path rule is the real one, so the path is accepted, and whose content rules are the slow ones.
+    /// </summary>
+    /// <returns>Patterns that time out only when the icon content is scanned.</returns>
+    private static IconPatterns SlowContentPatterns()
+    {
+        var slow = SlowPatterns();
+        return slow with { PathSegment = PluginIconChecker.PathSegmentPattern() };
+    }
+
+    /// <summary>A hostile text that keeps <see cref="SlowPatterns"/> busy past their timeout.</summary>
+    private static readonly string Hostile = new string('a', 40) + "b";
+
+    /// <summary>A pattern timeout while a style is scanned makes the icon invalid, with fixed text.</summary>
+    [Fact]
+    public void Check_RegexTimeoutInContent_IsInvalid()
+    {
+        using var folder = new TempFolder();
+        folder.Write("icon.svg", $"<svg xmlns=\"http://www.w3.org/2000/svg\"><style>{Hostile}</style></svg>");
+
+        var violation = PluginIconChecker.Check(folder.Path, "icon.svg", SlowContentPatterns()).Violation!;
+
+        violation.Rule.Should().Be(PluginIconRule.Invalid);
+        violation.Detail.Should().EndWith("takes too long to check");
+    }
+
+    /// <summary>A pattern timeout while the path is checked refuses the path.</summary>
+    [Fact]
+    public void IsPackageRelative_RegexTimeout_IsRefused()
+    {
+        PluginIconChecker.IsPackageRelative(Hostile + ".svg", SlowPatterns()).Should().BeFalse();
+    }
+
+    /// <summary>Through <see cref="PluginIconChecker.Check(string, string?)"/>, a path whose pattern times out is an invalid icon path.</summary>
+    [Fact]
+    public void Check_RegexTimeoutInPath_IsInvalidPath()
+    {
+        using var folder = new TempFolder();
+
+        var violation = PluginIconChecker.Check(folder.Path, Hostile + ".svg", SlowPatterns()).Violation!;
+
+        violation.Rule.Should().Be(PluginIconRule.Invalid);
+        violation.Detail.Should().StartWith("icon path ");
     }
 }

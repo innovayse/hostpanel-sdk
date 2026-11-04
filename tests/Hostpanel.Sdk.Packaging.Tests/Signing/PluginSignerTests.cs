@@ -324,4 +324,65 @@ public sealed class PluginSignerTests
         File.Exists(leftover).Should().BeFalse();
         PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey)).Should().BeNull();
     }
+
+    /// <summary>A call that is refused for its arguments leaves a file named like the temporary one untouched.</summary>
+    /// <param name="keyId">A key id that is not valid.</param>
+    [Theory]
+    [InlineData("")]
+    [InlineData("Not Valid")]
+    public void Sign_InvalidKeyId_DoesNotDeleteTheTemporaryName(string keyId)
+    {
+        using var folder = new TempFolder();
+        GoldenPackage.Write(folder);
+        var temporary = folder.Write("plugin.sig.tmp", "keep");
+        var (privateKey, _) = PluginSigner.GenerateKeyPair();
+
+        var act = () => PluginSigner.Sign(folder.Path, keyId, privateKey);
+
+        act.Should().Throw<InvalidDataException>();
+        File.Exists(temporary).Should().BeTrue();
+    }
+
+    /// <summary>A private key of the wrong length is refused before a file named like the temporary one is removed.</summary>
+    [Fact]
+    public void Sign_WrongKeyLength_DoesNotDeleteTheTemporaryName()
+    {
+        using var folder = new TempFolder();
+        GoldenPackage.Write(folder);
+        var temporary = folder.Write("plugin.sig.tmp", "keep");
+
+        var act = () => PluginSigner.Sign(folder.Path, KeyId, new byte[16]);
+
+        act.Should().Throw<ArgumentException>();
+        File.Exists(temporary).Should().BeTrue();
+    }
+
+    /// <summary>An empty or missing package folder is refused with the documented exceptions.</summary>
+    [Fact]
+    public void Sign_EmptyOrMissingFolder_Throws()
+    {
+        using var folder = new TempFolder();
+        var (privateKey, _) = PluginSigner.GenerateKeyPair();
+
+        var empty = () => PluginSigner.Sign(string.Empty, KeyId, privateKey);
+        var missing = () => PluginSigner.Sign(Path.Combine(folder.Path, "nope"), KeyId, privateKey);
+
+        empty.Should().Throw<ArgumentException>();
+        missing.Should().Throw<DirectoryNotFoundException>();
+    }
+
+    /// <summary>A valid call removes a leftover temporary file, so it is not signed into the payload.</summary>
+    [Fact]
+    public void Sign_LeftoverTemporaryFile_IsRemovedAndPackageVerifies()
+    {
+        using var folder = new TempFolder();
+        GoldenPackage.Write(folder);
+        var temporary = folder.Write("plugin.sig.tmp", "stale");
+        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
+
+        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+
+        File.Exists(temporary).Should().BeFalse();
+        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey)).Should().BeNull();
+    }
 }

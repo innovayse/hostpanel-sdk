@@ -35,12 +35,6 @@ public static partial class PluginIconChecker
     /// <summary>The media type of a PNG icon.</summary>
     private const string PngContentType = "image/png";
 
-    /// <summary>
-    /// How long one regular expression may run on one text, in milliseconds. The patterns are linear on the sizes the byte cap
-    /// allows, so this never fires on an honest icon; it is the bound for a crafted one, and a timeout makes the icon invalid.
-    /// </summary>
-    private const int RegexTimeoutMilliseconds = 1000;
-
     /// <summary>The opening of a CSS comment.</summary>
     private const string CommentOpen = "/*";
 
@@ -103,32 +97,46 @@ public static partial class PluginIconChecker
 
     /// <summary>Matches one segment of a package-relative path: lowercase letters, digits, dot, hyphen and underscore, not starting with a dot.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_.-]*\z", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
-    private static partial Regex PathSegmentPattern();
+    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_.-]*\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
+    internal static partial Regex PathSegmentPattern();
 
     /// <summary>Matches a <c>url(...)</c> reference whose target is not a fragment of the same document.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"url\s*\((?>\s*)(?!['""]?\s*#)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
-    private static partial Regex ExternalUrlPattern();
+    [GeneratedRegex(@"url\s*\((?>\s*)(?!['""]?\s*#)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexLimits.TimeoutMilliseconds)]
+    internal static partial Regex ExternalUrlPattern();
 
     /// <summary>Matches an <c>@import</c> rule, a script URL or an <c>expression(</c> in a style.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"@import|javascript\s*:|expression\s*\(|behavior\s*:|-moz-binding", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
-    private static partial Regex ActiveStylePattern();
+    [GeneratedRegex(@"@import|javascript\s*:|expression\s*\(|behavior\s*:|-moz-binding", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexLimits.TimeoutMilliseconds)]
+    internal static partial Regex ActiveStylePattern();
 
     /// <summary>
     /// Matches a CSS escape: a backslash and one to six hex digits with an optional closing white space, or a backslash
     /// and any one other character.
     /// </summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\\(?:([0-9a-fA-F]{1,6})[ \t\r\n\f]?|(.))", RegexOptions.CultureInvariant | RegexOptions.Singleline, RegexTimeoutMilliseconds)]
-    private static partial Regex CssEscapePattern();
+    [GeneratedRegex(@"\\(?:([0-9a-fA-F]{1,6})[ \t\r\n\f]?|(.))", RegexOptions.CultureInvariant | RegexOptions.Singleline, RegexLimits.TimeoutMilliseconds)]
+    internal static partial Regex CssEscapePattern();
+
+    /// <summary>The patterns production runs: the generated ones, all under <see cref="RegexLimits.TimeoutMilliseconds"/>.</summary>
+    private static readonly IconPatterns DefaultPatterns =
+        new(PathSegmentPattern(), ExternalUrlPattern(), ActiveStylePattern(), CssEscapePattern());
 
     /// <summary>Reads the icon the manifest names, if any, and checks it against the icon rules.</summary>
     /// <param name="packageDir">The package folder: the installed folder at load, the unpacked staging folder at install.</param>
     /// <param name="iconPath">The manifest's <c>icon</c> member, or <see langword="null"/> or empty when it names none.</param>
     /// <returns>The checked icon, nothing when the manifest names none, or the first rule the icon breaks.</returns>
     public static PluginIconCheck Check(string packageDir, string? iconPath)
+    {
+        return Check(packageDir, iconPath, DefaultPatterns);
+    }
+
+    /// <summary>Reads the icon the manifest names, if any, and checks it with the given patterns.</summary>
+    /// <param name="packageDir">The package folder.</param>
+    /// <param name="iconPath">The manifest's <c>icon</c> member, or <see langword="null"/> or empty when it names none.</param>
+    /// <param name="patterns">The regular expressions to run; a test passes ones with a tiny timeout.</param>
+    /// <returns>The checked icon, nothing when the manifest names none, or the first rule the icon breaks.</returns>
+    internal static PluginIconCheck Check(string packageDir, string? iconPath, IconPatterns patterns)
     {
         ArgumentException.ThrowIfNullOrEmpty(packageDir);
 
@@ -138,7 +146,7 @@ public static partial class PluginIconChecker
         }
 
         // A refused value is never echoed: the manifest string is untrusted until it passes the path rule.
-        if (!IsPackageRelative(iconPath))
+        if (!IsPackageRelative(iconPath, patterns))
         {
             return Invalid(RefusedPathLabel, $"is not a package-relative {SvgExtension} or {PngExtension} path");
         }
@@ -181,7 +189,7 @@ public static partial class PluginIconChecker
             }
 
             var isSvg = iconPath.EndsWith(SvgExtension, StringComparison.Ordinal);
-            var problem = isSvg ? CheckSvg(bytes) : CheckPng(bytes);
+            var problem = isSvg ? CheckSvg(bytes, patterns) : CheckPng(bytes);
             if (problem is not null)
             {
                 return Invalid(label, problem);
@@ -215,10 +223,11 @@ public static partial class PluginIconChecker
     /// a comment does not get past the patterns.
     /// </summary>
     /// <param name="value">The text.</param>
+    /// <param name="patterns">The regular expressions to run.</param>
     /// <returns><see langword="true"/> when either reading matches a pattern.</returns>
-    private static bool LoadsOutside(string value)
+    private static bool LoadsOutside(string value, IconPatterns patterns)
     {
-        if (ActiveStylePattern().IsMatch(value) || ExternalUrlPattern().IsMatch(value))
+        if (patterns.ActiveStyle.IsMatch(value) || patterns.ExternalUrl.IsMatch(value))
         {
             return true;
         }
@@ -231,8 +240,8 @@ public static partial class PluginIconChecker
             return true;
         }
 
-        var decoded = CssEscapePattern().Replace(uncommented, DecodeEscape);
-        return ActiveStylePattern().IsMatch(decoded) || ExternalUrlPattern().IsMatch(decoded);
+        var decoded = patterns.CssEscape.Replace(uncommented, DecodeEscape);
+        return patterns.ActiveStyle.IsMatch(decoded) || patterns.ExternalUrl.IsMatch(decoded);
     }
 
     /// <summary>
@@ -292,8 +301,9 @@ public static partial class PluginIconChecker
 
     /// <summary>Checks that the path has plain segments and ends in a supported extension.</summary>
     /// <param name="path">The manifest value.</param>
-    /// <returns><see langword="true"/> when the path may be opened inside the package.</returns>
-    private static bool IsPackageRelative(string path)
+    /// <param name="patterns">The regular expressions to run.</param>
+    /// <returns><see langword="true"/> when the path may be opened inside the package; a pattern that times out refuses it.</returns>
+    internal static bool IsPackageRelative(string path, IconPatterns patterns)
     {
         if (!path.EndsWith(SvgExtension, StringComparison.Ordinal) && !path.EndsWith(PngExtension, StringComparison.Ordinal))
         {
@@ -302,7 +312,7 @@ public static partial class PluginIconChecker
 
         try
         {
-            return path.Split(PackagePathSeparator).All(segment => PathSegmentPattern().IsMatch(segment));
+            return path.Split(PackagePathSeparator).All(segment => patterns.PathSegment.IsMatch(segment));
         }
         catch (RegexMatchTimeoutException)
         {
@@ -388,8 +398,9 @@ public static partial class PluginIconChecker
     /// serves the icon with a restrictive content security policy; this check keeps a hostile file out of the package altogether.
     /// </summary>
     /// <param name="bytes">The file bytes.</param>
+    /// <param name="patterns">The regular expressions to run.</param>
     /// <returns>What is wrong, or <see langword="null"/>.</returns>
-    private static string? CheckSvg(byte[] bytes)
+    private static string? CheckSvg(byte[] bytes, IconPatterns patterns)
     {
         var settings = new XmlReaderSettings
         {
@@ -410,13 +421,13 @@ public static partial class PluginIconChecker
             var styleText = new StringBuilder();
             while (reader.Read())
             {
-                var problem = CheckNode(reader, ref sawRoot);
+                var problem = CheckNode(reader, ref sawRoot, patterns);
                 if (problem is not null)
                 {
                     return problem;
                 }
 
-                problem = TrackStyle(reader, ref styleDepth, styleText);
+                problem = TrackStyle(reader, ref styleDepth, styleText, patterns);
                 if (problem is not null)
                 {
                     return problem;
@@ -439,8 +450,9 @@ public static partial class PluginIconChecker
     /// <param name="reader">The XML reader, on the node just read.</param>
     /// <param name="styleDepth">How many <c>style</c> elements are open.</param>
     /// <param name="styleText">The text gathered for the outermost open <c>style</c> element.</param>
+    /// <param name="patterns">The regular expressions to run.</param>
     /// <returns>What is wrong with the stylesheet, or <see langword="null"/>.</returns>
-    private static string? TrackStyle(XmlReader reader, ref int styleDepth, StringBuilder styleText)
+    private static string? TrackStyle(XmlReader reader, ref int styleDepth, StringBuilder styleText, IconPatterns patterns)
     {
         switch (reader.NodeType)
         {
@@ -469,7 +481,7 @@ public static partial class PluginIconChecker
                     {
                         var text = styleText.ToString();
                         styleText.Clear();
-                        return LoadsOutside(text) ? "holds a style that loads or runs something outside the image" : null;
+                        return LoadsOutside(text, patterns) ? "holds a style that loads or runs something outside the image" : null;
                     }
                 }
 
@@ -482,8 +494,9 @@ public static partial class PluginIconChecker
     /// <summary>Checks one node the reader stands on, apart from stylesheet text, which <see cref="TrackStyle"/> gathers.</summary>
     /// <param name="reader">The XML reader, on the node.</param>
     /// <param name="sawRoot">Whether the root element has been seen; set on the first element.</param>
+    /// <param name="patterns">The regular expressions to run.</param>
     /// <returns>What is wrong with the node, or <see langword="null"/>.</returns>
-    private static string? CheckNode(XmlReader reader, ref bool sawRoot)
+    private static string? CheckNode(XmlReader reader, ref bool sawRoot, IconPatterns patterns)
     {
         switch (reader.NodeType)
         {
@@ -505,7 +518,7 @@ public static partial class PluginIconChecker
                     return "holds an element that runs code or embeds other content";
                 }
 
-                return CheckAttributes(reader);
+                return CheckAttributes(reader, patterns);
             default:
                 return null;
         }
@@ -513,8 +526,9 @@ public static partial class PluginIconChecker
 
     /// <summary>Checks every attribute of the element the reader stands on.</summary>
     /// <param name="reader">The XML reader, on an element.</param>
+    /// <param name="patterns">The regular expressions to run.</param>
     /// <returns>What is wrong, or <see langword="null"/>.</returns>
-    private static string? CheckAttributes(XmlReader reader)
+    private static string? CheckAttributes(XmlReader reader, IconPatterns patterns)
     {
         string? animatedAttribute = null;
         var isAnimation = reader.LocalName is AnimateElement or SetElement;
@@ -533,7 +547,7 @@ public static partial class PluginIconChecker
                 return "references something outside the image";
             }
 
-            if (LoadsOutside(value))
+            if (LoadsOutside(value, patterns))
             {
                 return "holds an attribute that loads or runs something outside the image";
             }

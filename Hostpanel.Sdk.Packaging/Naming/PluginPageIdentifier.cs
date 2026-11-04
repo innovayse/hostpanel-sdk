@@ -41,6 +41,6 @@ public static partial class PluginPageIdentifier
 
     /// <summary>The compiled <see cref="Pattern"/>.</summary>
     /// <returns>The regular expression.</returns>
-    [GeneratedRegex(Pattern, RegexOptions.CultureInvariant)]
+    [GeneratedRegex(Pattern, RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex PatternRegex();
 }

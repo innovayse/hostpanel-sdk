@@ -35,6 +35,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The tests reach the internal seams (the icon check's patterns) that prove a regex timeout is handled. -->
+    <InternalsVisibleTo Include="Hostpanel.Sdk.Packaging.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- The manifest types the structural rules read. -->
     <ProjectReference Include="..\Hostpanel.Sdk.csproj" />
   </ItemGroup>

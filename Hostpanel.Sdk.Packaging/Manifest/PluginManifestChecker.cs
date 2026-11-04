@@ -39,12 +39,12 @@ public static partial class PluginManifestChecker
     /// is <c>\z</c>, not <c>$</c>, because <c>$</c> also matches before a trailing newline.
     /// </summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+\z", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\A[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex TextKeyPattern();
 
     /// <summary>Matches a slot widget id: the same safe shape as a literal route segment, because the id is a key in a setting and a URL-safe reference.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_-]*\z", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_-]*\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex WidgetIdPattern();
 
     /// <summary>
@@ -53,7 +53,7 @@ public static partial class PluginManifestChecker
     /// so a trailing newline is refused too.
     /// </summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9-]{1,64}\z", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\A[a-z0-9-]{1,64}\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex IconNamePattern();
 
     /// <summary>
