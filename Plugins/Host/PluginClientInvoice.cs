@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Host;
+namespace Hostpanel.Sdk.Plugins.Host;
 
 /// <summary>One invoice of the call's client. Gateway references and notes are not shared.</summary>
 /// <param name="Id">The host's own id of this invoice, one of the caller's own records.</param>

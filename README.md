@@ -1,4 +1,4 @@
-# Innovayse.SDK
+# Hostpanel.Sdk
 
 Plugin contracts for a hostpanel host. A plugin compiles against this package, implements one
 or more of the contracts below, and ships as its own assembly plus a `plugin.json` manifest.
@@ -15,16 +15,16 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Innovayse.SDK --version 2.0.0
+dotnet add package Hostpanel.Sdk --version 3.0.0
 ```
 
 or, in the plugin's `.csproj`:
 
 ```xml
 <ItemGroup>
-  <!-- ExcludeAssets="runtime" keeps Innovayse.SDK.dll out of the plugin's output: the host already
+  <!-- ExcludeAssets="runtime" keeps Hostpanel.Sdk.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Innovayse.SDK" Version="2.0.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Hostpanel.Sdk" Version="3.0.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -99,7 +99,7 @@ stopping is logged with its id and never stops the host or the other plugins.
 
 ### App plugins
 
-An app plugin (`PluginType.App`, value `6`) answers requests. It implements `IPluginEndpoints` (namespace `Innovayse.SDK.Plugins.Endpoints`, one method, `HandleAsync(PluginCall, CancellationToken)`) and declares its routes in the manifest `api` block. The host
+An app plugin (`PluginType.App`, value `6`) answers requests. It implements `IPluginEndpoints` (namespace `Hostpanel.Sdk.Plugins.Endpoints`, one method, `HandleAsync(PluginCall, CancellationToken)`) and declares its routes in the manifest `api` block. The host
 matches the request to a declared route, checks the caller's permission and only then calls the plugin, so the
 plugin sees no HTTP request, no token and no web framework type.
 
@@ -123,6 +123,12 @@ plugin sees no HTTP request, no token and no web framework type.
   text key and value storage, scoped to your plugin and the call's client. The host refuses a client area call
   without a client, so the store is never plugin wide there; only an admin call outside any client has a plugin wide
   store.
+  A plugin that needs data outside a routed call (a payment plugin remembering a gateway order id between
+  `CreatePaymentAsync`, `GetStatusAsync` and `RefundAsync`, or a cursor read by a webhook) may also take
+  `IPluginStore` in its constructor. The host provides it when it activates the plugin: it is plugin wide, scoped
+  to your plugin id and to no client, with the same key rules, size limits and removal semantics as the call store
+  (it is the same data as the call store of an admin call outside any client). It never reaches another plugin's or
+  a client's values. Keep client data in `call.Store`, which is bound to the call's client.
 - Optional: implement `IPluginStatus` to report health, and `IPluginMigrations` to bring data kept outside the
   host up to date before the first call.
 
@@ -143,18 +149,49 @@ Versioning rule: adding a slot or a context key is a minor change; removing or c
 
 ### Endpoints on any plugin type
 
-An app plugin implements `IPluginEndpoints` and the host serves its routes, pages, menus and slots. Any other plugin
-type can have the same by also implementing `IPluginEndpoints` and listing `endpoints` (`PluginCapabilities.Endpoints`)
+An app plugin implements `IPluginEndpoints` and the host serves its client and admin routes, pages, menus and slots.
+Any other plugin type can have the same by also implementing `IPluginEndpoints` and listing `endpoints` (`PluginCapabilities.Endpoints`)
 in the manifest's `capabilities`. The host then serves the declared `api` routes and the `ui` pages, menus and slots of
 that plugin exactly as it does for an app plugin, while the plugin keeps its own type's contract: a `Fulfilment`
 plugin that grants credits on a paid invoice can also give the client a screen, and both sides see the same
 `ClientRef`. Without the capability a plugin that is not an app plugin has its `api` and `ui` blocks refused, and a
 declared capability whose class does not implement `IPluginEndpoints` is refused when the plugin is activated.
 
+### Callbacks
+
+A plugin can receive requests from outside the panels, for example a gateway telling it a payment changed. Declare
+the routes under `api.callbacks` in `plugin.json` (a list like `api.client`, `PluginApi.Callbacks`); the host calls
+`IPluginEndpoints.HandleAsync` with `PluginCall.Area` set to `PluginArea.Callback`. A callback route has no
+`permission` and is not `streaming`, because there is no signed-in caller; it may set a `rateLimit`.
+`PluginApi.CallbackProblems()` lists the entries that break this. The host forwards request headers in
+`PluginCall.Headers` (empty on other calls), and the plugin must verify the sender itself, for example by a signature
+over `PluginCall.Body`. Answer with `PluginReply.Raw(status, bytes, contentType)` when the sender expects a fixed
+plain answer such as `OK`; the status is 200 to 599 except 401 and 407.
+
+### Refunds, cancelling and idempotency
+
+The host calls `IPaymentPlugin.RefundAsync(RefundInstruction, ct)`. `RefundInstruction.RefundId` is a stable id the
+host stores before the first call and reuses on every retry of the same refund (after a timeout, a crash or an
+exception). Override that overload and pass the id to the gateway as its idempotency key, or record it yourself when
+the gateway has none: a repeated id must never refund twice and should answer the same reference. A plugin that only
+implements `RefundAsync(gatewayOrderId, amountMinor, ct)` keeps working, without that protection.
+
+A gateway with no idempotency key can use `RefundInstruction.AlreadyRefundedMinor` instead of storage: it is what the
+host has already recorded as refunded through that gateway order before this `RefundId`. If the gateway reports a
+refunded total of at least `AlreadyRefundedMinor + AmountMinor`, the refund already happened (a retry), so skip it and
+answer the earlier reference; otherwise send it.
+
+A plugin that can void a payment which was created but not settled also implements `IPaymentCancelPlugin`
+(`CancelPaymentAsync`). It is optional; a repeated cancel answers `AlreadyCancelled`, and a payment that can no longer
+be cancelled answers `NotCancellable` (a refund is the way back) instead of throwing.
+
 ### Stored credential plugins
 
 A payment plugin may also implement `IStoredCredentialPlugin` to keep payment methods at the gateway and charge
-them later without the payer present. `IPaymentPlugin` does not change. The host checks for the interface at run
+them later without the payer present. The interface extends `IPaymentPlugin`, so the implementing class must be a
+payment plugin too, and `IPaymentPlugin` itself does not change. In the plugin's own tests, call
+`StoredCredentialContract.AssertCompleteSaveMethodIsIdempotentAsync(plugin, sessionId)` to check that
+`CompleteSaveMethodAsync` answers the same result on every call for one session. The host checks for the interface at run
 time; a disabled plugin, or one without the interface, has no such capability. List `storedCredentials` in the
 manifest's `capabilities` so the admin and the client portal know without activating the plugin; the list must
 agree with the code.
@@ -306,7 +343,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Innovayse.SDK" Version="2.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Hostpanel.Sdk" Version="3.0.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
@@ -315,7 +352,7 @@ A hosted plugin that logs a heartbeat. The project:
 The plugin:
 
 ```csharp
-using Innovayse.SDK.Plugins.Hosting;
+using Hostpanel.Sdk.Plugins.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -410,14 +447,14 @@ The manifest, `plugin.json`:
 
 Zip the plugin's own assembly, its own dependencies and `plugin.json` with the manifest at the
 root of the archive, and upload it in the admin panel under Plugins, or place the folder in the
-host's `plugins/<id>/` folder. Never ship `Innovayse.SDK.dll` or a host assembly inside the plugin:
+host's `plugins/<id>/` folder. Never ship `Hostpanel.Sdk.dll` or a host assembly inside the plugin:
 the host refuses such an archive, and a second copy of the SDK on disk would make every cast fail.
 
 ## Versioning
 
 The package follows [semantic versioning](https://semver.org/): a patch release fixes, a minor
 release adds members, a major release removes or renames them. A version is published by raising
-`<Version>` in `Innovayse.SDK.csproj`: the publish workflow pushes a version the feed does not have
+`<Version>` in `Hostpanel.Sdk.csproj`: the publish workflow pushes a version the feed does not have
 yet and skips one it already has, so a change that keeps the version publishes nothing. Each
 release is listed in `CHANGELOG.md`.
 
@@ -427,5 +464,5 @@ Issues and pull requests are welcome in
 [innovayse/hostpanel-sdk](https://github.com/innovayse/hostpanel-sdk); see `CONTRIBUTING.md` there.
 A change the host has to support as well (a new contract, a new manifest field, a new plugin
 type) also needs a pull request in [innovayse/hostpanel](https://github.com/innovayse/hostpanel),
-which includes this repository as a git submodule at `backend/src/Innovayse.SDK` and moves it to
+which includes this repository as a git submodule at `backend/src/Hostpanel.Sdk` and moves it to
 the new commit.

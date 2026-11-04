@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
-namespace Innovayse.SDK.Plugins.HostingPanel;
+namespace Hostpanel.Sdk.Plugins.HostingPanel;
 
 /// <summary>
 /// The one place a hosting panel's HTTP answer is turned into a typed value, so every panel

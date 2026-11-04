@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// How well a plugin says it is working, the answer of <see cref="Lifecycle.IPluginStatus"/>. Values start at 1;

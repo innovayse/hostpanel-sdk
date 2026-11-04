@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Payment;
+namespace Hostpanel.Sdk.Plugins.Payment;
 
 /// <summary>Result of a successful payment registration at the gateway.</summary>
 /// <param name="GatewayOrderId">The gateway-side order id; store it: status and refund calls key off it.</param>

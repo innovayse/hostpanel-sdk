@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>One page a plugin adds to a panel, an entry of <c>pages</c> in <c>plugin.json</c>.</summary>
 public sealed class PluginPage

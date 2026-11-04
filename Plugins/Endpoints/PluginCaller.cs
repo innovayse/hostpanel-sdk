@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Endpoints;
+namespace Hostpanel.Sdk.Plugins.Endpoints;
 
 /// <summary>
 /// Who is calling, as much as a plugin may know. The references are opaque and stable for one plugin: the same client

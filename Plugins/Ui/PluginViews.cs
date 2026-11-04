@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Ui;
+namespace Hostpanel.Sdk.Plugins.Ui;
 
 /// <summary>
 /// The view document schema: the declarative document a plugin page or slot widget is rendered from, named by the

@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Slots;
+namespace Hostpanel.Sdk.Plugins.Slots;
 
 /// <summary>
 /// The stable, versioned list of slots the host offers (the <c>slot</c> of a <c>PluginSlotEntry</c>) and the context

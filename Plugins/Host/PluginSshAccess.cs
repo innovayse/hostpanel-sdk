@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Host;
+namespace Hostpanel.Sdk.Plugins.Host;
 
 /// <summary>
 /// An SSH identity the host issued to a plugin for one hosting service of the caller: where to connect, as whom, and

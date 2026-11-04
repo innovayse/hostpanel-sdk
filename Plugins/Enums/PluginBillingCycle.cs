@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// How often a product line renews, as a fulfilment plugin sees it (<see cref="Fulfilment.FulfilmentLine.BillingCycle"/>).

@@ -1,8 +1,8 @@
 using System.Text;
-using Innovayse.SDK.Plugins.Diagnostics;
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Diagnostics;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.StoredCredentials;
+namespace Hostpanel.Sdk.Plugins.StoredCredentials;
 
 /// <summary>
 /// Result of <see cref="IStoredCredentialPlugin.BeginSaveMethodAsync"/>: the session the payer uses to

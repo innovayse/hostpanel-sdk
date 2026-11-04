@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Identity;
+using Hostpanel.Sdk.Plugins.Identity;
 
-namespace Innovayse.SDK.Plugins.Fulfilment;
+namespace Hostpanel.Sdk.Plugins.Fulfilment;
 
 /// <summary>Handed to <see cref="IFulfilmentPlugin.AdviseRefundAsync"/> before any money moves back.</summary>
 /// <param name="InvoiceId">The paid invoice an admin wants to refund.</param>

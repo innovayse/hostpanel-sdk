@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Host;
+namespace Hostpanel.Sdk.Plugins.Host;
 
 /// <summary>
 /// The kinds of access to a client's hosting a plugin may ask the host for, named in the manifest's

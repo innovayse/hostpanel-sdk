@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Identity;
+namespace Hostpanel.Sdk.Plugins.Identity;
 
 /// <summary>
 /// "This client is account <see cref="Id"/> in system <see cref="Provider"/>": a CRM id, a

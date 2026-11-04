@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Fulfilment;
+namespace Hostpanel.Sdk.Plugins.Fulfilment;
 
 /// <summary>
 /// Contract for a fulfilment plugin (<see cref="Enums.PluginType.Fulfilment"/>). The host records a

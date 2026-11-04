@@ -1,11 +1,37 @@
 # Changelog
 
-All notable changes to the `Innovayse.SDK` package are documented in this file.
+All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.2.0]
+## [3.0.0]
+
+Breaking: the package, the assembly and every namespace are renamed from `Innovayse.SDK` to `Hostpanel.Sdk`. No type, member or behaviour is renamed or removed besides this. The release also carries everything of 2.2.0 and 2.1.0 (the sections below).
+
+### Added
+
+- `RefundInstruction.AlreadyRefundedMinor` (required, `long`, zero or more): what the host has already recorded as refunded through the gateway order before this `RefundId`. A gateway with no idempotency key and no plugin storage can tell a retry from a new partial refund: if the gateway reports refunded at least `AlreadyRefundedMinor + AmountMinor`, the refund already happened, so skip it and answer its reference; otherwise send it. The default `RefundAsync(RefundInstruction, ct)` rejects a negative value and then calls the old overload, ignoring the value. A plugin that builds a `RefundInstruction` itself (in tests) passes the new argument.
+
+- Documented: a plugin may take `IPluginStore` in its constructor; the host provides a plugin-wide store (scoped to the plugin id, no client) for data needed outside a routed call, with the same limits as the call store.
+
+- Documented: the `endpoints` capability (`PluginCapabilities.Endpoints`) opens the client and admin routes, the pages and the slots for an app plugin only. For any other plugin type it currently opens only the public callback routes (`api.callbacks`).
+
+### Changed
+
+- `PackageId` and the assembly name are `Hostpanel.Sdk` (was `Innovayse.SDK`); the root namespace is `Hostpanel.Sdk`, so `Innovayse.SDK.Plugins.Payment` is now `Hostpanel.Sdk.Plugins.Payment` and `Innovayse.SDK.Base` is now `Hostpanel.Sdk.Base`. Every other namespace follows the same prefix change.
+- The project file is `Hostpanel.Sdk.csproj` and the test project is `tests/Hostpanel.Sdk.Tests` (namespace `Hostpanel.Sdk.Tests`).
+
+### Migrating a plugin
+
+1. In the plugin project, replace `<PackageReference Include="Innovayse.SDK" ... />` with `<PackageReference Include="Hostpanel.Sdk" Version="3.0.0" ExcludeAssets="runtime" />`.
+2. Replace the prefix `Innovayse.SDK` with `Hostpanel.Sdk` in every `using` and every fully qualified name (a find and replace of `Innovayse.SDK` with `Hostpanel.Sdk` is enough).
+3. Rebuild. Package the plugin without `Hostpanel.Sdk.dll` (the host already loads it); a package that still ships `Innovayse.SDK.dll` is not loadable by a 3.0.0 host.
+4. A plugin built against `Innovayse.SDK` 2.x does not load on a host that ships 3.0.0: rebuild it against 3.0.0. A manifest (`plugin.json`) needs no change.
+
+Strings that embed the old name: none in the package. No type-name constant, JSON discriminator or reflection lookup uses the namespace or the assembly name.
+
+## [2.2.0] (included in 3.0.0)
 
 A plugin built against 2.1.0 loads unchanged; a view document without the new members renders as before. A host older than 2.2.0 refuses a view that uses them only if it checks unknown members, which no released host does; it renders the blocks without reacting to state.
 
@@ -17,11 +43,24 @@ A plugin built against 2.1.0 loads unchanged; a view document without the new me
   - `PluginViews.FollowUpProperty` (`"followUp"`): on an action block or in a form's `submit`, `{ "refresh": [block ids], "until": <condition> }` reads the named blocks again after a successful call until the condition holds. The interval and the number of attempts belong to the host, so a plugin needs no polling of its own.
   - `PluginViews.MaxConditionValues` (20) and `PluginViews.MaxFollowUpRefresh` (20), the bounds of the `equals` and `refresh` lists.
 
-## [2.1.0]
+## [2.1.0] (included in 3.0.0)
 
 A plugin built against 2.0.0 loads unchanged: it only reads the fulfilment contexts and calls `IPluginHostApi`. The host builds the contexts and implements `IPluginHostApi`, so a host, and a plugin test that builds a context itself, passes the new `ClientRef` argument and implements the two new members.
 
 ### Added
+
+- `PluginManifest.Icon` (`"icon": "icon.svg"`), an optional package-relative path to an SVG or PNG file that is the plugin's own icon. It is optional and defaults to `null`, so an existing manifest and plugin are unaffected; the host shows the colour block when no icon is declared (innovayse/hostpanel#845).
+- Callbacks, requests from outside the panels such as a gateway notifying a plugin: `PluginArea.Callback` (3), `PluginApi.Callbacks` (`api.callbacks`, a list of `PluginRoute`, empty by default; a callback route has no `Permission` and is not `Streaming`, and `PluginApi.CallbackProblems()` lists the entries that break this), `PluginCall.Headers` (the request headers the host forwards, empty by default) and `PluginReplyKind.Raw` (5) with `PluginReply.Raw(status, body, contentType)`, which writes the bytes as they are. The status is 200 to 599 except 401 and 407, and the media type must not contain a line break. A callback carries no panel session: the plugin verifies the sender itself.
+- Refund idempotency: `RefundInstruction(GatewayOrderId, AmountMinor, RefundId)` and the overload `IPaymentPlugin.RefundAsync(RefundInstruction, CancellationToken)`, a default interface member that falls back to the existing `RefundAsync(string, long, CancellationToken)`. The host calls the overload with a stable `RefundId` it stores before the first call and reuses on every retry; a plugin overrides it to pass the id to the gateway as the idempotency key, so a repeated id never refunds twice and answers the same reference. A plugin that does not override it compiles and works unchanged, without that protection.
+- Cancelling an unsettled payment, as a separate optional interface: `IPaymentCancelPlugin` (extends `IPaymentPlugin`) with `CancelPaymentAsync(gatewayOrderId, ct)`, returning `PaymentCancelResult(Outcome, GatewayReference)`. `PaymentCancelOutcome` is `Cancelled` 1, `AlreadyCancelled` 2, `NotCancellable` 3. A repeated cancel is idempotent. Existing plugins are unaffected.
+- `StoredCredentialContract.AssertCompleteSaveMethodIsIdempotentAsync(plugin, sessionId, calls, ct)`, a test helper for plugin authors that completes one session several times and throws `PluginContractViolationException` unless every call answers the same result (and `Saved` agrees with `Method`, and nothing throws).
+- A test project, `tests/Hostpanel.Sdk.Tests`, run by CI; it is not part of the package.
+
+### Changed
+
+- `IStoredCredentialPlugin` now extends `IPaymentPlugin`. The documentation always said a stored credential plugin is implemented on its payment class beside `IPaymentPlugin`, and the host resolves it on top of the payment plugin, so a class that implemented both compiles unchanged; a class that implemented only `IStoredCredentialPlugin` now also has to implement the payment members.
+
+### Added earlier in 2.1.0
 
 - `ClientRef`, a record parameter after `ClientId`, on `InvoicePaidContext`, `InvoiceRefundedContext`, `RefundAdviceContext` and `SubscriptionLapsedContext`: the same plugin-scoped client reference an endpoint call of that plugin receives in `PluginCaller.ClientRef`, so what a plugin sold can be joined with what its endpoints see (innovayse/hostpanel#757).
 - SSH access to a bound hosting service (innovayse/hostpanel#758): `IPluginHostApi.IssueSshAccessAsync(serviceId, label)` returns a `PluginSshAccess` (key id, host, port, user name, domain, the Ed25519 private key in OpenSSH format and the pinned host key fingerprint) and `IPluginHostApi.RevokeSshAccessAsync(serviceId, keyId)` takes it back. A refusal is a `PluginHostAccessException` carrying a `PluginHostAccessFailure`. `PluginSshAccess.ToString()` leaves the private key out.

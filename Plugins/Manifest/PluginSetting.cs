@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>
 /// One typed setting an administrator fills in for a plugin, an entry of <c>settings</c> in <c>plugin.json</c>.

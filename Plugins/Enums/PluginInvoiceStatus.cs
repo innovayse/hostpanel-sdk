@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// The state of a client's invoice as <see cref="Host.IPluginHostApi"/> reports it. Values start at 1; 0 is not a

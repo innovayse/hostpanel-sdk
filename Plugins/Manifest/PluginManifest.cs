@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>
 /// Deserialised representation of a plugin's <c>plugin.json</c> manifest file.
@@ -62,6 +62,14 @@ public sealed class PluginManifest
 
     /// <summary>Gets the hex colour used for the plugin logo block.</summary>
     public string Color { get; init; } = "#6366f1";
+
+    /// <summary>
+    /// Gets the optional icon of the plugin: a path relative to the plugin package (forward slashes, for example
+    /// <c>icon.svg</c> or <c>assets/icon.png</c>) to an SVG or PNG file. The host checks the file when the plugin is
+    /// installed or loaded and shows it beside the plugin name; <see langword="null"/> (the default, and the value of
+    /// a missing <c>icon</c>) shows the <see cref="Color"/> block with the plugin's initial instead.
+    /// </summary>
+    public string? Icon { get; init; }
 
     /// <summary>Gets the fully-qualified type name of the provider implementation.</summary>
     public required string EntryPoint { get; init; }
