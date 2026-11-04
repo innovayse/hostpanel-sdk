@@ -1,4 +1,5 @@
 using Hostpanel.Sdk.Packaging.Enums;
+using Hostpanel.Sdk.Packaging.Icons;
 using static Hostpanel.Sdk.Packaging.Tests.Icons.IconFixtures;
 
 namespace Hostpanel.Sdk.Packaging.Tests.Icons;
@@ -296,5 +297,36 @@ public sealed class PluginIconSvgTests
 
         violation.Rule.Should().Be(PluginIconRule.Invalid);
         violation.Detail.Should().Be("icon 'icon.svg' is not well-formed SVG");
+    }
+
+    /// <summary>
+    /// A style made of unterminated comment openers up to the size cap is refused, and quickly: comments are stripped by a
+    /// linear scan, so a crafted file cannot keep the checker busy.
+    /// </summary>
+    [Fact(Timeout = 20000)]
+    public async Task Check_UnterminatedCommentsUpToTheSizeCap_IsInvalidAndFast()
+    {
+        const string prefix = SvgOpen + "<style>";
+        const string suffix = "</style></svg>";
+        var repeats = (int)((PluginIconChecker.MaxIconBytes - prefix.Length - suffix.Length) / "/*a".Length);
+        var svg = prefix + string.Concat(Enumerable.Repeat("/*a", repeats)) + suffix;
+        svg.Length.Should().BeLessThanOrEqualTo((int)PluginIconChecker.MaxIconBytes);
+
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var result = await Task.Run(() => CheckFile("icon.svg", svg));
+        clock.Stop();
+
+        result.Icon.Should().BeNull();
+        result.Violation!.Rule.Should().Be(PluginIconRule.Invalid);
+        clock.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5));
+    }
+
+    /// <summary>A comment that closes is read as a space, so it separates tokens the way a stylesheet does (a url followed by a comment and a bracket is still a url reference), and a closed one in a harmless style passes.</summary>
+    [Fact]
+    public void Check_ClosedComments_AreReadAsASpace()
+    {
+        CheckSvg("<style>rect{fill:#fff} /* note */ circle{fill:#000}</style>").Violation.Should().BeNull();
+        CheckSvg("<style>url/**/(https://example.org/x)</style>").Violation!.Rule.Should().Be(PluginIconRule.Invalid);
+        CheckSvg("<style>rect{fill:#fff} /* never closed</style>").Violation!.Rule.Should().Be(PluginIconRule.Invalid);
     }
 }

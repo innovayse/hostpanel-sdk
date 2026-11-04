@@ -126,4 +126,21 @@ public sealed class PluginSignaturePayloadTests
 
         act.Should().Throw<InvalidDataException>();
     }
+
+    /// <summary>
+    /// Where a backslash is an ordinary file name character, <c>a\b</c> and <c>a/b</c> would both read as <c>a/b</c>; such a
+    /// package is refused before anything is signed. Skipped where the file system cannot hold both names.
+    /// </summary>
+    [SkippableFact]
+    public void Build_BackslashNameAndSlashPathSharingOnePath_Throws()
+    {
+        using var folder = new TempFolder();
+        Skip.If(OperatingSystem.IsWindows(), "A backslash is a path separator here, so the two names cannot both exist.");
+        folder.Write("a/b", "one");
+        folder.Write("a\b", "two");
+
+        var act = () => PluginSignaturePayload.Build(folder.Path, GoldenKeyId);
+
+        act.Should().Throw<InvalidDataException>();
+    }
 }

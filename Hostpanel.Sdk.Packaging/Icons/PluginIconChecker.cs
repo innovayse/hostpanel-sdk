@@ -35,6 +35,18 @@ public static partial class PluginIconChecker
     /// <summary>The media type of a PNG icon.</summary>
     private const string PngContentType = "image/png";
 
+    /// <summary>
+    /// How long one regular expression may run on one text, in milliseconds. The patterns are linear on the sizes the byte cap
+    /// allows, so this never fires on an honest icon; it is the bound for a crafted one, and a timeout makes the icon invalid.
+    /// </summary>
+    private const int RegexTimeoutMilliseconds = 1000;
+
+    /// <summary>The opening of a CSS comment.</summary>
+    private const string CommentOpen = "/*";
+
+    /// <summary>The closing of a CSS comment.</summary>
+    private const string CommentClose = "*/";
+
     /// <summary>The separator of a package-relative path.</summary>
     private const char PackagePathSeparator = '/';
 
@@ -91,17 +103,17 @@ public static partial class PluginIconChecker
 
     /// <summary>Matches one segment of a package-relative path: lowercase letters, digits, dot, hyphen and underscore, not starting with a dot.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_.-]*\z", RegexOptions.CultureInvariant)]
+    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_.-]*\z", RegexOptions.CultureInvariant, RegexTimeoutMilliseconds)]
     private static partial Regex PathSegmentPattern();
 
     /// <summary>Matches a <c>url(...)</c> reference whose target is not a fragment of the same document.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"url\s*\((?>\s*)(?!['""]?\s*#)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"url\s*\((?>\s*)(?!['""]?\s*#)", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
     private static partial Regex ExternalUrlPattern();
 
     /// <summary>Matches an <c>@import</c> rule, a script URL or an <c>expression(</c> in a style.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"@import|javascript\s*:|expression\s*\(|behavior\s*:|-moz-binding", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"@import|javascript\s*:|expression\s*\(|behavior\s*:|-moz-binding", RegexOptions.CultureInvariant | RegexOptions.IgnoreCase, RegexTimeoutMilliseconds)]
     private static partial Regex ActiveStylePattern();
 
     /// <summary>
@@ -109,13 +121,8 @@ public static partial class PluginIconChecker
     /// and any one other character.
     /// </summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\\(?:([0-9a-fA-F]{1,6})[ \t\r\n\f]?|(.))", RegexOptions.CultureInvariant | RegexOptions.Singleline)]
+    [GeneratedRegex(@"\\(?:([0-9a-fA-F]{1,6})[ \t\r\n\f]?|(.))", RegexOptions.CultureInvariant | RegexOptions.Singleline, RegexTimeoutMilliseconds)]
     private static partial Regex CssEscapePattern();
-
-    /// <summary>Matches a CSS comment, which a stylesheet reads as a separator.</summary>
-    /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"/\*.*?\*/", RegexOptions.CultureInvariant | RegexOptions.Singleline)]
-    private static partial Regex CssCommentPattern();
 
     /// <summary>Reads the icon the manifest names, if any, and checks it against the icon rules.</summary>
     /// <param name="packageDir">The package folder: the installed folder at load, the unpacked staging folder at install.</param>
@@ -189,6 +196,11 @@ public static partial class PluginIconChecker
             return new PluginIconCheck(
                 null, new PluginIconViolation(PluginIconRule.Missing, $"{label} does not exist in the plugin folder"));
         }
+        catch (RegexMatchTimeoutException)
+        {
+            // A text that keeps a pattern busy for that long is hostile, not an icon.
+            return Invalid(label, "takes too long to check");
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
         {
             // Fixed text: an I/O message carries the absolute path of the file. A file that exists but cannot be read, or
@@ -211,8 +223,48 @@ public static partial class PluginIconChecker
             return true;
         }
 
-        var decoded = CssEscapePattern().Replace(CssCommentPattern().Replace(value, " "), DecodeEscape);
+        // A comment that never closes is refused outright: a stylesheet reader would swallow the rest of the text, and
+        // guessing what it hides is how a filter is bypassed.
+        var uncommented = StripComments(value);
+        if (uncommented is null)
+        {
+            return true;
+        }
+
+        var decoded = CssEscapePattern().Replace(uncommented, DecodeEscape);
         return ActiveStylePattern().IsMatch(decoded) || ExternalUrlPattern().IsMatch(decoded);
+    }
+
+    /// <summary>
+    /// Replaces every CSS comment with a space, as a stylesheet reads it. A hand scan, not a pattern: it visits each
+    /// character once whatever the text holds, so no input makes it slow.
+    /// </summary>
+    /// <param name="value">The text.</param>
+    /// <returns>The text with comments read as a space, or <see langword="null"/> when a comment is never closed.</returns>
+    private static string? StripComments(string value)
+    {
+        var result = new StringBuilder(value.Length);
+        var position = 0;
+        while (position < value.Length)
+        {
+            var open = value.IndexOf(CommentOpen, position, StringComparison.Ordinal);
+            if (open < 0)
+            {
+                result.Append(value, position, value.Length - position);
+                break;
+            }
+
+            result.Append(value, position, open - position).Append(' ');
+            var close = value.IndexOf(CommentClose, open + CommentOpen.Length, StringComparison.Ordinal);
+            if (close < 0)
+            {
+                return null;
+            }
+
+            position = close + CommentClose.Length;
+        }
+
+        return result.ToString();
     }
 
     /// <summary>Decodes one CSS escape to the character it stands for.</summary>
@@ -243,8 +295,19 @@ public static partial class PluginIconChecker
     /// <returns><see langword="true"/> when the path may be opened inside the package.</returns>
     private static bool IsPackageRelative(string path)
     {
-        return (path.EndsWith(SvgExtension, StringComparison.Ordinal) || path.EndsWith(PngExtension, StringComparison.Ordinal))
-            && path.Split(PackagePathSeparator).All(segment => PathSegmentPattern().IsMatch(segment));
+        if (!path.EndsWith(SvgExtension, StringComparison.Ordinal) && !path.EndsWith(PngExtension, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        try
+        {
+            return path.Split(PackagePathSeparator).All(segment => PathSegmentPattern().IsMatch(segment));
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
     }
 
     /// <summary>

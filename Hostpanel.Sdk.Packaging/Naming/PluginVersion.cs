@@ -10,7 +10,7 @@ namespace Hostpanel.Sdk.Packaging.Naming;
 /// same version by an accident of lenient parsing. The host compares versions to tell an upgrade from a downgrade; it
 /// never interprets them any other way.
 /// </summary>
-public sealed class PluginVersion : IComparable<PluginVersion>
+public sealed class PluginVersion : IComparable<PluginVersion>, IEquatable<PluginVersion>
 {
     /// <summary>The dot separated pre-release identifiers, or empty for a release.</summary>
     private readonly string[] _preRelease;
@@ -146,6 +146,56 @@ public sealed class PluginVersion : IComparable<PluginVersion>
         }
 
         return _preRelease.Length.CompareTo(other._preRelease.Length);
+    }
+
+    /// <summary>Whether two versions are equal in precedence, which is when <see cref="CompareTo"/> answers zero.</summary>
+    /// <param name="left">The first version, or <see langword="null"/>.</param>
+    /// <param name="right">The second version, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when both are null or both rank equal.</returns>
+    public static bool operator ==(PluginVersion? left, PluginVersion? right)
+    {
+        return left is null ? right is null : left.Equals(right);
+    }
+
+    /// <summary>Whether two versions differ in precedence.</summary>
+    /// <param name="left">The first version, or <see langword="null"/>.</param>
+    /// <param name="right">The second version, or <see langword="null"/>.</param>
+    /// <returns><see langword="true"/> when the two versions are not equal.</returns>
+    public static bool operator !=(PluginVersion? left, PluginVersion? right)
+    {
+        return !(left == right);
+    }
+
+    /// <summary>Whether this version equals another in precedence; build metadata is not kept, so it never matters.</summary>
+    /// <param name="other">The version to compare with.</param>
+    /// <returns><see langword="true"/> when <see cref="CompareTo"/> answers zero.</returns>
+    public bool Equals(PluginVersion? other)
+    {
+        return other is not null && CompareTo(other) == 0;
+    }
+
+    /// <inheritdoc />
+    public override bool Equals(object? obj)
+    {
+        return obj is PluginVersion other && Equals(other);
+    }
+
+    /// <summary>Gets a hash code that agrees with <see cref="Equals(PluginVersion?)"/>.</summary>
+    /// <returns>The hash of the numbers and the pre-release identifiers.</returns>
+    public override int GetHashCode()
+    {
+        // Two versions are equal exactly when numbers and identifiers match one by one (no leading zeros exist, so a number
+        // is equal only to the same text), so hashing the identifiers as text agrees with CompareTo.
+        var hash = new HashCode();
+        hash.Add(Major);
+        hash.Add(Minor);
+        hash.Add(Patch);
+        foreach (var identifier in _preRelease)
+        {
+            hash.Add(identifier, StringComparer.Ordinal);
+        }
+
+        return hash.ToHashCode();
     }
 
     /// <summary>Whether a text is a number without a sign, space or leading zero.</summary>

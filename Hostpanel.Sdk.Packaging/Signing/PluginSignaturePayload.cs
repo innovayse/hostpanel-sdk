@@ -56,7 +56,7 @@ public static class PluginSignaturePayload
     /// <param name="packageDir">The package root: the folder holding <c>plugin.json</c>.</param>
     /// <param name="keyId">The id of the key that signs, or is claimed to have signed.</param>
     /// <returns>The bytes that are signed.</returns>
-    /// <exception cref="InvalidDataException">The key id is not valid, or a file or folder in the package cannot be signed unambiguously: its name holds a control character or is not valid Unicode, or it is a link.</exception>
+    /// <exception cref="InvalidDataException">The key id is not valid, or a file or folder in the package cannot be signed unambiguously: its name holds a control character or is not valid Unicode, it is a link, or two files share one path once separators are normalised.</exception>
     public static byte[] Build(string packageDir, string keyId)
     {
         ArgumentException.ThrowIfNullOrEmpty(packageDir);
@@ -70,6 +70,16 @@ public static class PluginSignaturePayload
         Collect(new DirectoryInfo(root), root, lines);
 
         lines.Sort((a, b) => string.CompareOrdinal(a.Path, b.Path));
+
+        // On a file system where a backslash is an ordinary file name character, a\b and a/b both read as a/b. Two lines with
+        // one path would let a verifier and an extractor disagree about which file is signed, so the package is refused.
+        for (var i = 1; i < lines.Count; i++)
+        {
+            if (string.Equals(lines[i].Path, lines[i - 1].Path, StringComparison.Ordinal))
+            {
+                throw new InvalidDataException("Two files in the package have the same path once separators are normalised and cannot be signed.");
+            }
+        }
 
         var text = new StringBuilder()
             .Append(Header).Append('\n')

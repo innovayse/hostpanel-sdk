@@ -309,4 +309,19 @@ public sealed class PluginSignerTests
         Directory.GetFiles(folder.Path, "*.tmp", SearchOption.AllDirectories).Should().BeEmpty();
         PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey)).Should().BeNull();
     }
+
+    /// <summary>A temporary file left by an earlier run that died is removed first, so it is not listed in the signed payload.</summary>
+    [Fact]
+    public void Sign_LeftoverTemporaryFile_IsRemovedAndNotSigned()
+    {
+        using var folder = new TempFolder();
+        GoldenPackage.Write(folder);
+        var leftover = folder.Write(PluginSignatureFile.FileName + ".tmp", "half written");
+        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
+
+        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+
+        File.Exists(leftover).Should().BeFalse();
+        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey)).Should().BeNull();
+    }
 }

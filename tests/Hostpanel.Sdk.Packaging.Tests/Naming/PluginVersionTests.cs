@@ -92,6 +92,63 @@ public sealed class PluginVersionTests
         PluginVersion.Compare(installed, uploaded).Should().Be(expected);
     }
 
+    /// <summary>Equality agrees with <c>CompareTo</c>: equal when the order is zero, build metadata included, and the hash codes match.</summary>
+    /// <param name="left">The first version text.</param>
+    /// <param name="right">The second version text.</param>
+    [Theory]
+    [InlineData("1.2.3", "1.2.3")]
+    [InlineData("1.2.3+a", "1.2.3+b")]
+    [InlineData("1.2.3-beta.1", "1.2.3-beta.1+7")]
+    public void Equals_SamePrecedence_IsEqualWithTheSameHash(string left, string right)
+    {
+        var a = Parse(left);
+        var b = Parse(right);
+
+        a.CompareTo(b).Should().Be(0);
+        a.Equals(b).Should().BeTrue();
+        a.Equals((object)b).Should().BeTrue();
+        (a == b).Should().BeTrue();
+        (a != b).Should().BeFalse();
+        a.GetHashCode().Should().Be(b.GetHashCode());
+    }
+
+    /// <summary>Versions that differ in a number or a pre-release are not equal.</summary>
+    /// <param name="left">The first version text.</param>
+    /// <param name="right">The second version text.</param>
+    [Theory]
+    [InlineData("1.2.3", "1.2.4")]
+    [InlineData("1.2.3", "1.2.3-rc.1")]
+    [InlineData("1.2.3-rc.1", "1.2.3-rc.2")]
+    [InlineData("1.2.3-1", "1.2.3-a")]
+    public void Equals_DifferentPrecedence_IsNotEqual(string left, string right)
+    {
+        var a = Parse(left);
+        var b = Parse(right);
+
+        a.CompareTo(b).Should().NotBe(0);
+        a.Equals(b).Should().BeFalse();
+        (a == b).Should().BeFalse();
+        (a != b).Should().BeTrue();
+    }
+
+    /// <summary>A missing version equals only another missing one, and an object of another type is never equal.</summary>
+    [Fact]
+    public void Equals_Null_OnlyEqualsNull()
+    {
+        var version = Parse("1.0.0");
+        PluginVersion? none = null;
+        PluginVersion? alsoNone = null;
+
+        version.Equals(none).Should().BeFalse();
+        object text = "1.0.0";
+        version.Equals(text).Should().BeFalse();
+        (version == none).Should().BeFalse();
+        (none == version).Should().BeFalse();
+        var bothMissing = none == alsoNone;
+        bothMissing.Should().BeTrue();
+        (none != version).Should().BeTrue();
+    }
+
     /// <summary>Parses a version that the test knows is valid.</summary>
     /// <param name="text">The version text.</param>
     /// <returns>The version.</returns>

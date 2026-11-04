@@ -1,11 +1,16 @@
 <Project>
 
-  <!-- Built inside the host's backend (this repository is a submodule there) the host's own props apply first; built on
-       its own there is no such file and nothing is imported. -->
+  <!-- Built inside the host's backend (this repository is a submodule at backend/src/Hostpanel.Sdk there) the host's own
+       props apply first. The file found above this folder is imported only when it sits in a folder named backend/src: any
+       other Directory.Build.props higher up the tree (a monorepo, a workspace, a build agent's parent folder) belongs to
+       something else, and importing it would change this package's build without anyone choosing that. Built on its own,
+       or under any other layout, nothing is imported. -->
   <PropertyGroup>
     <HostBackendProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</HostBackendProps>
+    <HostBackendFolder Condition="'$(HostBackendProps)' != ''">$([System.IO.Path]::GetDirectoryName('$(HostBackendProps)').Replace('\', '/'))</HostBackendFolder>
+    <HostBackendIsExpected Condition="'$(HostBackendFolder)' != '' And $(HostBackendFolder.EndsWith('/backend/src'))">true</HostBackendIsExpected>
   </PropertyGroup>
-  <Import Project="$(HostBackendProps)" Condition="'$(HostBackendProps)' != ''" />
+  <Import Project="$(HostBackendProps)" Condition="'$(HostBackendIsExpected)' == 'true'" />
 
   <PropertyGroup>
     <!-- The one version of both packages, Hostpanel.Sdk and Hostpanel.Sdk.Packaging: a plugin author and a host pin one

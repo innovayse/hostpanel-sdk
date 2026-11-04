@@ -104,4 +104,31 @@ public sealed class PluginAssemblyNamesTests
     {
         PluginAssemblyNames.IsReserved(file, Platform, Options).Should().BeFalse();
     }
+
+    /// <summary>
+    /// A plugin built against the SDK's former assembly name is refused only when the host lists that name: the package
+    /// holds no host or former name of its own, so the host passes it in <see cref="PluginAssemblyOptions.ExtraReservedNames"/>
+    /// (the way the real host reserves <c>Innovayse.SDK</c>), in any letter case and with either extension.
+    /// </summary>
+    /// <param name="file">The file name.</param>
+    [Theory]
+    [InlineData("Innovayse.SDK.dll")]
+    [InlineData("innovayse.sdk.DLL")]
+    [InlineData("Innovayse.SDK.exe")]
+    public void IsReserved_FormerSdkNameListedByTheHost_IsRefused(string file)
+    {
+        var options = new PluginAssemblyOptions("Acme.Host.", "Acme.Host.Plugins.")
+        {
+            ExtraReservedNames = new HashSet<string> { "Innovayse.SDK" },
+        };
+
+        PluginAssemblyNames.IsReserved(file, Platform, options).Should().BeTrue();
+    }
+
+    /// <summary>Pins the current behaviour: the former name is not reserved by the package itself, only by a host that lists it.</summary>
+    [Fact]
+    public void IsReserved_FormerSdkNameNotListed_IsNotReservedByThePackage()
+    {
+        PluginAssemblyNames.IsReserved("Innovayse.SDK.dll", Platform, Options).Should().BeFalse();
+    }
 }

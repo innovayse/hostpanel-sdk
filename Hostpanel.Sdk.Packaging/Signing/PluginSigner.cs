@@ -46,6 +46,14 @@ public static class PluginSigner
     /// <exception cref="ArgumentException">The private key is not 32 bytes.</exception>
     public static PluginSignatureFile Sign(string packageDir, string keyId, byte[] privateKey)
     {
+        // A temporary file left by an earlier run that died between the write and the move would be listed in the payload
+        // (only plugin.sig itself is skipped) and then deleted after signing, leaving a signature no one can verify.
+        var leftover = Path.Combine(packageDir, PluginSignatureFile.FileName + TemporarySuffix);
+        if (File.Exists(leftover))
+        {
+            File.Delete(leftover);
+        }
+
         var payload = PluginSignaturePayload.Build(packageDir, keyId);
 
         var signer = new Ed25519Signer();
