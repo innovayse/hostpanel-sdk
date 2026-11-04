@@ -15,7 +15,7 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Hostpanel.Sdk --version 3.0.0
+dotnet add package Hostpanel.Sdk --version 3.1.0
 ```
 
 or, in the plugin's `.csproj`:
@@ -24,7 +24,7 @@ or, in the plugin's `.csproj`:
 <ItemGroup>
   <!-- ExcludeAssets="runtime" keeps Hostpanel.Sdk.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Hostpanel.Sdk" Version="3.0.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Hostpanel.Sdk" Version="3.1.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -43,7 +43,7 @@ Upgrading from 1.x? Version 2.0.0 moves types into one namespace per area and re
 
 | `PluginType` | Contract | What it is for |
 |---|---|---|
-| `Provisioning` | `IProvisioningPlugin`, `ProvisioningProviderBase` | Hosting accounts on a server or control panel. The contract is a marker today: the base class gives settings access, there are no operations yet. |
+| `Provisioning` | `IProvisioningPlugin`, `ProvisioningProviderBase` | Hosting accounts on a server or control panel. `IProvisioningPanelPlugin` adds the account operations (see "Provisioning panel plugins"); the marker and the base class give settings access. |
 | `Payment` | `IPaymentPlugin`, `PaymentGatewayBase` | A payment gateway: start a payment, read its status, refund it. |
 | `Registrar` | `IRegistrarPlugin`, `RegistrarProviderBase` | A domain registrar. The contract is a marker today: the base class gives settings access, there are no operations yet. |
 | `Identity` | `IClientResolver` | Decides which client a signed-in principal acts for and what it may do there. At most one identity plugin may be enabled. |
@@ -184,6 +184,60 @@ answer the earlier reference; otherwise send it.
 A plugin that can void a payment which was created but not settled also implements `IPaymentCancelPlugin`
 (`CancelPaymentAsync`). It is optional; a repeated cancel answers `AlreadyCancelled`, and a payment that can no longer
 be cancelled answers `NotCancellable` (a refund is the way back) instead of throwing.
+
+### Provisioning panel plugins
+
+A hosting control panel is a provisioning plugin that also implements `IProvisioningPanelPlugin`, which extends the
+`IProvisioningPlugin` marker. The marker and `ProvisioningProviderBase` do not change, so a provisioning plugin built on
+3.0.0 compiles and loads as before, with no panel operations. List `provisioningPanel` in the manifest's `capabilities`;
+the list must agree with the code. One plugin serves every server of its panel type: each call carries the server as a
+`PanelServerConnection` with the credentials the host stores, so keep no per-server state.
+
+| Operation | Context | Result | Repeat |
+|---|---|---|---|
+| `CreateAccountAsync` | `PanelCreateAccountContext` | `PanelCreateResult` | An account already held under the same user name is `AlreadyApplied` with the same `ProvisioningRef` |
+| `SuspendAccountAsync` | `PanelSuspendContext` | `PanelActionResult` | Already suspended is a success |
+| `UnsuspendAccountAsync` | `PanelAccountContext` | `PanelActionResult` | Already active is a success |
+| `TerminateAccountAsync` | `PanelTerminateContext` | `PanelActionResult` | Already gone is `AlreadyApplied`, never `NotFound` |
+| `ChangePackageAsync` | `PanelChangePackageContext` | `PanelActionResult` | Already on the package is a success |
+| `ChangePasswordAsync` | `PanelChangePasswordContext` | `PanelActionResult` | Sets it again and succeeds |
+| `CreateSsoLinkAsync` | `PanelSsoContext` | `PanelSsoResult` | Issues a new link each time |
+| `GetUsageAsync` | `PanelAccountContext` | `PanelUsageResult` | Read only |
+| `TestConnectionAsync` | `PanelTestConnectionContext` | `PanelConnectionTestResult` | Never throws for an unreachable panel |
+| `ListAccountsAsync` | `PanelListAccountsContext` | `PanelAccountListResult` | Read only, paged by `NextCursor` |
+
+- **Outcomes, not exceptions.** Every operation answers a `PanelOperationOutcome` (`Succeeded`, `AlreadyApplied`,
+  `NotFound`, `Refused`, `NotSupported`); the test answers a `PanelConnectionOutcome`. The values start at 1 and 0 is
+  not valid. A refusal carries a `PanelRefusalReason` and the host turns it into a sentence in the caller's language.
+  Throw only when you do not know what happened, for example when the panel could not be reached: the host then retries,
+  which is safe because of the next point.
+- **Idempotency.** The host retries after a lost answer. It chooses the user name of a create and stores it before the
+  first call, so the create is keyed by `PanelCreateAccountContext.Username`. When the panel refuses a repeat, look the
+  account up and answer from what you find instead of repeating the refusal.
+- **No panel text, no secrets.** A result never contains the panel's own error text (it can carry a user name, a domain
+  or an address) or a secret. Log the detail and answer a reason. `AccessHash`, `ApiToken`, `Password`, `NewPassword` and
+  the single sign on link print as `***`; do not undo that in your own logs.
+- **Packages and references.** `PanelPackage.Name` is the name as the panel knows it. `PanelService.ProvisioningRef` is
+  exactly what your `CreateAccountAsync` returned; it is `null` only for the create.
+- **Usage** is in bytes, and every figure is optional: report what the panel has.
+- **Network.** Take an `IPanelTransport` in the constructor and send every request on `CreateClient()`. Never create
+  your own `HttpClient`: only the transport is routed through the host's outbound address guard, private route map,
+  timeouts and no retry rule. The client has no base address; build it from `PanelServerConnection` (`UseSsl`; a null
+  `Port` means your own default port) and set the authorization header per request.
+- **Server modules.** List the module ids the plugin serves in `serverModules` of `plugin.json` (ASCII letters, digits,
+  dash, dot, underscore, at most 50, no duplicates). `PluginServerModules.Validate` checks the list.
+- **Addresses.** `PanelAccount.ControlPanelUrl` and `PanelCreateResult.ControlPanelUrl` are the account's control panel
+  login page when the panel tells it; they are not sign-in links.
+- **The old panel area is obsolete.** `IHostingPanelApiClient`, `IHostingPanelV7ApiClient` and the types beside them
+  (`Hostpanel.Sdk.Plugins.HostingPanel`) are marked `[Obsolete]`; move to `IProvisioningPanelPlugin`.
+- **Listing** is for reconciliation: following `NextCursor` to the end returns every account once, and a panel that
+  returns everything at once answers `null` as the cursor.
+
+In the plugin's own tests, run the `ProvisioningContract` checks against a stub of your panel:
+`AssertCreateIsIdempotentAsync`, `AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`,
+`AssertTerminateIsIdempotentAsync`, `AssertChangePackageIsIdempotentAsync`, `AssertChangePasswordIsIdempotentAsync`,
+`AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
+`AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
 
 ### Stored credential plugins
 
@@ -343,7 +397,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Hostpanel.Sdk" Version="3.0.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Hostpanel.Sdk" Version="3.1.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
