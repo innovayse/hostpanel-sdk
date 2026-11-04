@@ -5,6 +5,18 @@ All notable changes to the `Innovayse.SDK` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0]
+
+A plugin built against 2.1.0 loads unchanged; a view document without the new members renders as before. A host older than 2.2.0 refuses a view that uses them only if it checks unknown members, which no released host does; it renders the blocks without reacting to state.
+
+### Added
+
+- View state members (innovayse/hostpanel#852), documented on `PluginViews`:
+  - `PluginViews.VisibleWhenProperty` (`"visibleWhen"`): a block shows only while a condition holds. A condition is `{ "route": <GET PluginViewRoute>, "field": "<dotted path>", "equals": <value or list of values> }`.
+  - `PluginViews.ResetOnSuccessProperty` (`"resetOnSuccess"`): in a form's `submit`, `true` empties every field after a successful submit.
+  - `PluginViews.FollowUpProperty` (`"followUp"`): on an action block or in a form's `submit`, `{ "refresh": [block ids], "until": <condition> }` reads the named blocks again after a successful call until the condition holds. The interval and the number of attempts belong to the host, so a plugin needs no polling of its own.
+  - `PluginViews.MaxConditionValues` (20) and `PluginViews.MaxFollowUpRefresh` (20), the bounds of the `equals` and `refresh` lists.
+
 ## [2.1.0]
 
 A plugin built against 2.0.0 loads unchanged: it only reads the fulfilment contexts and calls `IPluginHostApi`. The host builds the contexts and implements `IPluginHostApi`, so a host, and a plugin test that builds a context itself, passes the new `ClientRef` argument and implements the two new members.
