@@ -1,0 +1,17 @@
+<Project>
+
+  <!-- Built inside the host's backend (this repository is a submodule there) the host's own props apply first; built on
+       its own there is no such file and nothing is imported. -->
+  <PropertyGroup>
+    <HostBackendProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</HostBackendProps>
+  </PropertyGroup>
+  <Import Project="$(HostBackendProps)" Condition="'$(HostBackendProps)' != ''" />
+
+  <PropertyGroup>
+    <!-- The one version of both packages, Hostpanel.Sdk and Hostpanel.Sdk.Packaging: a plugin author and a host pin one
+         number for the pair. Bump the minor for an added member, the major for a removed or renamed one.
+         .github/workflows/publish.yml reads this line and packs both projects with it. -->
+    <Version>3.1.0</Version>
+  </PropertyGroup>
+
+</Project>

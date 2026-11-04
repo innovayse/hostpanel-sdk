@@ -504,11 +504,20 @@ root of the archive, and upload it in the admin panel under Plugins, or place th
 host's `plugins/<id>/` folder. Never ship `Hostpanel.Sdk.dll` or a host assembly inside the plugin:
 the host refuses such an archive, and a second copy of the SDK on disk would make every cast fail.
 
+## Checking and signing a package
+
+The checks a host runs on an uploaded package (the `plugin.sig` signature, plugin id and version rules,
+reserved assembly names, archive guards, icon safety and the structural manifest rules) are published as a
+second package, `Hostpanel.Sdk.Packaging` (MIT, `net9.0`, same version as this package), so you can run the same
+code in your release pipeline before you publish: `PluginSigner.Sign(packageDirectory, keyId, privateKey)` writes
+the signature, and `PluginManifestChecker`, `PluginIconChecker` and `PluginAssemblyNames` answer the same questions
+the host will. See `Hostpanel.Sdk.Packaging/README.md`.
+
 ## Versioning
 
 The package follows [semantic versioning](https://semver.org/): a patch release fixes, a minor
 release adds members, a major release removes or renames them. A version is published by raising
-`<Version>` in `Hostpanel.Sdk.csproj`: the publish workflow pushes a version the feed does not have
+`<Version>` in `Directory.Build.props` (one version for `Hostpanel.Sdk` and `Hostpanel.Sdk.Packaging`): the publish workflow pushes a version the feed does not have
 yet and skips one it already has, so a change that keeps the version publishes nothing. Each
 release is listed in `CHANGELOG.md`.
 

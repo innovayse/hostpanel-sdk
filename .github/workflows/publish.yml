@@ -5,7 +5,7 @@ name: Publish
 #
 # Runs once the CI workflow has finished green for a push to main or to a version tag, on exactly the
 # commit CI tested. A pull request run of CI never publishes, even from a fork branch that happens to be
-# named main. A release tag vX.Y.Z must equal <Version> in Hostpanel.Sdk.csproj. A prerelease tag
+# named main. A release tag vX.Y.Z must equal <Version> in Directory.Build.props. A prerelease tag
 # vX.Y.Z-preview.N publishes X.Y.Z-preview.N from a commit whose <Version> is X.Y.Z, so plugin authors can
 # pin an unreleased version from develop like any other package; NuGet never offers a prerelease to a
 # consumer who did not ask for one. Either way a tag can never publish a package whose version says
@@ -77,7 +77,7 @@ jobs:
         if: steps.feed.outputs.configured == 'true'
         run: |
           set -eu
-          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Hostpanel.Sdk.csproj)
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)
           case "$SOURCE_REF" in
             main)
               package="$version" ;;
@@ -91,7 +91,7 @@ jobs:
               fi
               package="$version-$suffix" ;;
             *)
-              echo "Tag $SOURCE_REF does not match <Version>$version</Version> in Hostpanel.Sdk.csproj, refusing to publish."
+              echo "Tag $SOURCE_REF does not match <Version>$version</Version> in Directory.Build.props, refusing to publish."
               exit 1 ;;
           esac
           echo "Publishing $package from $SOURCE_REF."
@@ -100,9 +100,13 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "9.0.x"
+      # Both packages are packed with the one version worked out above, so the pair moves together; the
+      # packaging package depends on that version of the SDK package or a later one (a project reference packs as a minimum version).
       - name: Pack
         if: steps.feed.outputs.configured == 'true'
-        run: dotnet pack Hostpanel.Sdk.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true -p:Version=${{ steps.version.outputs.package }}
+        run: |
+          dotnet pack Hostpanel.Sdk.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true -p:Version=${{ steps.version.outputs.package }}
+          dotnet pack Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true -p:Version=${{ steps.version.outputs.package }}
       - name: Get a short lived nuget.org key
         id: login
         if: steps.feed.outputs.configured == 'true'
