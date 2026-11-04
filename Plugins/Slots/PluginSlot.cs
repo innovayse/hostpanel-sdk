@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Slots;
+namespace Hostpanel.Sdk.Plugins.Slots;
 
 /// <summary>
 /// One place in a host page where plugins may add content, and the context the host offers there. A host validates the

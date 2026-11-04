@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace Innovayse.SDK.Plugins.Identity;
+namespace Hostpanel.Sdk.Plugins.Identity;
 
 /// <summary>
 /// Contract for an identity plugin (<see cref="Enums.PluginType.Identity"/>): answers "which client is

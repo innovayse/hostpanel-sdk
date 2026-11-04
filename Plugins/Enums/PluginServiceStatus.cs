@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// The lifecycle state of a client's service as <see cref="Host.IPluginHostApi"/> reports it. Values start at 1;

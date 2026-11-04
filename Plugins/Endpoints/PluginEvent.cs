@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace Innovayse.SDK.Plugins.Endpoints;
+namespace Hostpanel.Sdk.Plugins.Endpoints;
 
 /// <summary>
 /// One event of a streamed reply (<see cref="PluginReply.Stream"/>). The host writes it as a server-sent event, so

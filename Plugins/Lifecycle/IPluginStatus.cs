@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Lifecycle;
+namespace Hostpanel.Sdk.Plugins.Lifecycle;
 
 /// <summary>
 /// Optional capability of an app plugin: it reports how well it works, so the host can show it on the plugin's admin

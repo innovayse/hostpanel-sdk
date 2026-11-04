@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Host;
+namespace Hostpanel.Sdk.Plugins.Host;
 
 /// <summary>One service of the call's client. The id is the one a slot passes as the <c>serviceId</c> context key.</summary>
 /// <param name="Id">The host's own id of this service, one of the caller's own records.</param>

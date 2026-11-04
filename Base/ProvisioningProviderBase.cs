@@ -1,8 +1,8 @@
-using Innovayse.SDK.Plugins.Provisioning;
+using Hostpanel.Sdk.Plugins.Provisioning;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Innovayse.SDK.Base;
+namespace Hostpanel.Sdk.Base;
 
 /// <summary>
 /// Base class for all provisioning provider plugins.

@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// How a charge against a stored payment method ended. The values start at 1 and 0 is not valid: a
@@ -17,11 +17,11 @@ public enum StoredChargeOutcome
     /// <summary>
     /// The payer must authenticate before the charge can complete; the result carries the URL to send them to. After the
     /// payer authenticates, the host resolves the final outcome with
-    /// <see cref="Innovayse.SDK.Plugins.StoredCredentials.IStoredCredentialPlugin.FindChargeAsync"/> and the same
+    /// <see cref="Hostpanel.Sdk.Plugins.StoredCredentials.IStoredCredentialPlugin.FindChargeAsync"/> and the same
     /// idempotency key, so the plugin must report the settled outcome there.
     /// </summary>
     ActionRequired = 3,
 
-    /// <summary>The gateway accepted the charge but has not settled it. The host never treats it as paid and resolves it later through <see cref="Innovayse.SDK.Plugins.StoredCredentials.IStoredCredentialPlugin.FindChargeAsync"/>.</summary>
+    /// <summary>The gateway accepted the charge but has not settled it. The host never treats it as paid and resolves it later through <see cref="Hostpanel.Sdk.Plugins.StoredCredentials.IStoredCredentialPlugin.FindChargeAsync"/>.</summary>
     Pending = 4,
 }

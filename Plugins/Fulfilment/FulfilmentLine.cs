@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Fulfilment;
+namespace Hostpanel.Sdk.Plugins.Fulfilment;
 
 /// <summary>One product line of an invoice, as a fulfilment plugin sees it.</summary>
 /// <param name="ProductId">The host's product id.</param>
@@ -11,7 +11,10 @@ namespace Innovayse.SDK.Plugins.Fulfilment;
 /// <param name="Quantity">Units on the line (≥ 1).</param>
 /// <param name="Amount">Line total in <paramref name="Currency"/>.</param>
 /// <param name="Currency">ISO 4217 alpha code of the invoice.</param>
-/// <param name="BillingCycle">How often the line renews, or null for a one-off line.</param>
+/// <param name="BillingCycle">
+/// How often the line renews, or null for a one-off line. Every <see cref="PluginBillingCycle"/> value can arrive, and a
+/// newer host may send one this SDK version does not name: see <see cref="PluginBillingCycle"/> for how to handle it.
+/// </param>
 public sealed record FulfilmentLine(
     int ProductId,
     string? Sku,

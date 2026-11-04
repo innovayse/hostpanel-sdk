@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Innovayse.SDK.Base;
+namespace Hostpanel.Sdk.Base;
 
 /// <summary>
 /// Base class for all payment gateway plugins.

@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>One piece of content a plugin puts into a slot the host offers, an entry of <c>slots</c> in <c>plugin.json</c>.</summary>
 public sealed class PluginSlotEntry

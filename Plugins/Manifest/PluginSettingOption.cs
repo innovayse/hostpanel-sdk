@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>One choice of a select setting.</summary>
 public sealed class PluginSettingOption

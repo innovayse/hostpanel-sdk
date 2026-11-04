@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace Innovayse.SDK.Plugins.HostingPanel;
+namespace Hostpanel.Sdk.Plugins.HostingPanel;
 
 /// <summary>The JSON envelope a hosting panel's REST API answers account calls with.</summary>
 public sealed record HostingPanelApiWire

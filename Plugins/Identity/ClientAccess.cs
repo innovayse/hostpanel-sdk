@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Identity;
+namespace Hostpanel.Sdk.Plugins.Identity;
 
 /// <summary>
 /// What an identity plugin knows about the caller: which external account they act for and

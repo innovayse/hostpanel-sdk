@@ -7,7 +7,8 @@
     <LangVersion>12</LangVersion>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <RootNamespace>Innovayse.SDK</RootNamespace>
+    <RootNamespace>Hostpanel.Sdk</RootNamespace>
+    <AssemblyName>Hostpanel.Sdk</AssemblyName>
 
     <!-- This project builds on its own (this repository) and as a git submodule inside the host's
          backend, which manages package versions centrally. The SDK opts out of that and pins its
@@ -18,8 +19,8 @@
          the major for a removed or renamed one. .github/workflows/publish.yml pushes a version
          the feed does not have yet and skips one it does, so a change that keeps the version
          publishes nothing. -->
-    <PackageId>Innovayse.SDK</PackageId>
-    <Version>2.0.0</Version>
+    <PackageId>Hostpanel.Sdk</PackageId>
+    <Version>3.0.0</Version>
     <Authors>Hostpanel contributors</Authors>
     <Copyright>Copyright (c) 2024-2026 the Hostpanel contributors</Copyright>
     <Description>Plugin contracts for hostpanel: provisioning, payment, registrar, identity, fulfilment, hosted and app plugins. MIT licensed, so a plugin may be free or paid, open or closed source.</Description>
@@ -36,6 +37,12 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The test project sits below this one; without this the default globbing would compile it into the package. -->
+    <Compile Remove="tests/**" />
+    <None Remove="tests/**" />
+  </ItemGroup>
 
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />

@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Payment;
+namespace Hostpanel.Sdk.Plugins.Payment;
 
 /// <summary>Input for <see cref="IPaymentPlugin.CreatePaymentAsync"/>.</summary>
 /// <param name="OrderNumber">Merchant-side order number, unique per attempt, gateway limits apply (some gateways accept at most 25 characters).</param>

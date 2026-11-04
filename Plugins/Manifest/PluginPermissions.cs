@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>
 /// The permission names a manifest may use besides a client permission name, in the <c>permission</c> member of a

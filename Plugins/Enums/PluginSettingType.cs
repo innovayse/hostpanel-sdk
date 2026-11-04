@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// The input kind of one typed plugin setting, written in the <c>type</c> member of a <c>settings</c> entry

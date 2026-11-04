@@ -1,7 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 
-namespace Innovayse.SDK.Plugins.HostingPanel;
+namespace Hostpanel.Sdk.Plugins.HostingPanel;
 
 /// <summary>Builds the address a hosting panel answers on, so every provider spells it the same way.</summary>
 public static class HostingPanelAddress

@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>The <c>ui</c> block of <c>plugin.json</c>: what the plugin adds to the client and admin panels.</summary>
 public sealed class PluginUi

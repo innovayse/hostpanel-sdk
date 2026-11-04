@@ -1,8 +1,8 @@
-using Innovayse.SDK.Plugins.Registrar;
+using Hostpanel.Sdk.Plugins.Registrar;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
-namespace Innovayse.SDK.Base;
+namespace Hostpanel.Sdk.Base;
 
 /// <summary>
 /// Base class for all domain registrar plugins.

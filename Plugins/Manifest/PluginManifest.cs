@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Manifest;
+namespace Hostpanel.Sdk.Plugins.Manifest;
 
 /// <summary>
 /// Deserialised representation of a plugin's <c>plugin.json</c> manifest file.
@@ -12,6 +12,9 @@ public sealed class PluginManifest
 
     /// <summary>Backing field of <see cref="Capabilities"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<string> _capabilities = [];
+
+    /// <summary>Backing field of <see cref="HostAccess"/>; empty unless the manifest lists some.</summary>
+    private readonly IReadOnlyList<string> _hostAccess = [];
 
     /// <summary>Backing field of <see cref="Settings"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginSetting> _settings = [];
@@ -59,6 +62,14 @@ public sealed class PluginManifest
 
     /// <summary>Gets the hex colour used for the plugin logo block.</summary>
     public string Color { get; init; } = "#6366f1";
+
+    /// <summary>
+    /// Gets the optional icon of the plugin: a path relative to the plugin package (forward slashes, for example
+    /// <c>icon.svg</c> or <c>assets/icon.png</c>) to an SVG or PNG file. The host checks the file when the plugin is
+    /// installed or loaded and shows it beside the plugin name; <see langword="null"/> (the default, and the value of
+    /// a missing <c>icon</c>) shows the <see cref="Color"/> block with the plugin's initial instead.
+    /// </summary>
+    public string? Icon { get; init; }
 
     /// <summary>Gets the fully-qualified type name of the provider implementation.</summary>
     public required string EntryPoint { get; init; }
@@ -131,14 +142,26 @@ public sealed class PluginManifest
     /// <summary>
     /// Gets the optional capabilities the plugin declares, named in <see cref="PluginCapabilities"/> (for example
     /// <c>storedCredentials</c>). Lets the admin and the client portal show what a plugin can do without activating
-    /// it; each entry must agree with the interfaces the plugin class implements. Valid for payment plugins
-    /// (<see cref="PluginType.Payment"/>); other types leave it empty. A missing or <c>null</c> <c>capabilities</c>
+    /// it; each entry must agree with the interfaces the plugin class implements. <c>storedCredentials</c> fits
+    /// payment plugins (<see cref="PluginType.Payment"/>) only; <c>endpoints</c> fits any plugin type. A type
+    /// leaves the list empty when no capability applies to it. A missing or <c>null</c> <c>capabilities</c>
     /// in the JSON reads as an empty list, never <see langword="null"/>.
     /// </summary>
     public IReadOnlyList<string> Capabilities
     {
         get => _capabilities;
         init => _capabilities = value ?? [];
+    }
+
+    /// <summary>
+    /// Gets the kinds of access to a client's hosting the plugin asks for, named in <see cref="Host.PluginHostAccess"/>
+    /// (for example <c>ssh</c>); empty when it asks for none. A missing or <c>null</c> <c>hostAccess</c> in the JSON
+    /// reads as an empty list. The admin plugins page shows each entry.
+    /// </summary>
+    public IReadOnlyList<string> HostAccess
+    {
+        get => _hostAccess;
+        init => _hostAccess = value ?? [];
     }
 
     /// <summary>

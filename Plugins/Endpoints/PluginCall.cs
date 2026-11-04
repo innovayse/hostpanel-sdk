@@ -1,8 +1,8 @@
-using Innovayse.SDK.Plugins.Enums;
-using Innovayse.SDK.Plugins.Host;
-using Innovayse.SDK.Plugins.Store;
+using Hostpanel.Sdk.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Host;
+using Hostpanel.Sdk.Plugins.Store;
 
-namespace Innovayse.SDK.Plugins.Endpoints;
+namespace Hostpanel.Sdk.Plugins.Endpoints;
 
 /// <summary>
 /// One request the host forwards to a plugin after it matched a declared route and authorised the caller. It carries no
@@ -16,6 +16,10 @@ public sealed class PluginCall
 
     /// <summary>Backing field of <see cref="Query"/>; empty unless the request has a query string.</summary>
     private readonly IReadOnlyDictionary<string, IReadOnlyList<string>> _query = new Dictionary<string, IReadOnlyList<string>>();
+
+    /// <summary>Backing field of <see cref="Headers"/>; empty unless the host forwards request headers.</summary>
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<string>> _headers =
+        new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Backing field of <see cref="Context"/>; empty unless the call comes from a slot.</summary>
     private readonly IReadOnlyDictionary<string, string> _context = new Dictionary<string, string>();
@@ -72,6 +76,19 @@ public sealed class PluginCall
     {
         get => _context;
         init => _context = value ?? new Dictionary<string, string>();
+    }
+
+    /// <summary>
+    /// Gets the request headers the host forwards, by name; a repeated header keeps every value in order. The host
+    /// decides which headers it passes on and never forwards credentials of its own session. It exists for
+    /// <see cref="PluginArea.Callback"/> calls, where a plugin verifies a sender by a signature header; empty on any
+    /// call for which the host forwards none. The default is case-insensitive, but a map the host supplies may not be,
+    /// so a plugin that must find a header should compare names with <see cref="StringComparison.OrdinalIgnoreCase"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> Headers
+    {
+        get => _headers;
+        init => _headers = value ?? new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>Gets the request body, already within the host's size cap; empty when there is none.</summary>

@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Payment;
+namespace Hostpanel.Sdk.Plugins.Payment;
 
 /// <summary>
 /// Contract for redirect-based payment gateway plugins (hosted payment page model).
@@ -41,4 +41,35 @@ public interface IPaymentPlugin
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A gateway reference for the refund operation.</returns>
     Task<string> RefundAsync(string gatewayOrderId, long amountMinor, CancellationToken ct);
+
+    /// <summary>
+    /// Refunds a captured payment, fully or partially, under a host-supplied stable refund id. This is the overload
+    /// the host calls. A plugin overrides it to pass <see cref="RefundInstruction.RefundId"/> to the gateway as the
+    /// idempotency key; a plugin that does not is still called, and the default falls back to
+    /// <see cref="RefundAsync(string, long, CancellationToken)"/> without the id, so its refunds are not protected
+    /// against a repeat.
+    /// <para>
+    /// Retry semantics. The host stores the refund id before the first call and reuses it for every retry of the same
+    /// refund, after a timeout, a crash or an exception. A repeated call with the same id must never refund twice and
+    /// should answer the same gateway reference as the first call. A gateway without native idempotency keys needs the
+    /// plugin to look the id up in its own store first. A refusal by the gateway throws, as with the other overload.
+    /// </para>
+    /// <para>
+    /// Retry without a plugin store. <see cref="RefundInstruction.AlreadyRefundedMinor"/> is what the host has already
+    /// recorded as refunded through the order before this refund. A gateway that reports the total it has refunded on
+    /// an order can use it instead of storage: when that total is at least
+    /// <c>AlreadyRefundedMinor + AmountMinor</c> the refund already happened (a retry), so skip it and answer the
+    /// reference of the earlier refund; otherwise send it. The default implementation below cannot apply the rule, as
+    /// the older overload has no such value, and ignores it.
+    /// </para>
+    /// </summary>
+    /// <param name="instruction">The order, the amount in minor units and the stable refund id.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A gateway reference for the refund operation; the same value on a repeat of the same refund id.</returns>
+    Task<string> RefundAsync(RefundInstruction instruction, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(instruction);
+        ArgumentOutOfRangeException.ThrowIfNegative(instruction.AlreadyRefundedMinor);
+        return RefundAsync(instruction.GatewayOrderId, instruction.AmountMinor, ct);
+    }
 }

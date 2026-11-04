@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Provisioning;
+namespace Hostpanel.Sdk.Plugins.Provisioning;
 
 /// <summary>
 /// Marker interface for all provisioning provider plugins.

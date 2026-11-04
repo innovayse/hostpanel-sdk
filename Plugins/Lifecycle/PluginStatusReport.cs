@@ -1,6 +1,6 @@
-using Innovayse.SDK.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Enums;
 
-namespace Innovayse.SDK.Plugins.Lifecycle;
+namespace Hostpanel.Sdk.Plugins.Lifecycle;
 
 /// <summary>A plugin's answer to <see cref="Lifecycle.IPluginStatus.GetStatusAsync"/>.</summary>
 /// <param name="Health">How well the plugin works.</param>

@@ -1,4 +1,4 @@
-namespace Innovayse.SDK.Plugins.Enums;
+namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
 /// The shape of a <see cref="Endpoints.PluginReply"/>. Values start at 1; 0 is not a reply.
@@ -16,4 +16,10 @@ public enum PluginReplyKind
 
     /// <summary>A stream of <see cref="Endpoints.PluginEvent"/> values the host forwards as server-sent events.</summary>
     Stream = 4,
+
+    /// <summary>
+    /// A raw body with its own status and media type, written to the response as is. Meant for the plain answer a
+    /// callback sender expects, for example <c>OK</c> as <c>text/plain</c>.
+    /// </summary>
+    Raw = 5,
 }
