@@ -5,6 +5,34 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0]
+
+### Added
+
+- Provisioning panel operations (innovayse/hostpanel-sdk#16): `IProvisioningPanelPlugin : IProvisioningPlugin`, so a hosting control panel can ship as an external plugin. Ten operations, each taking one typed context and answering one typed result: `CreateAccountAsync`, `SuspendAccountAsync`, `UnsuspendAccountAsync`, `TerminateAccountAsync`, `ChangePackageAsync`, `ChangePasswordAsync`, `CreateSsoLinkAsync`, `GetUsageAsync`, `TestConnectionAsync` and `ListAccountsAsync` (paged, for reconciliation).
+  - Contexts: `PanelServerConnection` (host name, address, port, user and the secrets `AccessHash` and `ApiToken`), `PanelService`, `PanelClientRef`, `PanelPackage`, and one context per operation (`PanelCreateAccountContext`, `PanelSuspendContext`, `PanelTerminateContext`, `PanelChangePackageContext`, `PanelChangePasswordContext`, `PanelSsoContext`, `PanelAccountContext`, `PanelTestConnectionContext`, `PanelListAccountsContext`). Every secret member (`AccessHash`, `ApiToken`, `Password`, `NewPassword`) prints as `***`, like `HostingPanelConnection.ApiKey`.
+  - Results: `PanelCreateResult`, `PanelActionResult`, `PanelSsoResult` (the link prints masked), `PanelUsageResult` with `PanelUsage`, `PanelConnectionTestResult` and `PanelAccountListResult` with `PanelAccount`. Outcomes are enums that start at 1: `PanelOperationOutcome` (`Succeeded`, `AlreadyApplied`, `NotFound`, `Refused`, `NotSupported`), `PanelConnectionOutcome`, `PanelRefusalReason` and `PanelAccountStatus`. A result never carries panel text or a secret; a refusal carries a `PanelRefusalReason`.
+  - Idempotency is part of the contract and documented per operation: a retried create answers `AlreadyApplied` with the same reference, and a retried suspend, unsuspend, terminate or package change answers a success. A terminate of an account that is already gone is `AlreadyApplied`, never `NotFound`.
+  - `ProvisioningContract` (for a plugin's own tests, like `StoredCredentialContract`): `AssertCreateIsIdempotentAsync`, `AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`, `AssertTerminateIsIdempotentAsync`, `AssertChangePackageIsIdempotentAsync`, `AssertChangePasswordIsIdempotentAsync`, `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and `AssertHidesSecrets`. They throw `PluginContractViolationException`.
+  - `PluginCapabilities.ProvisioningPanel` (`"provisioningPanel"`), the manifest capability a plugin lists when it implements the interface.
+  - `PluginManifest.ServerModules` (`"serverModules"`): the server module ids a provisioning panel plugin serves. `PluginServerModules.Validate` / `IsWellFormed` refuse an empty list, an empty, duplicate (ignoring case) or badly formed id (ASCII letters, digits, dash, dot, underscore, at most `PluginServerModules.MaxIdLength` = 50); violations are `PluginServerModuleViolation` with a `PluginServerModuleRule`.
+  - `IPanelTransport` (`CreateClient()`): the host supplied HTTP client a panel plugin must use, taken in its constructor. It is routed through the host's outbound address guard, private route map, timeouts and no retry rule; a plugin never creates its own `HttpClient`.
+  - `PanelServerConnection.UseSsl`; a null `Port` means the plugin's own default. `PanelAccount.ControlPanelUrl` and `PanelCreateResult.ControlPanelUrl` (a plain login page address, never a sign-in link). `Created` and `AlreadyExists` take an optional `controlPanelUrl`. The create context's `PanelClientRef` (reference, e-mail address, name) is required; the e-mail address and name inside it may be null.
+
+### Migrating a provisioning plugin to the panel operations
+
+Nothing is required: `IProvisioningPlugin`, `ProvisioningProviderBase` and every existing type are unchanged, so a provisioning plugin built on 3.0.0 compiles and loads on 3.1.0 as it is. It has no panel operations, and a host that calls them skips it (`plugin is IProvisioningPanelPlugin` is false). To offer them:
+
+1. Raise the package reference to `Hostpanel.Sdk` 3.1.0.
+2. Implement `IProvisioningPanelPlugin` on the provisioning class, next to `ProvisioningProviderBase`. The ten operations are required; an operation the panel does not have answers `PanelOperationOutcome.NotSupported` instead of throwing.
+3. Add `"provisioningPanel"` to `capabilities` in `plugin.json`, so the admin knows without activating the plugin. The list must agree with the code.
+4. Return outcomes, not exceptions, for a refusal, a missing account and an unsupported operation; throw only when the result is unknown (the panel could not be reached). Never put panel text, a user name, a domain or a secret in a result, a log line or an exception message.
+5. In the plugin's tests, call the `ProvisioningContract` checks against a stub of your panel.
+
+### Changed
+
+- Deprecated: the whole `Hostpanel.Sdk.Plugins.HostingPanel` area (`IHostingPanelApiClient`, `IHostingPanelV7ApiClient`, `HostingPanelConnection`, `HostingPanelAddress`, `HostingPanelApiReader`, `HostingPanelApiWire`, `HostingPanelServerInfo`, `HostingPanelV7ServerInfo`) is marked `[Obsolete]` and points to `IProvisioningPanelPlugin`. Nothing is removed in 3.1.0; the area goes in the next major version. Code that uses it gets a warning, which a build that treats warnings as errors must suppress (`CS0618`) until it moves.
+
 ## [3.0.0]
 
 Breaking: the package, the assembly and every namespace are renamed from `Innovayse.SDK` to `Hostpanel.Sdk`. No type, member or behaviour is renamed or removed besides this. The release also carries everything of 2.2.0 and 2.1.0 (the sections below).
