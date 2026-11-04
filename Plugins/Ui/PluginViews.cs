@@ -27,6 +27,27 @@ namespace Innovayse.SDK.Plugins.Ui;
 /// <c>api</c>; the area is the one of the page or slot that shows the view. The panel fills each <c>{parameter}</c>
 /// from the page path parameter or the slot context key of the same name and calls the route through the host.
 /// </para>
+/// <para>
+/// A view reacts to state with three members (since 2.2.0). A condition is the object
+/// <c>{ "route": { "method": "get", "path": "/services/{serviceId}/site" }, "field": "site.status", "equals": ["ready", "live"] }</c>:
+/// <c>route</c> names a GET route of the same area, <c>field</c> is a dotted path into its reply and <c>equals</c> is one
+/// JSON value (a string, a number, <c>true</c>, <c>false</c> or <c>null</c>) or a list of 1 to
+/// <see cref="MaxConditionValues"/> of them; the condition holds while the field equals one of them, compared exactly
+/// (no conversion between a number and a string).
+/// </para>
+/// <list type="bullet">
+/// <item><description><see cref="VisibleWhenProperty"/> on any block holds a condition: the panel shows the block only
+/// while the condition holds, and hides it while the route is read, when the read fails and when the field is absent.
+/// The panel reads the condition again whenever the block's <c>id</c> is refreshed.</description></item>
+/// <item><description><see cref="ResetOnSuccessProperty"/> in a form's <c>submit</c> is <c>true</c> or <c>false</c>:
+/// when <c>true</c>, every field returns to its empty value after a successful submit.</description></item>
+/// <item><description><see cref="FollowUpProperty"/> on an action block, or in a form's <c>submit</c>, is
+/// <c>{ "refresh": ["status"], "until": condition }</c>: after a successful call the panel reads the blocks whose
+/// <c>id</c> is listed in <c>refresh</c> (1 to <see cref="MaxFollowUpRefresh"/> ids, each the <c>id</c> of a block of the
+/// same document) again and again until the <c>until</c> condition holds. How often and how many times is the host's
+/// decision, never the plugin's: the panel stops after its own bounded number of attempts and when the reader leaves
+/// the page, so a plugin needs no polling of its own.</description></item>
+/// </list>
 /// </remarks>
 public static class PluginViews
 {
@@ -54,4 +75,30 @@ public static class PluginViews
     /// Compared exactly.
     /// </summary>
     public static IReadOnlyList<string> RouteProperties { get; } = ["route", "send", "history"];
+
+    /// <summary>
+    /// The member of a block holding the condition under which the block is shown (since 2.2.0). Its value is a
+    /// condition object: <c>route</c> (a GET <see cref="PluginViewRoute"/>), <c>field</c> (a dotted path into the reply)
+    /// and <c>equals</c> (one JSON value or a list of 1 to <see cref="MaxConditionValues"/> of them).
+    /// </summary>
+    public const string VisibleWhenProperty = "visibleWhen";
+
+    /// <summary>
+    /// The member of a form's <c>submit</c> telling the panel to empty every field after a successful submit (since
+    /// 2.2.0). Its value is <c>true</c> or <c>false</c>; absent means <c>false</c>.
+    /// </summary>
+    public const string ResetOnSuccessProperty = "resetOnSuccess";
+
+    /// <summary>
+    /// The member of an action block, or of a form's <c>submit</c>, naming the blocks the panel reads again after a
+    /// successful call until a condition holds (since 2.2.0): <c>{ "refresh": [block ids], "until": condition }</c>.
+    /// The interval and the number of attempts are the host's; a plugin cannot set them.
+    /// </summary>
+    public const string FollowUpProperty = "followUp";
+
+    /// <summary>The most values the <c>equals</c> list of a condition may hold.</summary>
+    public const int MaxConditionValues = 20;
+
+    /// <summary>The most block ids the <c>refresh</c> list of a follow-up may hold.</summary>
+    public const int MaxFollowUpRefresh = 20;
 }
