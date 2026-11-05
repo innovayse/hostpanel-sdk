@@ -5,6 +5,14 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0]
+
+### Added
+
+- `PluginPage.Layout` and `PluginPageLayouts` (`standard`, `workspace`): a client page may ask for the full width, with no service side menu (innovayse/hostpanel#910).
+- `PluginViews.BlockKinds` gains `split` (two panes, `PanesProperty`, `SplitPaneCount`) and `preview` (a sandboxed frame on a client page, `PreviewSourcesProperty`, `MaxPreviewSources`, `MaxPreviewSourceIdLength`, `PreviewSizeProperty`, `PreviewSizes`). The schema version stays 1. A preview shows an address only on an origin the host allows for the reader (innovayse/hostpanel#910).
+- `PluginChatEvents`: the stream events a `chat` block renders apart from the reply: `step` (`StepStates`), `result` (`ResultTones`, `MaxResultActions`) and `issue`. `error` and `done` stay the host's (innovayse/hostpanel#911).
+
 ## [3.1.0]
 
 ### Added
