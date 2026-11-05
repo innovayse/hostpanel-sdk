@@ -43,13 +43,21 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       - name: Restore
-        run: dotnet restore Hostpanel.Sdk.csproj
+        run: |
+          dotnet restore Hostpanel.Sdk.csproj
+          dotnet restore Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj
       - name: Build (warnings are errors)
-        run: dotnet build Hostpanel.Sdk.csproj -c Release --no-restore -warnaserror -p:ContinuousIntegrationBuild=true
+        run: |
+          dotnet build Hostpanel.Sdk.csproj -c Release --no-restore -warnaserror -p:ContinuousIntegrationBuild=true
+          dotnet build Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release --no-restore -warnaserror -p:ContinuousIntegrationBuild=true
       - name: Test
-        run: dotnet test tests/Hostpanel.Sdk.Tests/Hostpanel.Sdk.Tests.csproj -c Release
+        run: |
+          dotnet test tests/Hostpanel.Sdk.Tests/Hostpanel.Sdk.Tests.csproj -c Release
+          dotnet test tests/Hostpanel.Sdk.Packaging.Tests/Hostpanel.Sdk.Packaging.Tests.csproj -c Release
       - name: Pack
-        run: dotnet pack Hostpanel.Sdk.csproj -c Release --no-build -o artifacts -p:ContinuousIntegrationBuild=true
+        run: |
+          dotnet pack Hostpanel.Sdk.csproj -c Release --no-build -o artifacts -p:ContinuousIntegrationBuild=true
+          dotnet pack Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release --no-build -o artifacts -p:ContinuousIntegrationBuild=true
       - name: Upload the package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

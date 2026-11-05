@@ -20,4 +20,10 @@ public sealed class PluginPage
     /// <see langword="null"/> when none is declared, and always so on the admin panel.
     /// </summary>
     public string? Permission { get; init; }
+
+    /// <summary>
+    /// Gets the layout of the page, one of <see cref="PluginPageLayouts.All"/>, on the client panel only;
+    /// <see langword="null"/> when none is declared, which reads as <see cref="PluginPageLayouts.Standard"/>.
+    /// </summary>
+    public string? Layout { get; init; }
 }

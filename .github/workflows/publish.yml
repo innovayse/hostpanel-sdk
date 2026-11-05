@@ -5,7 +5,7 @@ name: Publish
 #
 # Runs once the CI workflow has finished green for a push to main or to a version tag, on exactly the
 # commit CI tested. A pull request run of CI never publishes, even from a fork branch that happens to be
-# named main. A release tag vX.Y.Z must equal <Version> in Hostpanel.Sdk.csproj. A prerelease tag
+# named main. A release tag vX.Y.Z must equal <Version> in Directory.Build.props. A prerelease tag
 # vX.Y.Z-preview.N publishes X.Y.Z-preview.N from a commit whose <Version> is X.Y.Z, so plugin authors can
 # pin an unreleased version from develop like any other package; NuGet never offers a prerelease to a
 # consumer who did not ask for one. Either way a tag can never publish a package whose version says
@@ -15,11 +15,12 @@ name: Publish
 # into a no-op, so a merge that does not raise <Version> publishes nothing and fails nothing, and a
 # tag on a version main already published is a no-op too.
 #
-# No stored API key: nuget.org trusted publishing trusts this repository, this workflow file and the
-# `nuget` environment, and exchanges the job's GitHub identity token for a short lived key on every
-# run. The only setting is the repository variable NUGET_USER, the nuget.org account that owns the
-# trusted publishing policy. Without it the run says so and ends green: an unconfigured feed is not a
-# failed workflow.
+# Normally no stored API key: nuget.org trusted publishing trusts this repository, this workflow file
+# and the `nuget` environment, and exchanges the job's GitHub identity token for a short lived key on
+# every run. The only setting is the repository variable NUGET_USER, the nuget.org account that owns
+# the trusted publishing policy. Without it the run says so and ends green: an unconfigured feed is
+# not a failed workflow. The policy does not cover a package id nuget.org has not seen yet, so the
+# first push of a new package id falls back to the environment secret NUGET_API_KEY, when it is set.
 on:
   workflow_run:
     workflows: [CI]
@@ -77,7 +78,7 @@ jobs:
         if: steps.feed.outputs.configured == 'true'
         run: |
           set -eu
-          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Hostpanel.Sdk.csproj)
+          version=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' Directory.Build.props)
           case "$SOURCE_REF" in
             main)
               package="$version" ;;
@@ -91,7 +92,7 @@ jobs:
               fi
               package="$version-$suffix" ;;
             *)
-              echo "Tag $SOURCE_REF does not match <Version>$version</Version> in Hostpanel.Sdk.csproj, refusing to publish."
+              echo "Tag $SOURCE_REF does not match <Version>$version</Version> in Directory.Build.props, refusing to publish."
               exit 1 ;;
           esac
           echo "Publishing $package from $SOURCE_REF."
@@ -100,17 +101,37 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: "9.0.x"
+      # Both packages are packed with the one version worked out above, so the pair moves together; the
+      # packaging package depends on that version of the SDK package or a later one (a project reference packs as a minimum version).
       - name: Pack
         if: steps.feed.outputs.configured == 'true'
-        run: dotnet pack Hostpanel.Sdk.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true -p:Version=${{ steps.version.outputs.package }}
+        run: |
+          dotnet pack Hostpanel.Sdk.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true -p:Version=${{ steps.version.outputs.package }}
+          dotnet pack Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release -o artifacts -warnaserror -p:ContinuousIntegrationBuild=true -p:Version=${{ steps.version.outputs.package }}
       - name: Get a short lived nuget.org key
         id: login
         if: steps.feed.outputs.configured == 'true'
         uses: NuGet/login@v1
         with:
           user: ${{ vars.NUGET_USER }}
+      # Each package is pushed on its own. The short lived key only covers package ids the trusted
+      # publishing policy knows; a brand new package id is refused with 403. In that case the push is
+      # retried once with the environment secret NUGET_API_KEY, when it is set.
       - name: Push (a version the feed already has is skipped)
         if: steps.feed.outputs.configured == 'true'
         env:
           NUGET_API_KEY: ${{ steps.login.outputs.NUGET_API_KEY }}
-        run: dotnet nuget push "artifacts/*.nupkg" --source "$NUGET_SOURCE" --api-key "$NUGET_API_KEY" --skip-duplicate
+          NUGET_FALLBACK_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          set -u
+          for package in artifacts/*.nupkg; do
+            if dotnet nuget push "$package" --source "$NUGET_SOURCE" --api-key "$NUGET_API_KEY" --skip-duplicate; then
+              continue
+            fi
+            if [ -z "$NUGET_FALLBACK_KEY" ]; then
+              echo "::error::Push of $package failed and the environment secret NUGET_API_KEY is not set."
+              exit 1
+            fi
+            echo "Push of $package with the trusted publishing key failed, retrying with the environment secret."
+            dotnet nuget push "$package" --source "$NUGET_SOURCE" --api-key "$NUGET_FALLBACK_KEY" --skip-duplicate
+          done

@@ -5,6 +5,14 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0]
+
+### Added
+
+- `PluginPage.Layout` and `PluginPageLayouts` (`standard`, `workspace`): a client page may ask for the full width, with no service side menu (innovayse/hostpanel#910).
+- `PluginViews.BlockKinds` gains `split` (two panes, `PanesProperty`, `SplitPaneCount`) and `preview` (a sandboxed frame on a client page, `PreviewSourcesProperty`, `MaxPreviewSources`, `MaxPreviewSourceIdLength`, `PreviewSizeProperty`, `PreviewSizes`). The schema version stays 1. A preview shows an address only on an origin the host allows for the reader (innovayse/hostpanel#910).
+- `PluginChatEvents`: the stream events a `chat` block renders apart from the reply: `step` (`StepStates`), `result` (`ResultTones`, `MaxResultActions`) and `issue`. `error` and `done` stay the host's (innovayse/hostpanel#911).
+
 ## [3.1.0]
 
 ### Added
@@ -18,6 +26,11 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `PluginManifest.ServerModules` (`"serverModules"`): the server module ids a provisioning panel plugin serves. `PluginServerModules.Validate` / `IsWellFormed` refuse an empty list, an empty, duplicate (ignoring case) or badly formed id (ASCII letters, digits, dash, dot, underscore, at most `PluginServerModules.MaxIdLength` = 50); violations are `PluginServerModuleViolation` with a `PluginServerModuleRule`.
   - `IPanelTransport` (`CreateClient()`): the host supplied HTTP client a panel plugin must use, taken in its constructor. It is routed through the host's outbound address guard, private route map, timeouts and no retry rule; a plugin never creates its own `HttpClient`.
   - `PanelServerConnection.UseSsl`; a null `Port` means the plugin's own default. `PanelAccount.ControlPanelUrl` and `PanelCreateResult.ControlPanelUrl` (a plain login page address, never a sign-in link). `Created` and `AlreadyExists` take an optional `controlPanelUrl`. The create context's `PanelClientRef` (reference, e-mail address, name) is required; the e-mail address and name inside it may be null.
+- A second package, `Hostpanel.Sdk.Packaging` (project `Hostpanel.Sdk.Packaging/`, MIT, `net9.0`, versioned in step with this package), holds the checks a plugin package must pass so that the host that installs a package and the author who publishes it run the same code: the `plugin.sig` format and the exact v1 signature payload with Ed25519 signing and verification (`Signing`), plugin id, page id and strict semantic version rules (`Naming`), the assembly names a package may not carry (`PluginAssemblyNames`), archive guards for entry count, uncompressed size and path traversal (`Archive`), icon safety (`Icons`) and the structural manifest rules that need no host state (`Manifest`). Every refusal is an enum value. It is not part of the `Hostpanel.Sdk` package, which keeps its dependencies and its `net8.0` target.
+- A test project, `tests/Hostpanel.Sdk.Packaging.Tests`, with a golden test that pins the v1 signature payload byte for byte.
+- `PluginAssemblyOptions` (host prefix, plugin namespace prefix, extra reserved names): the host supplies how its own assemblies are named, so the package holds no host name. `PluginAssemblyNames.IsReserved` and `IsPluginNamespaceName` take it, together with the set of platform assemblies the caller provides.
+- Behaviour of the new package worth knowing: `PluginArchiveGuard` compares paths exactly (ordinal), sums the declared size without overflow and accepts a folder entry that resolves to the unpack folder itself (`./`, `dir/..`); `PluginArchiveRule.EntryNotWritable` is answered when an entry cannot be written (a file and a folder of one name clash, or the path is not writable) instead of throwing. `PluginManifestChecker.ValidateSdkReference` reports a plugin folder that cannot be listed as `AssemblyUnreadable`. `PluginIconChecker` reads a style as a stylesheet does, with CSS escapes decoded and comments read as a space; a comment that never closes, or a text that keeps a pattern busy for a second, makes the icon invalid, and every pattern has a match timeout. `PluginSigner.Sign` writes `plugin.sig` through a temporary file and a move, and removes a leftover temporary file first. `PluginSignaturePayload.Build` refuses a package in which two files would stand for one payload path. `PluginVersion` implements `IEquatable<PluginVersion>` with `==` and `!=`, equal exactly when `CompareTo` is zero (build metadata is ignored).
+- Both packages take their version from `Directory.Build.props` and are published as 3.1.0.
 
 ### Migrating a provisioning plugin to the panel operations
 

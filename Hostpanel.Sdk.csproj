@@ -15,12 +15,11 @@
          own versions below, so both builds restore the same packages. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
 
-    <!-- Package identity. The version is the contract: bump the minor for an added member,
+    <!-- Package identity. The version lives in Directory.Build.props, shared with Hostpanel.Sdk.Packaging. It is the contract: bump the minor for an added member,
          the major for a removed or renamed one. .github/workflows/publish.yml pushes a version
          the feed does not have yet and skips one it does, so a change that keeps the version
          publishes nothing. -->
     <PackageId>Hostpanel.Sdk</PackageId>
-    <Version>3.1.0</Version>
     <Authors>Hostpanel contributors</Authors>
     <Copyright>Copyright (c) 2024-2026 the Hostpanel contributors</Copyright>
     <Description>Plugin contracts for hostpanel: provisioning, payment, registrar, identity, fulfilment, hosted and app plugins. MIT licensed, so a plugin may be free or paid, open or closed source.</Description>
@@ -42,6 +41,9 @@
     <!-- The test project sits below this one; without this the default globbing would compile it into the package. -->
     <Compile Remove="tests/**" />
     <None Remove="tests/**" />
+    <!-- The packaging project sits below this one for the same reason; it is its own package. -->
+    <Compile Remove="Hostpanel.Sdk.Packaging/**" />
+    <None Remove="Hostpanel.Sdk.Packaging/**" />
   </ItemGroup>
 
   <ItemGroup>
