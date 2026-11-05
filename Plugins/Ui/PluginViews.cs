@@ -48,6 +48,15 @@ namespace Hostpanel.Sdk.Plugins.Ui;
 /// decision, never the plugin's: the panel stops after its own bounded number of attempts and when the reader leaves
 /// the page, so a plugin needs no polling of its own.</description></item>
 /// </list>
+/// <para>
+/// Two blocks arrange a working screen (since 3.2.0). <c>split</c> holds <see cref="SplitPaneCount"/> panes side by side,
+/// stacked on a phone: <c>{ "kind": "split", "panes": [ { "blocks": [...] }, { "blocks": [...] } ] }</c>; a split never
+/// nests inside a split. <c>preview</c>, on a client page only, shows one absolute address in a sandboxed frame:
+/// <c>{ "kind": "preview", "size": "desktop", "sources": [ { "id": "live", "label": "site.live", "route": { "method": "get", "path": "/site" }, "field": "liveUrl" } ] }</c>.
+/// The panel reads the selected source's GET route and shows the address only when its origin is one the host allows for
+/// the reader: a manifest <c>externalOrigins</c> entry or a domain of the reader's own hosting services. Anything else
+/// shows nothing. A plugin cannot widen the allowed origins or the sandbox flags of the frame.
+/// </para>
 /// </remarks>
 public static class PluginViews
 {
@@ -56,11 +65,11 @@ public static class PluginViews
 
     /// <summary>
     /// Gets the block kinds of schema version 1: <c>header</c>, <c>text</c>, <c>stat</c>, <c>table</c>, <c>form</c>,
-    /// <c>action</c>, <c>link</c>, <c>badge</c>, <c>empty</c>, <c>alert</c>, <c>tabs</c>, <c>chat</c> and
-    /// <c>progress</c>. Compared exactly.
+    /// <c>action</c>, <c>link</c>, <c>badge</c>, <c>empty</c>, <c>alert</c>, <c>tabs</c>, <c>chat</c>, <c>progress</c>,
+    /// and since 3.2.0 <c>split</c> and <c>preview</c>. Compared exactly.
     /// </summary>
     public static IReadOnlyList<string> BlockKinds { get; } =
-        ["header", "text", "stat", "table", "form", "action", "link", "badge", "empty", "alert", "tabs", "chat", "progress"];
+        ["header", "text", "stat", "table", "form", "action", "link", "badge", "empty", "alert", "tabs", "chat", "progress", SplitKind, PreviewKind];
 
     /// <summary>
     /// Gets the members of schema version 1 whose string value is a label, wherever they appear: <c>title</c> (a block,
@@ -101,4 +110,42 @@ public static class PluginViews
 
     /// <summary>The most block ids the <c>refresh</c> list of a follow-up may hold.</summary>
     public const int MaxFollowUpRefresh = 20;
+
+    /// <summary>The block kind holding two panes side by side (since 3.2.0).</summary>
+    public const string SplitKind = "split";
+
+    /// <summary>The member of a <c>split</c> block listing its panes, each an object holding only <c>blocks</c>.</summary>
+    public const string PanesProperty = "panes";
+
+    /// <summary>The exact number of panes a <c>split</c> block holds.</summary>
+    public const int SplitPaneCount = 2;
+
+    /// <summary>The block kind showing one address in a sandboxed frame, on a client page only (since 3.2.0).</summary>
+    public const string PreviewKind = "preview";
+
+    /// <summary>
+    /// The member of a <c>preview</c> block listing the addresses the reader can switch between. Each source holds exactly
+    /// <c>id</c> (unique in the block, <c>[a-z0-9][a-z0-9_-]*</c>, at most <see cref="MaxPreviewSourceIdLength"/>
+    /// characters), <c>label</c>, <c>route</c> (a GET <see cref="PluginViewRoute"/>) and <c>field</c> (a dotted path into
+    /// the reply, holding the address).
+    /// </summary>
+    public const string PreviewSourcesProperty = "sources";
+
+    /// <summary>The most sources a <c>preview</c> block may hold.</summary>
+    public const int MaxPreviewSources = 5;
+
+    /// <summary>The longest <c>id</c> of a preview source, in characters.</summary>
+    public const int MaxPreviewSourceIdLength = 64;
+
+    /// <summary>The member of a <c>preview</c> block naming the frame size shown first; absent means <see cref="PreviewSizeDesktop"/>.</summary>
+    public const string PreviewSizeProperty = "size";
+
+    /// <summary>The preview size of a desktop screen, which fills its pane.</summary>
+    public const string PreviewSizeDesktop = "desktop";
+
+    /// <summary>The preview size of a phone screen. The pixel width is the panel's, never the plugin's.</summary>
+    public const string PreviewSizePhone = "phone";
+
+    /// <summary>Gets the values of <see cref="PreviewSizeProperty"/>. Compared exactly.</summary>
+    public static IReadOnlyList<string> PreviewSizes { get; } = [PreviewSizeDesktop, PreviewSizePhone];
 }

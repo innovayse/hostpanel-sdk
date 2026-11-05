@@ -15,7 +15,7 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Hostpanel.Sdk --version 3.1.0
+dotnet add package Hostpanel.Sdk --version 3.2.0
 ```
 
 or, in the plugin's `.csproj`:
@@ -24,7 +24,7 @@ or, in the plugin's `.csproj`:
 <ItemGroup>
   <!-- ExcludeAssets="runtime" keeps Hostpanel.Sdk.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Hostpanel.Sdk" Version="3.1.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Hostpanel.Sdk" Version="3.2.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -360,7 +360,7 @@ a page shows and the plugin routes it calls, and the panel renders it. The shape
 - **Document.** An object with `schema` (`PluginViews.SchemaVersion`, today `1`) and `blocks`, an array of blocks.
 - **Block.** Any object in the document that has a `kind` member: the top-level blocks, the `blocks` of a tab, the
   `actions` of a header. `kind` is one of `PluginViews.BlockKinds` (`header`, `text`, `stat`, `table`, `form`,
-  `action`, `link`, `badge`, `empty`, `alert`, `tabs`, `chat`, `progress`). Every other member is the block's own data.
+  `action`, `link`, `badge`, `empty`, `alert`, `tabs`, `chat`, `progress`, `split`, `preview`). Every other member is the block's own data.
 - **Labels.** A string under a member of `PluginViews.LabelProperties` (`title`, `label`, `confirm`, `placeholder`,
   `text`), at any depth, is a label: a key of the manifest `locales` or plain text, like a menu `label`. The host
   replaces it with its text in the caller's language, English when that language lacks the key, before the document
@@ -397,7 +397,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Hostpanel.Sdk" Version="3.1.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Hostpanel.Sdk" Version="3.2.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
