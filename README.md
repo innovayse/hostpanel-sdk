@@ -3,6 +3,16 @@
 Plugin contracts for a hostpanel host. A plugin compiles against this package, implements one
 or more of the contracts below, and ships as its own assembly plus a `plugin.json` manifest.
 
+[![NuGet](https://img.shields.io/nuget/v/Hostpanel.Sdk?label=nuget)](https://www.nuget.org/packages/Hostpanel.Sdk)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/innovayse/hostpanel-sdk/blob/main/LICENSE)
+
+[Hostpanel](https://github.com/innovayse/hostpanel) |
+[Product site](https://hostpanel.innovayse.com) |
+[Documentation](https://hostpanel.innovayse.com/docs/) |
+[Write a plugin](https://hostpanel.innovayse.com/docs/developers/write-a-plugin) |
+[Plugin marketplace](https://plugins-hostpanel.innovayse.com) |
+[Discord](https://discord.gg/NfqTkyTgD)
+
 ## License
 
 This package is MIT licensed (see `LICENSE` in the package). You decide how to license your
@@ -529,3 +539,7 @@ A change the host has to support as well (a new contract, a new manifest field, 
 type) also needs a pull request in [innovayse/hostpanel](https://github.com/innovayse/hostpanel),
 which includes this repository as a git submodule at `backend/src/Hostpanel.Sdk` and moves it to
 the new commit.
+
+Questions and chat: [Discord](https://discord.gg/NfqTkyTgD). To list a finished plugin for operators, see
+[Publishing a plugin](https://hostpanel.innovayse.com/docs/developers/publishing-a-plugin) and the
+[plugin marketplace](https://plugins-hostpanel.innovayse.com).

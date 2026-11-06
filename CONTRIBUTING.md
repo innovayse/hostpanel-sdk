@@ -11,7 +11,7 @@ contract. Say what you are building and what the current contracts do not let yo
 
 ## Pull requests
 
-1. Fork the repository and branch from `main`.
+1. Fork the repository and branch from `develop`.
 2. Build and pack the project exactly as CI does:
 
    ```bash
@@ -25,7 +25,7 @@ contract. Say what you are building and what the current contracts do not let yo
    block. An undocumented public member fails the build.
 4. Raise `<Version>` in `Directory.Build.props`, the one version both packages share, when the change should be published (see
    "Versioning" in `README.md`) and add an entry to `CHANGELOG.md`.
-5. Open the pull request against `main`.
+5. Open the pull request against `develop`. `main` is only updated from `develop`, and a push to `main` publishes the package.
 
 ## Changes the host must support
 
