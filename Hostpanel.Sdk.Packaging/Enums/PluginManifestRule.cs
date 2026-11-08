@@ -57,4 +57,7 @@ public enum PluginManifestRule
 
     /// <summary>An assembly in the package could not be read.</summary>
     AssemblyUnreadable = 17,
+
+    /// <summary>The <c>tags</c> list has more tags than allowed, a tag that is not 2 to 30 lowercase letters, digits and hyphens, or the same tag twice.</summary>
+    TagsInvalid = 18,
 }

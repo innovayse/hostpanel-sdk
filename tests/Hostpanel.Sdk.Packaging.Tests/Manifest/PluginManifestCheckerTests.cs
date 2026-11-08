@@ -292,4 +292,73 @@ public sealed class PluginManifestCheckerTests
         violation!.Rule.Should().Be(PluginManifestRule.AssemblyUnreadable);
         violation.Detail.Should().NotContain(folder.Path);
     }
+
+    /// <summary>A manifest with no <c>tags</c> reads an empty list and passes.</summary>
+    [Fact]
+    public void Validate_NoTags_PassesWithEmptyList()
+    {
+        ManifestJson.Read().Tags.Should().BeEmpty();
+        Check(string.Empty).Should().BeNull();
+    }
+
+    /// <summary>A <c>null</c> <c>tags</c> reads as an empty list and passes.</summary>
+    [Fact]
+    public void Validate_NullTags_PassesWithEmptyList()
+    {
+        ManifestJson.Read("\"tags\": null").Tags.Should().BeEmpty();
+        Check("\"tags\": null").Should().BeNull();
+    }
+
+    /// <summary>Well formed tags are read in order and pass, including the shortest, the longest and a full list.</summary>
+    [Fact]
+    public void Validate_GoodTags_ReadAndPass()
+    {
+        var longest = new string('a', 30);
+        ManifestJson.Read("\"tags\": [\"backup\", \"cpanel-2\", \"ab\", \"" + longest + "\"]").Tags
+            .Should().Equal("backup", "cpanel-2", "ab", longest);
+        Check("\"tags\": [\"backup\", \"cpanel-2\", \"ab\", \"" + longest + "\"]").Should().BeNull();
+        Check("\"tags\": [" + string.Join(",", Enumerable.Range(0, 10).Select(i => "\"tag-" + i + "\"")) + "]").Should().BeNull();
+    }
+
+    /// <summary>A tag that is too short, too long, upper case, has a leading hash, a space or another symbol breaks the tags rule.</summary>
+    /// <param name="tag">The tag.</param>
+    [Theory]
+    [InlineData("a")]
+    [InlineData("")]
+    [InlineData("#backup")]
+    [InlineData("Backup")]
+    [InlineData("back up")]
+    [InlineData("back_up")]
+    public void Validate_BadTag_BreaksTagsInvalid(string tag)
+    {
+        AssertBreaks("\"tags\": [\"" + tag + "\"]", PluginManifestRule.TagsInvalid);
+    }
+
+    /// <summary>A tag of 31 characters breaks the tags rule.</summary>
+    [Fact]
+    public void Validate_TagTooLong_BreaksTagsInvalid()
+    {
+        AssertBreaks("\"tags\": [\"" + new string('a', 31) + "\"]", PluginManifestRule.TagsInvalid);
+    }
+
+    /// <summary>More than ten tags break the tags rule.</summary>
+    [Fact]
+    public void Validate_MoreThanTenTags_BreaksTagsInvalid()
+    {
+        AssertBreaks("\"tags\": [" + string.Join(",", Enumerable.Range(0, 11).Select(i => "\"tag-" + i + "\"")) + "]", PluginManifestRule.TagsInvalid);
+    }
+
+    /// <summary>The same tag twice breaks the tags rule.</summary>
+    [Fact]
+    public void Validate_DuplicateTag_BreaksTagsInvalid()
+    {
+        AssertBreaks("\"tags\": [\"backup\", \"backup\"]", PluginManifestRule.TagsInvalid);
+    }
+
+    /// <summary>A tag with a trailing newline breaks the tags rule, so a line break cannot ride along in a keyword.</summary>
+    [Fact]
+    public void Validate_TagWithTrailingNewline_BreaksTagsInvalid()
+    {
+        AssertBreaks("\"tags\": [\"backup\\n\"]", PluginManifestRule.TagsInvalid);
+    }
 }

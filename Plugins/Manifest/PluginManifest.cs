@@ -19,6 +19,9 @@ public sealed class PluginManifest
     /// <summary>Backing field of <see cref="ServerModules"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<string> _serverModules = [];
 
+    /// <summary>Backing field of <see cref="Tags"/>; empty unless the manifest lists some.</summary>
+    private readonly IReadOnlyList<string> _tags = [];
+
     /// <summary>Backing field of <see cref="Settings"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginSetting> _settings = [];
 
@@ -179,6 +182,19 @@ public sealed class PluginManifest
     {
         get => _serverModules;
         init => _serverModules = value ?? [];
+    }
+
+    /// <summary>
+    /// Gets the plugin's tags (the <c>tags</c> field, for example <c>["backup", "cpanel"]</c>): short keywords that plugin
+    /// registries use for discovery. Optional, and the host does nothing with them beyond reading and validating them. A tag
+    /// is 2 to <see cref="PluginTags.MaxLength"/> lowercase letters, digits and hyphens with no leading <c>#</c>, and a
+    /// manifest lists at most <see cref="PluginTags.MaxCount"/> of them (see <see cref="PluginTags"/>). A missing or
+    /// <c>null</c> <c>tags</c> reads as an empty list, never <see langword="null"/>.
+    /// </summary>
+    public IReadOnlyList<string> Tags
+    {
+        get => _tags;
+        init => _tags = value ?? [];
     }
 
     /// <summary>

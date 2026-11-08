@@ -94,6 +94,7 @@ public static partial class PluginManifestChecker
             ?? CheckPages(PluginArea.Client, manifest.Ui.Client, options)
             ?? CheckPages(PluginArea.Admin, manifest.Ui.Admin, options)
             ?? CheckSlots(manifest.Ui.Slots, options)
+            ?? CheckTags(manifest.Tags)
             ?? CheckTextKeys(manifest);
     }
 
@@ -346,6 +347,35 @@ public static partial class PluginManifestChecker
                 return new PluginManifestViolation(
                     PluginManifestRule.MenuIconInvalid,
                     $"ui.{AreaMember(area)}.menus '{menu.Id}' icon: an icon is 1 to {MaxIconNameLength} lowercase letters, digits and hyphens");
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Checks the <c>tags</c> list: at most <see cref="PluginTags.MaxCount"/> tags, each well formed, none twice.</summary>
+    /// <param name="tags">The manifest's tags.</param>
+    /// <returns>The first violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckTags(IReadOnlyList<string> tags)
+    {
+        if (tags.Count > PluginTags.MaxCount)
+        {
+            return new PluginManifestViolation(PluginManifestRule.TagsInvalid, $"tags: at most {PluginTags.MaxCount} tags are allowed");
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tag in tags)
+        {
+            if (!PluginTags.IsWellFormed(tag))
+            {
+                return new PluginManifestViolation(
+                    PluginManifestRule.TagsInvalid,
+                    $"tags: a tag is {PluginTags.MinLength} to {PluginTags.MaxLength} lowercase letters, digits and hyphens, with no leading '#'");
+            }
+
+            if (!seen.Add(tag))
+            {
+                return new PluginManifestViolation(PluginManifestRule.TagsInvalid, $"tags: '{tag}' is listed more than once");
             }
         }
 
