@@ -185,7 +185,7 @@ public sealed class PluginManifest
     }
 
     /// <summary>
-    /// Gets the plugin's tags (the <c>tags</c> field, for example <c>["backup", "cpanel"]</c>): short keywords that plugin
+    /// Gets the plugin's tags (the <c>tags</c> field, for example <c>["backup", "billing"]</c>): short keywords that plugin
     /// registries use for discovery. Optional, and the host does nothing with them beyond reading and validating them. A tag
     /// is 2 to <see cref="PluginTags.MaxLength"/> lowercase letters, digits and hyphens with no leading <c>#</c>, and a
     /// manifest lists at most <see cref="PluginTags.MaxCount"/> of them (see <see cref="PluginTags"/>). A missing or

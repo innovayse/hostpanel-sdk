@@ -314,9 +314,9 @@ public sealed class PluginManifestCheckerTests
     public void Validate_GoodTags_ReadAndPass()
     {
         var longest = new string('a', 30);
-        ManifestJson.Read("\"tags\": [\"backup\", \"cpanel-2\", \"ab\", \"" + longest + "\"]").Tags
-            .Should().Equal("backup", "cpanel-2", "ab", longest);
-        Check("\"tags\": [\"backup\", \"cpanel-2\", \"ab\", \"" + longest + "\"]").Should().BeNull();
+        ManifestJson.Read("\"tags\": [\"backup\", \"billing-2\", \"ab\", \"" + longest + "\"]").Tags
+            .Should().Equal("backup", "billing-2", "ab", longest);
+        Check("\"tags\": [\"backup\", \"billing-2\", \"ab\", \"" + longest + "\"]").Should().BeNull();
         Check("\"tags\": [" + string.Join(",", Enumerable.Range(0, 10).Select(i => "\"tag-" + i + "\"")) + "]").Should().BeNull();
     }
 
