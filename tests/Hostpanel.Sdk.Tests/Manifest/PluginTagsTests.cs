@@ -11,7 +11,7 @@ public sealed class PluginTagsTests
     [Theory]
     [InlineData("ab")]
     [InlineData("backup")]
-    [InlineData("cpanel-2")]
+    [InlineData("billing-2")]
     [InlineData("123")]
     public void IsWellFormed_GoodTag_True(string tag)
     {
