@@ -361,4 +361,67 @@ public sealed class PluginManifestCheckerTests
     {
         AssertBreaks("\"tags\": [\"backup\\n\"]", PluginManifestRule.TagsInvalid);
     }
+
+    /// <summary>A manifest without the host range and changelog reads them as null and stays valid.</summary>
+    [Fact]
+    public void Validate_NoHostRangeOrChangelog_ReadsNullAndPasses()
+    {
+        var manifest = ManifestJson.Read();
+        manifest.MinHostVersion.Should().BeNull();
+        manifest.MaxHostVersion.Should().BeNull();
+        manifest.Changelog.Should().BeNull();
+        Check(string.Empty).Should().BeNull();
+    }
+
+    /// <summary>The host range and changelog are read from their camelCase members and pass when well formed.</summary>
+    [Fact]
+    public void Validate_HostRangeAndChangelog_ReadAndPass()
+    {
+        const string members = "\"minHostVersion\": \"2.0.0\", \"maxHostVersion\": \"3.1.0-preview.1\", \"changelog\": \"Fixes the export.\"";
+        var manifest = ManifestJson.Read(members);
+        manifest.MinHostVersion.Should().Be("2.0.0");
+        manifest.MaxHostVersion.Should().Be("3.1.0-preview.1");
+        manifest.Changelog.Should().Be("Fixes the export.");
+        Check(members).Should().BeNull();
+    }
+
+    /// <summary>Equal bounds, or only one bound, pass.</summary>
+    /// <param name="members">The JSON members holding the range.</param>
+    [Theory]
+    [InlineData("\"minHostVersion\": \"2.0.0\", \"maxHostVersion\": \"2.0.0\"")]
+    [InlineData("\"minHostVersion\": \"2.0.0\"")]
+    [InlineData("\"maxHostVersion\": \"2.0.0\"")]
+    public void Validate_OpenOrEqualRange_Passes(string members)
+    {
+        Check(members).Should().BeNull();
+    }
+
+    /// <summary>A bound that is not a semantic version breaks the host version rule.</summary>
+    /// <param name="member">The member name.</param>
+    /// <param name="value">The bad version.</param>
+    [Theory]
+    [InlineData("minHostVersion", "2.0")]
+    [InlineData("minHostVersion", "v2.0.0")]
+    [InlineData("maxHostVersion", "")]
+    [InlineData("maxHostVersion", "02.0.0")]
+    public void Validate_BadHostVersion_BreaksHostVersionInvalid(string member, string value)
+    {
+        AssertBreaks("\"" + member + "\": \"" + value + "\"", PluginManifestRule.HostVersionInvalid);
+    }
+
+    /// <summary>A lower bound above the upper bound breaks the range rule, by semantic precedence.</summary>
+    [Fact]
+    public void Validate_MinAboveMax_BreaksHostVersionRangeInverted()
+    {
+        AssertBreaks("\"minHostVersion\": \"2.10.0\", \"maxHostVersion\": \"2.9.0\"", PluginManifestRule.HostVersionRangeInverted);
+        AssertBreaks("\"minHostVersion\": \"2.0.0\", \"maxHostVersion\": \"2.0.0-preview.1\"", PluginManifestRule.HostVersionRangeInverted);
+    }
+
+    /// <summary>A changelog of exactly the limit passes; one character more breaks the changelog rule.</summary>
+    [Fact]
+    public void Validate_ChangelogLength_LimitPassesAndLongerBreaks()
+    {
+        Check("\"changelog\": \"" + new string('a', PluginManifest.MaxChangelogLength) + "\"").Should().BeNull();
+        AssertBreaks("\"changelog\": \"" + new string('a', PluginManifest.MaxChangelogLength + 1) + "\"", PluginManifestRule.ChangelogTooLong);
+    }
 }

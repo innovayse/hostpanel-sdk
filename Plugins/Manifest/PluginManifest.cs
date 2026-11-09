@@ -7,6 +7,9 @@ namespace Hostpanel.Sdk.Plugins.Manifest;
 /// </summary>
 public sealed class PluginManifest
 {
+    /// <summary>The longest <see cref="Changelog"/> a manifest may carry, in characters.</summary>
+    public const int MaxChangelogLength = 4000;
+
     /// <summary>Backing field of <see cref="Fields"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginField> _fields = [];
 
@@ -196,6 +199,26 @@ public sealed class PluginManifest
         get => _tags;
         init => _tags = value ?? [];
     }
+
+    /// <summary>
+    /// Gets the lowest host version the plugin runs on (the <c>minHostVersion</c> field, for example <c>2.1.0</c>):
+    /// a semantic version, <c>major.minor.patch</c> with an optional pre-release. <see langword="null"/> when the
+    /// manifest sets none, which means no lower limit.
+    /// </summary>
+    public string? MinHostVersion { get; init; }
+
+    /// <summary>
+    /// Gets the highest host version the plugin runs on (the <c>maxHostVersion</c> field), in the same format as
+    /// <see cref="MinHostVersion"/> and never below it. <see langword="null"/> when the manifest sets none, which means
+    /// no upper limit.
+    /// </summary>
+    public string? MaxHostVersion { get; init; }
+
+    /// <summary>
+    /// Gets the notes for this plugin version (the <c>changelog</c> field), plain text of at most
+    /// <see cref="MaxChangelogLength"/> characters. <see langword="null"/> when the manifest carries no notes.
+    /// </summary>
+    public string? Changelog { get; init; }
 
     /// <summary>
     /// Answers the settings of the plugin whichever format the manifest uses: <see cref="Settings"/> when it lists
