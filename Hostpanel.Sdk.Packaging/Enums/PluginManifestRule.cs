@@ -57,4 +57,16 @@ public enum PluginManifestRule
 
     /// <summary>An assembly in the package could not be read.</summary>
     AssemblyUnreadable = 17,
+
+    /// <summary>The <c>tags</c> list has more tags than allowed, a tag that is not 2 to 30 lowercase letters, digits and hyphens, or the same tag twice.</summary>
+    TagsInvalid = 18,
+
+    /// <summary>The <c>minHostVersion</c> or <c>maxHostVersion</c> is not a valid semantic version.</summary>
+    HostVersionInvalid = 19,
+
+    /// <summary>The <c>minHostVersion</c> is above the <c>maxHostVersion</c>.</summary>
+    HostVersionRangeInverted = 20,
+
+    /// <summary>The <c>changelog</c> is longer than <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginManifest.MaxChangelogLength"/> characters.</summary>
+    ChangelogTooLong = 21,
 }

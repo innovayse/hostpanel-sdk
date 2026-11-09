@@ -7,6 +7,9 @@ namespace Hostpanel.Sdk.Plugins.Manifest;
 /// </summary>
 public sealed class PluginManifest
 {
+    /// <summary>The longest <see cref="Changelog"/> a manifest may carry, in characters.</summary>
+    public const int MaxChangelogLength = 4000;
+
     /// <summary>Backing field of <see cref="Fields"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginField> _fields = [];
 
@@ -18,6 +21,9 @@ public sealed class PluginManifest
 
     /// <summary>Backing field of <see cref="ServerModules"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<string> _serverModules = [];
+
+    /// <summary>Backing field of <see cref="Tags"/>; empty unless the manifest lists some.</summary>
+    private readonly IReadOnlyList<string> _tags = [];
 
     /// <summary>Backing field of <see cref="Settings"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginSetting> _settings = [];
@@ -180,6 +186,39 @@ public sealed class PluginManifest
         get => _serverModules;
         init => _serverModules = value ?? [];
     }
+
+    /// <summary>
+    /// Gets the plugin's tags (the <c>tags</c> field, for example <c>["backup", "billing"]</c>): short keywords that plugin
+    /// registries use for discovery. Optional, and the host does nothing with them beyond reading and validating them. A tag
+    /// is 2 to <see cref="PluginTags.MaxLength"/> lowercase letters, digits and hyphens with no leading <c>#</c>, and a
+    /// manifest lists at most <see cref="PluginTags.MaxCount"/> of them (see <see cref="PluginTags"/>). A missing or
+    /// <c>null</c> <c>tags</c> reads as an empty list, never <see langword="null"/>.
+    /// </summary>
+    public IReadOnlyList<string> Tags
+    {
+        get => _tags;
+        init => _tags = value ?? [];
+    }
+
+    /// <summary>
+    /// Gets the lowest host version the plugin runs on (the <c>minHostVersion</c> field, for example <c>2.1.0</c>):
+    /// a semantic version, <c>major.minor.patch</c> with an optional pre-release. <see langword="null"/> when the
+    /// manifest sets none, which means no lower limit.
+    /// </summary>
+    public string? MinHostVersion { get; init; }
+
+    /// <summary>
+    /// Gets the highest host version the plugin runs on (the <c>maxHostVersion</c> field), in the same format as
+    /// <see cref="MinHostVersion"/> and never below it. <see langword="null"/> when the manifest sets none, which means
+    /// no upper limit.
+    /// </summary>
+    public string? MaxHostVersion { get; init; }
+
+    /// <summary>
+    /// Gets the notes for this plugin version (the <c>changelog</c> field), plain text of at most
+    /// <see cref="MaxChangelogLength"/> characters. <see langword="null"/> when the manifest carries no notes.
+    /// </summary>
+    public string? Changelog { get; init; }
 
     /// <summary>
     /// Answers the settings of the plugin whichever format the manifest uses: <see cref="Settings"/> when it lists

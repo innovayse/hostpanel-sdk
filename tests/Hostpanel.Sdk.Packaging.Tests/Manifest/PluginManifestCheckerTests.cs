@@ -292,4 +292,136 @@ public sealed class PluginManifestCheckerTests
         violation!.Rule.Should().Be(PluginManifestRule.AssemblyUnreadable);
         violation.Detail.Should().NotContain(folder.Path);
     }
+
+    /// <summary>A manifest with no <c>tags</c> reads an empty list and passes.</summary>
+    [Fact]
+    public void Validate_NoTags_PassesWithEmptyList()
+    {
+        ManifestJson.Read().Tags.Should().BeEmpty();
+        Check(string.Empty).Should().BeNull();
+    }
+
+    /// <summary>A <c>null</c> <c>tags</c> reads as an empty list and passes.</summary>
+    [Fact]
+    public void Validate_NullTags_PassesWithEmptyList()
+    {
+        ManifestJson.Read("\"tags\": null").Tags.Should().BeEmpty();
+        Check("\"tags\": null").Should().BeNull();
+    }
+
+    /// <summary>Well formed tags are read in order and pass, including the shortest, the longest and a full list.</summary>
+    [Fact]
+    public void Validate_GoodTags_ReadAndPass()
+    {
+        var longest = new string('a', 30);
+        ManifestJson.Read("\"tags\": [\"backup\", \"billing-2\", \"ab\", \"" + longest + "\"]").Tags
+            .Should().Equal("backup", "billing-2", "ab", longest);
+        Check("\"tags\": [\"backup\", \"billing-2\", \"ab\", \"" + longest + "\"]").Should().BeNull();
+        Check("\"tags\": [" + string.Join(",", Enumerable.Range(0, 10).Select(i => "\"tag-" + i + "\"")) + "]").Should().BeNull();
+    }
+
+    /// <summary>A tag that is too short, too long, upper case, has a leading hash, a space or another symbol breaks the tags rule.</summary>
+    /// <param name="tag">The tag.</param>
+    [Theory]
+    [InlineData("a")]
+    [InlineData("")]
+    [InlineData("#backup")]
+    [InlineData("Backup")]
+    [InlineData("back up")]
+    [InlineData("back_up")]
+    public void Validate_BadTag_BreaksTagsInvalid(string tag)
+    {
+        AssertBreaks("\"tags\": [\"" + tag + "\"]", PluginManifestRule.TagsInvalid);
+    }
+
+    /// <summary>A tag of 31 characters breaks the tags rule.</summary>
+    [Fact]
+    public void Validate_TagTooLong_BreaksTagsInvalid()
+    {
+        AssertBreaks("\"tags\": [\"" + new string('a', 31) + "\"]", PluginManifestRule.TagsInvalid);
+    }
+
+    /// <summary>More than ten tags break the tags rule.</summary>
+    [Fact]
+    public void Validate_MoreThanTenTags_BreaksTagsInvalid()
+    {
+        AssertBreaks("\"tags\": [" + string.Join(",", Enumerable.Range(0, 11).Select(i => "\"tag-" + i + "\"")) + "]", PluginManifestRule.TagsInvalid);
+    }
+
+    /// <summary>The same tag twice breaks the tags rule.</summary>
+    [Fact]
+    public void Validate_DuplicateTag_BreaksTagsInvalid()
+    {
+        AssertBreaks("\"tags\": [\"backup\", \"backup\"]", PluginManifestRule.TagsInvalid);
+    }
+
+    /// <summary>A tag with a trailing newline breaks the tags rule, so a line break cannot ride along in a keyword.</summary>
+    [Fact]
+    public void Validate_TagWithTrailingNewline_BreaksTagsInvalid()
+    {
+        AssertBreaks("\"tags\": [\"backup\\n\"]", PluginManifestRule.TagsInvalid);
+    }
+
+    /// <summary>A manifest without the host range and changelog reads them as null and stays valid.</summary>
+    [Fact]
+    public void Validate_NoHostRangeOrChangelog_ReadsNullAndPasses()
+    {
+        var manifest = ManifestJson.Read();
+        manifest.MinHostVersion.Should().BeNull();
+        manifest.MaxHostVersion.Should().BeNull();
+        manifest.Changelog.Should().BeNull();
+        Check(string.Empty).Should().BeNull();
+    }
+
+    /// <summary>The host range and changelog are read from their camelCase members and pass when well formed.</summary>
+    [Fact]
+    public void Validate_HostRangeAndChangelog_ReadAndPass()
+    {
+        const string members = "\"minHostVersion\": \"2.0.0\", \"maxHostVersion\": \"3.1.0-preview.1\", \"changelog\": \"Fixes the export.\"";
+        var manifest = ManifestJson.Read(members);
+        manifest.MinHostVersion.Should().Be("2.0.0");
+        manifest.MaxHostVersion.Should().Be("3.1.0-preview.1");
+        manifest.Changelog.Should().Be("Fixes the export.");
+        Check(members).Should().BeNull();
+    }
+
+    /// <summary>Equal bounds, or only one bound, pass.</summary>
+    /// <param name="members">The JSON members holding the range.</param>
+    [Theory]
+    [InlineData("\"minHostVersion\": \"2.0.0\", \"maxHostVersion\": \"2.0.0\"")]
+    [InlineData("\"minHostVersion\": \"2.0.0\"")]
+    [InlineData("\"maxHostVersion\": \"2.0.0\"")]
+    public void Validate_OpenOrEqualRange_Passes(string members)
+    {
+        Check(members).Should().BeNull();
+    }
+
+    /// <summary>A bound that is not a semantic version breaks the host version rule.</summary>
+    /// <param name="member">The member name.</param>
+    /// <param name="value">The bad version.</param>
+    [Theory]
+    [InlineData("minHostVersion", "2.0")]
+    [InlineData("minHostVersion", "v2.0.0")]
+    [InlineData("maxHostVersion", "")]
+    [InlineData("maxHostVersion", "02.0.0")]
+    public void Validate_BadHostVersion_BreaksHostVersionInvalid(string member, string value)
+    {
+        AssertBreaks("\"" + member + "\": \"" + value + "\"", PluginManifestRule.HostVersionInvalid);
+    }
+
+    /// <summary>A lower bound above the upper bound breaks the range rule, by semantic precedence.</summary>
+    [Fact]
+    public void Validate_MinAboveMax_BreaksHostVersionRangeInverted()
+    {
+        AssertBreaks("\"minHostVersion\": \"2.10.0\", \"maxHostVersion\": \"2.9.0\"", PluginManifestRule.HostVersionRangeInverted);
+        AssertBreaks("\"minHostVersion\": \"2.0.0\", \"maxHostVersion\": \"2.0.0-preview.1\"", PluginManifestRule.HostVersionRangeInverted);
+    }
+
+    /// <summary>A changelog of exactly the limit passes; one character more breaks the changelog rule.</summary>
+    [Fact]
+    public void Validate_ChangelogLength_LimitPassesAndLongerBreaks()
+    {
+        Check("\"changelog\": \"" + new string('a', PluginManifest.MaxChangelogLength) + "\"").Should().BeNull();
+        AssertBreaks("\"changelog\": \"" + new string('a', PluginManifest.MaxChangelogLength + 1) + "\"", PluginManifestRule.ChangelogTooLong);
+    }
 }

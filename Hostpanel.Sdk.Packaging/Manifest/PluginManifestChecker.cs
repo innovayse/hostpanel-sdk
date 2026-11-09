@@ -94,6 +94,9 @@ public static partial class PluginManifestChecker
             ?? CheckPages(PluginArea.Client, manifest.Ui.Client, options)
             ?? CheckPages(PluginArea.Admin, manifest.Ui.Admin, options)
             ?? CheckSlots(manifest.Ui.Slots, options)
+            ?? CheckTags(manifest.Tags)
+            ?? CheckHostVersions(manifest.MinHostVersion, manifest.MaxHostVersion)
+            ?? CheckChangelog(manifest.Changelog)
             ?? CheckTextKeys(manifest);
     }
 
@@ -346,6 +349,88 @@ public static partial class PluginManifestChecker
                 return new PluginManifestViolation(
                     PluginManifestRule.MenuIconInvalid,
                     $"ui.{AreaMember(area)}.menus '{menu.Id}' icon: an icon is 1 to {MaxIconNameLength} lowercase letters, digits and hyphens");
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Checks the host version range: each bound, when set, is a semantic version, and the lower is not above the upper.</summary>
+    /// <param name="min">The <c>minHostVersion</c>, or <see langword="null"/> for no lower limit.</param>
+    /// <param name="max">The <c>maxHostVersion</c>, or <see langword="null"/> for no upper limit.</param>
+    /// <returns>The first violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckHostVersions(string? min, string? max)
+    {
+        PluginVersion? lower = null;
+        if (min is not null)
+        {
+            if (!PluginVersion.TryParse(min, out var parsed))
+            {
+                return new PluginManifestViolation(
+                    PluginManifestRule.HostVersionInvalid, "minHostVersion is not a valid version: use major.minor.patch, for example 1.2.3");
+            }
+
+            lower = parsed;
+        }
+
+        PluginVersion? upper = null;
+        if (max is not null)
+        {
+            if (!PluginVersion.TryParse(max, out var parsed))
+            {
+                return new PluginManifestViolation(
+                    PluginManifestRule.HostVersionInvalid, "maxHostVersion is not a valid version: use major.minor.patch, for example 1.2.3");
+            }
+
+            upper = parsed;
+        }
+
+        if (lower is not null && upper is not null && lower.CompareTo(upper) > 0)
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.HostVersionRangeInverted, $"minHostVersion {min} is above maxHostVersion {max}");
+        }
+
+        return null;
+    }
+
+    /// <summary>Checks the <c>changelog</c>: at most <see cref="PluginManifest.MaxChangelogLength"/> characters.</summary>
+    /// <param name="changelog">The manifest's changelog, or <see langword="null"/> when it has none.</param>
+    /// <returns>The violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckChangelog(string? changelog)
+    {
+        if (changelog is not null && changelog.Length > PluginManifest.MaxChangelogLength)
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.ChangelogTooLong, $"changelog: at most {PluginManifest.MaxChangelogLength} characters are allowed");
+        }
+
+        return null;
+    }
+
+    /// <summary>Checks the <c>tags</c> list: at most <see cref="PluginTags.MaxCount"/> tags, each well formed, none twice.</summary>
+    /// <param name="tags">The manifest's tags.</param>
+    /// <returns>The first violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckTags(IReadOnlyList<string> tags)
+    {
+        if (tags.Count > PluginTags.MaxCount)
+        {
+            return new PluginManifestViolation(PluginManifestRule.TagsInvalid, $"tags: at most {PluginTags.MaxCount} tags are allowed");
+        }
+
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var tag in tags)
+        {
+            if (!PluginTags.IsWellFormed(tag))
+            {
+                return new PluginManifestViolation(
+                    PluginManifestRule.TagsInvalid,
+                    $"tags: a tag is {PluginTags.MinLength} to {PluginTags.MaxLength} lowercase letters, digits and hyphens, with no leading '#'");
+            }
+
+            if (!seen.Add(tag))
+            {
+                return new PluginManifestViolation(PluginManifestRule.TagsInvalid, $"tags: '{tag}' is listed more than once");
             }
         }
 
