@@ -5,6 +5,13 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0]
+
+### Added
+
+- `PluginManifest.MinHostVersion` (`"minHostVersion"`) and `PluginManifest.MaxHostVersion` (`"maxHostVersion"`): the optional range of host versions a plugin runs on; a missing bound means no limit. `PluginManifestChecker.Validate` refuses a bound that is not a semantic version (`major.minor.patch` with an optional pre-release, read by `PluginVersion`) with `PluginManifestRule.HostVersionInvalid`, and a lower bound above the upper one with `PluginManifestRule.HostVersionRangeInverted` (innovayse/hostpanel-sdk#31).
+- `PluginManifest.Changelog` (`"changelog"`): optional notes for the plugin version, at most `PluginManifest.MaxChangelogLength` = 4000 characters; a longer one breaks the new `PluginManifestRule.ChangelogTooLong` (innovayse/hostpanel-sdk#31).
+
 ## [3.3.0]
 
 ### Added
