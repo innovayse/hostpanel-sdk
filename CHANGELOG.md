@@ -5,6 +5,17 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0]
+
+### Added
+
+- `PaymentInstruction.SavePaymentMethod` (`bool`, optional, `false` by default): asks the gateway to keep the payment method the payer uses on this payment so the host can charge it later. A plugin that supports it sends the gateway's own "store this method" request; a plugin that does not support it ignores the flag and the host treats the missing method as "not saved", never as a payment failure.
+- `GatewayPaymentStatus.SavedMethod` (`SavedMethod?`, optional, `null` by default): the method the gateway stored for a paid payment (token reference, brand, last four digits, expiry). It reuses the existing `StoredCredentials.SavedMethod` type, so a method saved during a payment is charged the same way as one saved in a save session.
+
+### Compatibility
+
+- Both members are trailing optional record parameters, like `GatewayPaymentStatus.AmountMinor` before them: callers and plugins recompile unchanged. The record constructors and `Deconstruct` gain a parameter, so a plugin built against 3.4.0 binaries keeps working only when it is rebuilt against 3.5.0.
+
 ## [3.4.0]
 
 ### Added

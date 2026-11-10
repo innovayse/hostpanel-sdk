@@ -249,6 +249,14 @@ In the plugin's own tests, run the `ProvisioningContract` checks against a stub 
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
 `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
 
+### Saving the method during a payment
+
+To let a payer save the method they pay with, the host sets `PaymentInstruction.SavePaymentMethod` to `true`. A plugin
+that supports it asks the gateway to store the method and, when `GetStatusAsync` reports the payment as paid, returns it
+in `GatewayPaymentStatus.SavedMethod` (a `SavedMethod`: token reference, brand, last four digits and expiry). A plugin
+that does not support it ignores the flag and leaves `SavedMethod` null; the host treats that as "not saved" and the
+payment itself is unaffected. Both members are optional, so a plugin that never saves methods needs no change.
+
 ### Stored credential plugins
 
 A payment plugin may also implement `IStoredCredentialPlugin` to keep payment methods at the gateway and charge
