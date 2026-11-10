@@ -16,7 +16,7 @@
     <!-- The one version of both packages, Hostpanel.Sdk and Hostpanel.Sdk.Packaging: a plugin author and a host pin one
          number for the pair. Bump the minor for an added member, the major for a removed or renamed one.
          .github/workflows/publish.yml reads this line and packs both projects with it. -->
-    <Version>3.4.0</Version>
+    <Version>3.5.0</Version>
   </PropertyGroup>
 
 </Project>
