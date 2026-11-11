@@ -42,17 +42,30 @@ public sealed class OperationResultTests
         already.Should().Throw<ArgumentNullException>();
     }
 
-    /// <summary>The older panel action result keeps the shape plugins built on earlier versions compiled against.</summary>
+    /// <summary>
+    /// The older panel results keep the public shape plugins built on earlier versions compiled against: they derive from
+    /// object, deconstruct as before, and their only public interface is the equality one a record always has. The internal
+    /// interface they gained is not public.
+    /// </summary>
     [Fact]
-    public void PanelActionResult_KeepsItsPublicShape()
+    public void PanelResults_KeepTheirPublicShape()
     {
-        var result = new PanelActionResult(PanelOperationOutcome.Refused, PanelRefusalReason.Other);
-
-        var (outcome, reason) = result;
+        var (outcome, reason) = new PanelActionResult(PanelOperationOutcome.Refused, PanelRefusalReason.Other);
+        var (createOutcome, reference, _, _, createReason) = PanelCreateResult.Created("acct1");
+        var (usageOutcome, usage, usageReason) = PanelUsageResult.NotFound();
+        var (ssoOutcome, url, ssoReason) = PanelSsoResult.Issued("https://panel.example.test/login");
 
         outcome.Should().Be(PanelOperationOutcome.Refused);
         reason.Should().Be(PanelRefusalReason.Other);
-        typeof(PanelActionResult).BaseType.Should().Be(typeof(object));
+        (createOutcome, reference, createReason).Should().Be((PanelOperationOutcome.Succeeded, "acct1", (PanelRefusalReason?)null));
+        (usageOutcome, usage, usageReason).Should().Be((PanelOperationOutcome.NotFound, (PanelUsage?)null, (PanelRefusalReason?)null));
+        (ssoOutcome, url, ssoReason).Should().Be((PanelOperationOutcome.Succeeded, "https://panel.example.test/login", (PanelRefusalReason?)null));
         PanelActionResult.Done().Should().Be(new PanelActionResult(PanelOperationOutcome.Succeeded, null));
+
+        foreach (var type in new[] { typeof(PanelActionResult), typeof(PanelCreateResult), typeof(PanelUsageResult), typeof(PanelSsoResult) })
+        {
+            type.BaseType.Should().Be(typeof(object));
+            type.GetInterfaces().Where(contract => contract.IsPublic).Should().BeEquivalentTo(new[] { typeof(IEquatable<>).MakeGenericType(type) });
+        }
     }
 }

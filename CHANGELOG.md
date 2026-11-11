@@ -34,6 +34,7 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - The checks that `ProvisioningContract`, `RegistrarContract` and `VirtualServerContract` share (the guarded call, the outcome and reason shape, the idempotent repeat, the connection test shape, the secret scan) moved into one internal class. Their behaviour and messages are unchanged, and `ProvisioningContractMessageTests` pins the exact text of the provisioning messages.
+- `ProvisioningContract.AssertCreateIsIdempotentAsync`, `AssertTestConnectionAnswersAsync` and `AssertListAccountsIsCompleteAsync` return the shared check directly instead of being `async` methods, so a null plugin or context now throws `ArgumentNullException` when the helper is called, like the other helpers of the contract already did, and no longer from the returned task. Awaiting the call behaves the same.
 - The documentation of `PanelOperationOutcome`, `PanelConnectionOutcome`, `PanelActionResult`, `PanelConnectionTestResult`, `PanelServerConnection` and `IPanelTransport` now says that the registrar and virtual server contracts use them too. No member changed.
 
 ### Compatibility

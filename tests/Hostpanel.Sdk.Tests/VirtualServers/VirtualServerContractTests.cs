@@ -233,8 +233,8 @@ public sealed class VirtualServerContractTests
     [Fact]
     public async Task AssertListServers_IsChecked()
     {
-        var good = new ScriptedVirtualServerPlugin { ListServers = PagesOf("a", "b", "c") };
-        var twice = new ScriptedVirtualServerPlugin { ListServers = PagesOf("a", "b", "a") };
+        var good = new ScriptedVirtualServerPlugin { ListServers = ScriptedAnswers.PagesOf("a", "b", "c") };
+        var twice = new ScriptedVirtualServerPlugin { ListServers = ScriptedAnswers.PagesOf("a", "b", "a") };
         var stuck = new ScriptedVirtualServerPlugin
         {
             ListServers = cursor => PanelAccountListResult.Page([new PanelAccount("x" + cursor, null, PanelAccountStatus.Active, null, null)], cursor ?? "same"),
@@ -397,17 +397,37 @@ public sealed class VirtualServerContractTests
         await noContext.Should().ThrowAsync<ArgumentNullException>();
     }
 
-    /// <summary>Builds a listing script that serves one server per page, with a numeric cursor, and ends after the last.</summary>
-    /// <param name="references">The reference of the server on each page, in order.</param>
-    /// <returns>The script for <see cref="ScriptedVirtualServerPlugin.ListServers"/>.</returns>
-    private static Func<string?, PanelAccountListResult> PagesOf(params string[] references)
+    /// <summary>Every check of the unknown server helper rejects a plugin that answers a success for a server the platform does not hold, naming the method.</summary>
+    [Fact]
+    public async Task AssertUnknownServer_EveryCheck_RejectsASuccess()
     {
-        return cursor =>
+        var cases = new (string Method, ScriptedVirtualServerPlugin Plugin)[]
         {
-            var index = cursor is null ? 0 : int.Parse(cursor, System.Globalization.CultureInfo.InvariantCulture);
-            var server = new PanelAccount(references[index], null, PanelAccountStatus.Active, null, null);
-            var next = index + 1 < references.Length ? (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
-            return PanelAccountListResult.Page([server], next);
+            (nameof(IVirtualServerPlugin.StopServerAsync), Unknown(plugin => plugin.Stop = _ => PanelActionResult.Done())),
+            (nameof(IVirtualServerPlugin.RebootServerAsync), Unknown(plugin => plugin.Reboot = _ => PanelActionResult.Done())),
+            (nameof(IVirtualServerPlugin.UnsuspendServerAsync), Unknown(plugin => plugin.Unsuspend = _ => PanelActionResult.Done())),
+            (nameof(IVirtualServerPlugin.SuspendServerAsync), Unknown(plugin => plugin.Suspend = _ => PanelActionResult.Done())),
+            (nameof(IVirtualServerPlugin.ChangePlanAsync), Unknown(plugin => plugin.ChangePlan = _ => PanelActionResult.Done())),
+            (nameof(IVirtualServerPlugin.RebuildServerAsync), Unknown(plugin => plugin.Rebuild = _ => ValueResult<VirtualServerRootPassword, PanelRefusalReason>.Done(new VirtualServerRootPassword(null)))),
+            (nameof(IVirtualServerPlugin.ResetRootPasswordAsync), Unknown(plugin => plugin.ResetRootPassword = _ => ValueResult<VirtualServerRootPassword, PanelRefusalReason>.Done(new VirtualServerRootPassword(null)))),
+            (nameof(IVirtualServerPlugin.GetServerUsageAsync), Unknown(plugin => plugin.Usage = _ => ValueResult<VirtualServerUsage, PanelRefusalReason>.Done(new VirtualServerUsage(null, null, null, null, null, null, null, null, DateTimeOffset.UnixEpoch)))),
         };
+
+        foreach (var (method, plugin) in cases)
+        {
+            var run = () => VirtualServerContract.AssertUnknownServerIsNotFoundAsync(plugin, PanelFixtures.Account, new PanelPackage("small"), "img-1");
+
+            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("unknown server");
+        }
+    }
+
+    /// <summary>Builds a plugin that holds no server and applies a script that breaks one promise.</summary>
+    /// <param name="script">Sets the one answer that is wrong.</param>
+    /// <returns>The plugin.</returns>
+    private static ScriptedVirtualServerPlugin Unknown(Action<ScriptedVirtualServerPlugin> script)
+    {
+        var plugin = new ScriptedVirtualServerPlugin { HoldsServer = false };
+        script(plugin);
+        return plugin;
     }
 }

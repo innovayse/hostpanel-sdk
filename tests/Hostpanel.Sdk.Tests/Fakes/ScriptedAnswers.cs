@@ -23,4 +23,18 @@ internal static class ScriptedAnswers
     {
         return call == 1 ? PanelActionResult.Done() : PanelActionResult.NotFound();
     }
+
+    /// <summary>Builds a listing script that serves one account per page, with a numeric cursor, and ends after the last.</summary>
+    /// <param name="references">The reference of the account on each page, in order.</param>
+    /// <returns>A script that answers the page for the cursor it is asked for; <see langword="null"/> asks for the first page.</returns>
+    public static Func<string?, PanelAccountListResult> PagesOf(params string[] references)
+    {
+        return cursor =>
+        {
+            var index = cursor is null ? 0 : int.Parse(cursor, System.Globalization.CultureInfo.InvariantCulture);
+            var account = new PanelAccount(references[index], null, PanelAccountStatus.Active, null, null);
+            var next = index + 1 < references.Length ? (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
+            return PanelAccountListResult.Page([account], next);
+        };
+    }
 }

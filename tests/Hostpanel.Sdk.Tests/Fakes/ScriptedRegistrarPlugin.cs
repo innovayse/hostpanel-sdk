@@ -89,6 +89,9 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <summary>Gets or sets what <c>GetTldPricingAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>>? GetTldPricing { get; set; }
 
+    /// <summary>Gets or sets what <c>CheckDomainActiveAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, ValueResult<RegistrarOrder, RegistrarRefusalReason>>? CheckDomainActive { get; set; }
+
     /// <summary>Gets or sets what <c>GetDnsRecordsAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>>? GetDnsRecords { get; set; }
 
@@ -134,8 +137,8 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> CheckDomainActiveAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        Count(nameof(CheckDomainActiveAsync));
-        return Task.FromResult(DataOrNotFound(DefaultOrder));
+        var call = Count(nameof(CheckDomainActiveAsync));
+        return Task.FromResult(CheckDomainActive is null ? DataOrNotFound(DefaultOrder) : CheckDomainActive(call));
     }
 
     /// <inheritdoc />

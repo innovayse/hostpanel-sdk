@@ -261,4 +261,44 @@ public sealed class RegistrarDnsAndOptionalContractTests
         plugin.Inner.CallsOf(nameof(IRegistrarDnsManagementPlugin.SetDnsManagementAsync)).Should().Be(0);
         plugin.Inner.CallsOf(nameof(IRegistrarWhoisPlugin.GetWhoisAsync)).Should().Be(0);
     }
+
+    /// <summary>Every check of the unknown domain helper rejects a plugin that answers a success for a domain the registrar does not hold, naming the method.</summary>
+    [Fact]
+    public async Task AssertUnknownDomain_EveryCheck_RejectsASuccess()
+    {
+        var done = OperationResult<RegistrarRefusalReason>.Done();
+        var cases = new (string Method, ScriptedRegistrarPlugin Plugin)[]
+        {
+            (nameof(IRegistrarOperationsPlugin.GetContactAsync), Unknown(plugin => plugin.GetContact = _ => ValueResult<RegistrarContact, RegistrarRefusalReason>.Done(RegistrarFixtures.Contact))),
+            (nameof(IRegistrarOperationsPlugin.CheckDomainActiveAsync), Unknown(plugin => plugin.CheckDomainActive = _ => ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(new RegistrarOrder("dom-1", null, false)))),
+            (nameof(IRegistrarOperationsPlugin.GetEppCodeAsync), Unknown(plugin => plugin.GetEppCode = _ => ValueResult<RegistrarEppCode, RegistrarRefusalReason>.Done(new RegistrarEppCode("code")))),
+            (nameof(IRegistrarOperationsPlugin.GetDnsRecordsAsync), Unknown(plugin => plugin.GetDnsRecords = _ => ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>.Done([]))),
+            (nameof(IRegistrarOperationsPlugin.SetContactAsync), Unknown(plugin => plugin.SetContact = _ => done)),
+            (nameof(IRegistrarOperationsPlugin.SetAutoRenewAsync), Unknown(plugin => plugin.SetAutoRenew = _ => done)),
+            (nameof(IRegistrarOperationsPlugin.SetWhoisPrivacyAsync), Unknown(plugin => plugin.SetWhoisPrivacy = _ => done)),
+            (nameof(IRegistrarOperationsPlugin.SetRegistrarLockAsync), Unknown(plugin => plugin.SetRegistrarLock = _ => done)),
+            (nameof(IRegistrarOperationsPlugin.CancelTransferAsync), Unknown(plugin => plugin.CancelTransfer = _ => done)),
+            (nameof(IRegistrarOperationsPlugin.InitiateOutgoingTransferAsync), Unknown(plugin => plugin.InitiateOutgoingTransfer = _ => done)),
+            (nameof(IRegistrarEmailForwardingPlugin.SetEmailForwardingAsync), Unknown(plugin => plugin.SetEmailForwarding = _ => done)),
+            (nameof(IRegistrarEmailForwardingPlugin.UpdateEmailForwardingRuleAsync), Unknown(plugin => plugin.UpdateEmailForwardingRule = _ => done)),
+            (nameof(IRegistrarEmailForwardingPlugin.DeleteEmailForwardingRuleAsync), Unknown(plugin => plugin.DeleteEmailForwardingRule = _ => done)),
+        };
+
+        foreach (var (method, plugin) in cases)
+        {
+            var run = () => RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
+
+            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("unknown domain");
+        }
+    }
+
+    /// <summary>Builds a plugin that holds no domain and applies a script that breaks one promise.</summary>
+    /// <param name="script">Sets the one answer that is wrong.</param>
+    /// <returns>The plugin.</returns>
+    private static ScriptedRegistrarPlugin Unknown(Action<ScriptedRegistrarPlugin> script)
+    {
+        var plugin = new ScriptedRegistrarPlugin { HoldsDomain = false };
+        script(plugin);
+        return plugin;
+    }
 }

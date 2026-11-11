@@ -38,6 +38,15 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <summary>Gets or sets what <c>StopServerAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, PanelActionResult>? Stop { get; set; }
 
+    /// <summary>Gets or sets what <c>RebootServerAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, PanelActionResult>? Reboot { get; set; }
+
+    /// <summary>Gets or sets what <c>RebuildServerAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, ValueResult<VirtualServerRootPassword, PanelRefusalReason>>? Rebuild { get; set; }
+
+    /// <summary>Gets or sets what <c>ResetRootPasswordAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, ValueResult<VirtualServerRootPassword, PanelRefusalReason>>? ResetRootPassword { get; set; }
+
     /// <summary>Gets or sets what <c>SuspendServerAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, PanelActionResult>? Suspend { get; set; }
 
@@ -106,8 +115,8 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<PanelActionResult> RebootServerAsync(PanelAccountContext context, CancellationToken ct)
     {
-        Count(nameof(RebootServerAsync));
-        return Task.FromResult(HoldsServer ? PanelActionResult.Done() : PanelActionResult.NotFound());
+        var call = Count(nameof(RebootServerAsync));
+        return Task.FromResult(Reboot is null ? (HoldsServer ? PanelActionResult.Done() : PanelActionResult.NotFound()) : Reboot(call));
     }
 
     /// <inheritdoc />
@@ -137,8 +146,8 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<ValueResult<VirtualServerRootPassword, PanelRefusalReason>> RebuildServerAsync(VirtualServerRebuildContext context, CancellationToken ct)
     {
-        Count(nameof(RebuildServerAsync));
-        return Task.FromResult(DataOrNotFound(new VirtualServerRootPassword(null)));
+        var call = Count(nameof(RebuildServerAsync));
+        return Task.FromResult(Rebuild is null ? DataOrNotFound(new VirtualServerRootPassword(null)) : Rebuild(call));
     }
 
     /// <inheritdoc />
@@ -150,8 +159,8 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<ValueResult<VirtualServerRootPassword, PanelRefusalReason>> ResetRootPasswordAsync(PanelChangePasswordContext context, CancellationToken ct)
     {
-        Count(nameof(ResetRootPasswordAsync));
-        return Task.FromResult(DataOrNotFound(new VirtualServerRootPassword("generated-secret-201")));
+        var call = Count(nameof(ResetRootPasswordAsync));
+        return Task.FromResult(ResetRootPassword is null ? DataOrNotFound(new VirtualServerRootPassword("generated-secret-201")) : ResetRootPassword(call));
     }
 
     /// <inheritdoc />

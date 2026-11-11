@@ -105,22 +105,40 @@ internal sealed class ContractChecks
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(calls, 2);
 
-        TResult? first = null;
-        for (var call = 1; call <= calls; call++)
+        var first = await FitStepAsync<TResult, TReason>(operation, 1, invoke);
+        for (var call = 2; call <= calls; call++)
         {
-            var result = await CallAsync(operation, call, invoke);
-            CheckShape(operation, call, result.Outcome, result.Reason);
-
-            if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
-            {
-                throw new PluginContractViolationException(
-                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange {_words.IndefiniteTarget} the {_words.Other} accepts the operation for, and a repeat must answer Succeeded or AlreadyApplied.");
-            }
-
-            first ??= result;
+            await FitStepAsync<TResult, TReason>(operation, call, invoke);
         }
 
-        return first!;
+        return first;
+    }
+
+    /// <summary>
+    /// Makes one call of an idempotent operation and checks what every call must satisfy: the answer has a defined shape
+    /// and is <c>Succeeded</c> or <c>AlreadyApplied</c>.
+    /// </summary>
+    /// <typeparam name="TResult">The result type of the operation.</typeparam>
+    /// <typeparam name="TReason">The refusal reason enum of the contract.</typeparam>
+    /// <param name="operation">The operation's name, for the message.</param>
+    /// <param name="call">The call number, starting at 1, for the message.</param>
+    /// <param name="invoke">The call.</param>
+    /// <returns>The result of the call.</returns>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, or answered an outcome that does not fit.</exception>
+    private async Task<TResult> FitStepAsync<TResult, TReason>(string operation, int call, Func<Task<TResult>> invoke)
+        where TResult : class, IOperationAnswer<TReason>
+        where TReason : struct, Enum
+    {
+        var result = await CallAsync(operation, call, invoke);
+        CheckShape(operation, call, result.Outcome, result.Reason);
+
+        if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
+        {
+            throw new PluginContractViolationException(
+                $"{operation} answered {result.Outcome} on call {call}. The caller must arrange {_words.IndefiniteTarget} the {_words.Other} accepts the operation for, and a repeat must answer Succeeded or AlreadyApplied.");
+        }
+
+        return result;
     }
 
     /// <summary>
@@ -147,31 +165,10 @@ internal sealed class ContractChecks
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(calls, 2);
 
-        TResult? first = null;
-        string? firstReference = null;
-        for (var call = 1; call <= calls; call++)
+        var (first, firstReference) = await OrderStepAsync<TResult, TReason>(operation, 1, invoke, referenceOf);
+        for (var call = 2; call <= calls; call++)
         {
-            var result = await CallAsync(operation, call, invoke);
-            CheckShape(operation, call, result.Outcome, result.Reason);
-
-            if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
-            {
-                throw new PluginContractViolationException(
-                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a create the {_words.Other} accepts, and a repeat must answer AlreadyApplied.");
-            }
-
-            var reference = referenceOf(result);
-            if (string.IsNullOrWhiteSpace(reference))
-            {
-                throw new PluginContractViolationException($"{operation} answered {result.Outcome} without a {_words.Reference} on call {call}.");
-            }
-
-            if (first is null)
-            {
-                first = result;
-                firstReference = reference;
-                continue;
-            }
+            var (result, reference) = await OrderStepAsync<TResult, TReason>(operation, call, invoke, referenceOf);
 
             if (result.Outcome != PanelOperationOutcome.AlreadyApplied)
             {
@@ -186,7 +183,45 @@ internal sealed class ContractChecks
             }
         }
 
-        return first!;
+        return first;
+    }
+
+    /// <summary>
+    /// Makes one call of a create or an order and checks what every call must satisfy: the answer has a defined shape, it is
+    /// a success or an already applied, and it carries a reference.
+    /// </summary>
+    /// <typeparam name="TResult">The result type of the operation.</typeparam>
+    /// <typeparam name="TReason">The refusal reason enum of the contract.</typeparam>
+    /// <param name="operation">The operation's name, for the message.</param>
+    /// <param name="call">The call number, starting at 1, for the message.</param>
+    /// <param name="invoke">The call.</param>
+    /// <param name="referenceOf">Reads the reference the result answers, or <see langword="null"/> when it has none.</param>
+    /// <returns>The result and its reference, which is not empty.</returns>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, answered an outcome that does not fit, or answered without a reference.</exception>
+    private async Task<(TResult Result, string Reference)> OrderStepAsync<TResult, TReason>(
+        string operation,
+        int call,
+        Func<Task<TResult>> invoke,
+        Func<TResult, string?> referenceOf)
+        where TResult : class, IOperationAnswer<TReason>
+        where TReason : struct, Enum
+    {
+        var result = await CallAsync(operation, call, invoke);
+        CheckShape(operation, call, result.Outcome, result.Reason);
+
+        if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
+        {
+            throw new PluginContractViolationException(
+                $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a create the {_words.Other} accepts, and a repeat must answer AlreadyApplied.");
+        }
+
+        var reference = referenceOf(result);
+        if (string.IsNullOrWhiteSpace(reference))
+        {
+            throw new PluginContractViolationException($"{operation} answered {result.Outcome} without a {_words.Reference} on call {call}.");
+        }
+
+        return (result, reference);
     }
 
     /// <summary>Calls an operation once and asserts that its outcome is one of the allowed ones.</summary>

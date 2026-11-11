@@ -47,7 +47,6 @@ public sealed class RegistrarContractShapeTests
         RegistrarFixtures.ForwardingRule.Should().NotBe(RegistrarFixtures.ForwardingRule with { Rule = rule with { Destination = "other@example.test" } });
     }
 
-
     /// <summary>The transfer prints the authorization code masked, and the connection inside it masked too.</summary>
     [Fact]
     public void TransferContext_ToString_MasksCodeAndKey()

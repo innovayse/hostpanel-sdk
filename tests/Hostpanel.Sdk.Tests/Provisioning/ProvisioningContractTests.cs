@@ -300,7 +300,7 @@ public sealed class ProvisioningContractTests
     [Fact]
     public async Task AssertList_Pages_ReturnsEveryAccountOnce()
     {
-        var plugin = new ScriptedPanelPlugin { List = PagesOf("a", "b", "c") };
+        var plugin = new ScriptedPanelPlugin { List = ScriptedAnswers.PagesOf("a", "b", "c") };
 
         var accounts = await ProvisioningContract.AssertListAccountsIsCompleteAsync(plugin, PanelFixtures.Server);
 
@@ -312,7 +312,7 @@ public sealed class ProvisioningContractTests
     [Fact]
     public async Task AssertList_DuplicateAccount_Throws()
     {
-        var plugin = new ScriptedPanelPlugin { List = PagesOf("a", "b", "a") };
+        var plugin = new ScriptedPanelPlugin { List = ScriptedAnswers.PagesOf("a", "b", "a") };
 
         var run = () => ProvisioningContract.AssertListAccountsIsCompleteAsync(plugin, PanelFixtures.Server);
 
@@ -379,19 +379,5 @@ public sealed class ProvisioningContractTests
         var run = () => ProvisioningContract.AssertHidesSecrets(leaking, PanelFixtures.ApiToken);
 
         run.Should().Throw<PluginContractViolationException>().Which.Message.Should().NotContain(PanelFixtures.ApiToken);
-    }
-
-    /// <summary>Builds a listing script that serves one account per page, with a numeric cursor, and ends after the last.</summary>
-    /// <param name="references">The reference of the account on each page, in order.</param>
-    /// <returns>The script for <see cref="ScriptedPanelPlugin.List"/>.</returns>
-    private static Func<string?, PanelAccountListResult> PagesOf(params string[] references)
-    {
-        return cursor =>
-        {
-            var index = cursor is null ? 0 : int.Parse(cursor, System.Globalization.CultureInfo.InvariantCulture);
-            var account = new PanelAccount(references[index], null, PanelAccountStatus.Active, null, null);
-            var next = index + 1 < references.Length ? (index + 1).ToString(System.Globalization.CultureInfo.InvariantCulture) : null;
-            return PanelAccountListResult.Page([account], next);
-        };
     }
 }

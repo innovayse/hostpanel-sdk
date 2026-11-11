@@ -15,11 +15,11 @@ namespace Hostpanel.Sdk.Plugins.VirtualServers;
 /// </summary>
 public static class VirtualServerContract
 {
-    /// <summary>The checks this contract shares with the other contracts, worded for a virtual server platform.</summary>
-    private static readonly ContractChecks Checks = new(new ContractWords("server", "a server", "platform", "ProvisioningRef", "the server was created again. A repeat with the same name must answer AlreadyApplied."));
-
     /// <summary>The password the not found check sends; it is never a real one.</summary>
     private const string CheckPassword = "contract-check-password";
+
+    /// <summary>The checks this contract shares with the other contracts, worded for a virtual server platform.</summary>
+    private static readonly ContractChecks Checks = new(new ContractWords("server", "a server", "platform", "ProvisioningRef", "the server was created again. A repeat with the same name must answer AlreadyApplied."));
 
     /// <summary>
     /// Calls <see cref="IVirtualServerPlugin.CreateServerAsync"/> repeatedly with one context and asserts the promise of that

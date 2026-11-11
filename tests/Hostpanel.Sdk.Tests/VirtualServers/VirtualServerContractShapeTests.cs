@@ -46,12 +46,11 @@ public sealed class VirtualServerContractShapeTests
         new VirtualServerInstance("srv-1", null, null, null).ToString().Should().Contain("GeneratedPassword = null");
     }
 
-    /// <summary>The capability name the manifest lists is fixed, and the plugin type stays provisioning, so no type value is added.</summary>
+    /// <summary>The capability name the manifest lists is fixed. The plugin type stays provisioning, which EnumValueTests pins.</summary>
     [Fact]
-    public void Capability_Name_IsVirtualServer_AndPluginTypeIsUnchanged()
+    public void Capability_Name_IsVirtualServer()
     {
         PluginCapabilities.VirtualServer.Should().Be("virtualServer");
-        Enum.GetValues<PluginType>().Should().HaveCount(7);
     }
 
     /// <summary>The server listing is a separate opt in that extends the virtual server interface and has its own capability name.</summary>
