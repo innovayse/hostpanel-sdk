@@ -14,6 +14,16 @@ public static class PluginCapabilities
     public const string ProvisioningPanel = "provisioningPanel";
 
     /// <summary>
+    /// The provisioning plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerPlugin"/>, the
+    /// operations of a virtual server or cloud platform. The plugin type stays <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.Provisioning"/>:
+    /// a virtual server is a service provisioned on a server the host knows, like a hosting account.
+    /// </summary>
+    public const string VirtualServer = "virtualServer";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarOperationsPlugin"/>, the domain operations of a registrar.</summary>
+    public const string RegistrarOperations = "registrarOperations";
+
+    /// <summary>
     /// Any plugin type may declare it. It means the plugin class also implements
     /// <see cref="Hostpanel.Sdk.Plugins.Endpoints.IPluginEndpoints"/>, so the host serves the plugin's declared
     /// <c>api</c> routes and its <c>ui</c> pages, menus and slots. An <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.App"/>

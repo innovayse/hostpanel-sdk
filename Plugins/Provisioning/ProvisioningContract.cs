@@ -1,5 +1,7 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
+using static Hostpanel.Sdk.Plugins.Diagnostics.ContractChecks;
 
 namespace Hostpanel.Sdk.Plugins.Provisioning;
 
@@ -96,7 +98,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertActionIsIdempotentAsync(nameof(IProvisioningPanelPlugin.SuspendAccountAsync), () => plugin.SuspendAccountAsync(context, ct), calls);
+        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.SuspendAccountAsync), () => plugin.SuspendAccountAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -119,7 +121,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertActionIsIdempotentAsync(nameof(IProvisioningPanelPlugin.UnsuspendAccountAsync), () => plugin.UnsuspendAccountAsync(context, ct), calls);
+        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.UnsuspendAccountAsync), () => plugin.UnsuspendAccountAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -143,7 +145,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertActionIsIdempotentAsync(nameof(IProvisioningPanelPlugin.TerminateAccountAsync), () => plugin.TerminateAccountAsync(context, ct), calls);
+        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.TerminateAccountAsync), () => plugin.TerminateAccountAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -166,7 +168,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertActionIsIdempotentAsync(nameof(IProvisioningPanelPlugin.ChangePackageAsync), () => plugin.ChangePackageAsync(context, ct), calls);
+        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.ChangePackageAsync), () => plugin.ChangePackageAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -190,7 +192,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertActionIsIdempotentAsync(nameof(IProvisioningPanelPlugin.ChangePasswordAsync), () => plugin.ChangePasswordAsync(context, ct), calls);
+        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.ChangePasswordAsync), () => plugin.ChangePasswordAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -219,20 +221,24 @@ public static class ProvisioningContract
         var server = unknownAccount.Server;
         var service = unknownAccount.Service;
 
-        await ExpectActionAsync(
+        await ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.SuspendAccountAsync),
+            "account",
             () => plugin.SuspendAccountAsync(new PanelSuspendContext(server, service, "contract check"), ct),
             PanelOperationOutcome.NotFound);
-        await ExpectActionAsync(
+        await ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.UnsuspendAccountAsync),
+            "account",
             () => plugin.UnsuspendAccountAsync(unknownAccount, ct),
             PanelOperationOutcome.NotFound);
-        await ExpectActionAsync(
+        await ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.ChangePackageAsync),
+            "account",
             () => plugin.ChangePackageAsync(new PanelChangePackageContext(server, service, package), ct),
             PanelOperationOutcome.NotFound);
-        await ExpectActionAsync(
+        await ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.TerminateAccountAsync),
+            "account",
             () => plugin.TerminateAccountAsync(new PanelTerminateContext(server, service, "contract check"), ct),
             PanelOperationOutcome.Succeeded,
             PanelOperationOutcome.AlreadyApplied);
@@ -271,7 +277,7 @@ public static class ProvisioningContract
     /// The call threw, answered <see langword="null"/>, answered an outcome that is not defined, a negative account count,
     /// or a version or count together with an outcome other than <see cref="PanelConnectionOutcome.Connected"/>.
     /// </exception>
-    public static async Task<PanelConnectionTestResult> AssertTestConnectionAnswersAsync(
+    public static Task<PanelConnectionTestResult> AssertTestConnectionAnswersAsync(
         IProvisioningPanelPlugin plugin,
         PanelTestConnectionContext context,
         CancellationToken ct = default)
@@ -279,25 +285,7 @@ public static class ProvisioningContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        const string operation = nameof(IProvisioningPanelPlugin.TestConnectionAsync);
-        var result = await CallAsync(operation, 1, () => plugin.TestConnectionAsync(context, ct));
-
-        if (!Enum.IsDefined(result.Outcome))
-        {
-            throw new PluginContractViolationException($"{operation} answered {(int)result.Outcome}, which is not a PanelConnectionOutcome.");
-        }
-
-        if (result.AccountCount is < 0)
-        {
-            throw new PluginContractViolationException($"{operation} answered a negative AccountCount.");
-        }
-
-        if (result.Outcome != PanelConnectionOutcome.Connected && (result.Version is not null || result.AccountCount is not null))
-        {
-            throw new PluginContractViolationException($"{operation} answered {result.Outcome} with a Version or an AccountCount; only a connected test has them.");
-        }
-
-        return result;
+        return ContractChecks.AssertTestConnectionAnswersAsync(nameof(IProvisioningPanelPlugin.TestConnectionAsync), () => plugin.TestConnectionAsync(context, ct));
     }
 
     /// <summary>
@@ -392,132 +380,6 @@ public static class ProvisioningContract
     /// <exception cref="PluginContractViolationException">The printed form contains one of the secrets. The message does not repeat it.</exception>
     public static void AssertHidesSecrets(object value, params string?[] secrets)
     {
-        ArgumentNullException.ThrowIfNull(value);
-        ArgumentNullException.ThrowIfNull(secrets);
-
-        var printed = value.ToString() ?? string.Empty;
-        for (var index = 0; index < secrets.Length; index++)
-        {
-            var secret = secrets[index];
-            if (!string.IsNullOrEmpty(secret) && printed.Contains(secret, StringComparison.Ordinal))
-            {
-                throw new PluginContractViolationException(
-                    $"The printed form of {value.GetType().Name} contains secret number {index + 1}. A result, a context and a log line must print secrets masked.");
-            }
-        }
-    }
-
-    /// <summary>
-    /// Calls an action-shaped operation repeatedly and asserts that each call answers <c>Succeeded</c> or <c>AlreadyApplied</c>.
-    /// </summary>
-    /// <param name="operation">The operation's name, for the message.</param>
-    /// <param name="invoke">One call of the operation.</param>
-    /// <param name="calls">How many times to call; at least 2.</param>
-    /// <returns>The result of the first call.</returns>
-    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
-    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered an outcome that does not fit.</exception>
-    private static async Task<PanelActionResult> AssertActionIsIdempotentAsync(
-        string operation,
-        Func<Task<PanelActionResult>> invoke,
-        int calls)
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(calls, 2);
-
-        PanelActionResult? first = null;
-        for (var call = 1; call <= calls; call++)
-        {
-            var result = await CallAsync(operation, call, invoke);
-            CheckShape(operation, call, result.Outcome, result.Reason);
-
-            if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
-            {
-                throw new PluginContractViolationException(
-                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange an account the panel accepts the operation for, and a repeat must answer Succeeded or AlreadyApplied.");
-            }
-
-            first ??= result;
-        }
-
-        return first!;
-    }
-
-    /// <summary>Calls an action-shaped operation once and asserts that its outcome is one of the allowed ones.</summary>
-    /// <param name="operation">The operation's name, for the message.</param>
-    /// <param name="invoke">The call.</param>
-    /// <param name="allowed">The outcomes the promise allows.</param>
-    /// <returns>A task that completes when the check passed.</returns>
-    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/> or answered an outcome that is not allowed.</exception>
-    private static async Task ExpectActionAsync(string operation, Func<Task<PanelActionResult>> invoke, params PanelOperationOutcome[] allowed)
-    {
-        var result = await CallAsync(operation, 1, invoke);
-        CheckShape(operation, 1, result.Outcome, result.Reason);
-
-        if (!allowed.Contains(result.Outcome))
-        {
-            throw new PluginContractViolationException(
-                $"{operation} answered {result.Outcome} for an unknown account; it must answer {string.Join(" or ", allowed)}.");
-        }
-    }
-
-    /// <summary>
-    /// Calls the plugin once. An exception other than a cancellation is a broken promise (the caller arranged a panel that
-    /// answers), and so is a <see langword="null"/> answer.
-    /// </summary>
-    /// <typeparam name="T">The result type of the operation.</typeparam>
-    /// <param name="operation">The operation's name, for the message.</param>
-    /// <param name="call">The call number, starting at 1, for the message.</param>
-    /// <param name="invoke">The call.</param>
-    /// <returns>The plugin's answer.</returns>
-    /// <exception cref="PluginContractViolationException">The call threw or answered <see langword="null"/>.</exception>
-    private static async Task<T> CallAsync<T>(string operation, int call, Func<Task<T>> invoke)
-        where T : class
-    {
-        T? result;
-        try
-        {
-            result = await invoke();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Only the type is named: the message may carry a panel address or a user name.
-            throw new PluginContractViolationException(
-                $"{operation} threw on call {call}: {ex.GetType().Name}. A refusal, a missing account and an unsupported operation are outcomes, and a repeat must answer the same as the first call.");
-        }
-
-        if (result is null)
-        {
-            throw new PluginContractViolationException($"{operation} answered null on call {call}.");
-        }
-
-        return result;
-    }
-
-    /// <summary>Asserts that an outcome is defined and that a reason is present exactly when the panel refused.</summary>
-    /// <param name="operation">The operation's name, for the message.</param>
-    /// <param name="call">The call number, starting at 1, for the message.</param>
-    /// <param name="outcome">The outcome the plugin answered.</param>
-    /// <param name="reason">The reason the plugin answered.</param>
-    /// <exception cref="PluginContractViolationException">The outcome is not defined, a refusal has no reason, or another outcome has one.</exception>
-    private static void CheckShape(string operation, int call, PanelOperationOutcome outcome, PanelRefusalReason? reason)
-    {
-        if (!Enum.IsDefined(outcome))
-        {
-            throw new PluginContractViolationException($"{operation} answered {(int)outcome} on call {call}, which is not a PanelOperationOutcome.");
-        }
-
-        if (reason is { } given && !Enum.IsDefined(given))
-        {
-            throw new PluginContractViolationException($"{operation} answered {(int)given} as the reason on call {call}, which is not a PanelRefusalReason.");
-        }
-
-        if (outcome == PanelOperationOutcome.Refused && reason is null)
-        {
-            throw new PluginContractViolationException($"{operation} refused on call {call} without a PanelRefusalReason.");
-        }
-
-        if (outcome != PanelOperationOutcome.Refused && reason is not null)
-        {
-            throw new PluginContractViolationException($"{operation} answered {outcome} with a PanelRefusalReason on call {call}; only a refusal has one.");
-        }
+        ContractChecks.AssertHidesSecrets(value, secrets);
     }
 }

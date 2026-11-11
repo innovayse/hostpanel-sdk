@@ -1,15 +1,17 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Enums;
 
 namespace Hostpanel.Sdk.Plugins.Provisioning;
 
 /// <summary>
-/// Result of an operation that changes an account and returns nothing else: suspend, unsuspend, terminate, change package
-/// and change password. Build it with <see cref="Done"/>, <see cref="AlreadyDone"/>, <see cref="NotFound"/>,
+/// Result of an operation that changes an account or a virtual server and returns nothing else: suspend, unsuspend, terminate, change package
+/// and change password, or on a virtual server start, stop, reboot and change plan. Build it with <see cref="Done"/>, <see cref="AlreadyDone"/>, <see cref="NotFound"/>,
 /// <see cref="NotSupported"/> or <see cref="Refused"/>. It carries no panel text and no secret.
 /// </summary>
 /// <param name="Outcome">How the panel answered.</param>
 /// <param name="Reason">Why the panel refused; set exactly when <paramref name="Outcome"/> is <see cref="PanelOperationOutcome.Refused"/>.</param>
 public sealed record PanelActionResult(PanelOperationOutcome Outcome, PanelRefusalReason? Reason)
+    : IOperationAnswer<PanelRefusalReason>
 {
     /// <summary>Builds the answer for an operation the panel carried out now.</summary>
     /// <returns>A <see cref="PanelOperationOutcome.Succeeded"/> result.</returns>

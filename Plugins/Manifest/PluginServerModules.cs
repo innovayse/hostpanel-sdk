@@ -26,7 +26,7 @@ public static class PluginServerModules
 
     /// <summary>
     /// Checks a whole <c>serverModules</c> list and reports every rule it breaks, in list order. A provisioning plugin that
-    /// implements <see cref="Provisioning.IProvisioningPanelPlugin"/> must list at least one id; the host calls this when
+    /// implements <see cref="Provisioning.IProvisioningPanelPlugin"/> or <see cref="VirtualServers.IVirtualServerPlugin"/> must list at least one id; the host calls this when
     /// it reads the manifest and refuses the plugin on any violation.
     /// </summary>
     /// <param name="serverModules">The list from the manifest; <see langword="null"/> is treated as empty.</param>

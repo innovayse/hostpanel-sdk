@@ -5,6 +5,50 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0]
+
+### Added
+
+- Registrar operations (innovayse/hostpanel-sdk#37): `IRegistrarOperationsPlugin : IRegistrarPlugin`, so a domain registrar can ship as an external plugin. Twenty-one operations, each taking one typed context and answering one typed result: `CheckAvailabilityAsync`, `RegisterAsync`, `TransferAsync`, `RenewAsync`, `CheckDomainActiveAsync` (for an order that answered `RequiresPolling`), `CancelTransferAsync`, `InitiateOutgoingTransferAsync`, `GetEppCodeAsync`, `GetNameserversAsync`, `SetNameserversAsync`, `SetAutoRenewAsync`, `SetWhoisPrivacyAsync`, `SetRegistrarLockAsync`, `GetContactAsync`, `SetContactAsync`, `GetDnsRecordsAsync`, `AddDnsRecordAsync`, `UpdateDnsRecordAsync`, `DeleteDnsRecordAsync`, `GetTldPricingAsync` and `TestConnectionAsync`.
+  - `RegistrarConnection` is the registrar account settings record (`AccountName`, `ApiKey`, `ApiUrl`, `ClientIp`, `TestMode`); `ApiKey` prints as `***`. It arrives in every context, so a plugin keeps no state between calls.
+  - Contexts: `RegistrarAvailabilityContext`, `RegistrarRegisterContext`, `RegistrarTransferContext` (the authorization code prints as `***`), `RegistrarRenewContext` (`CurrentExpiresAt` lets a plugin tell a repeat from a second renewal), `RegistrarDomainContext`, `RegistrarFlagContext`, `RegistrarNameserversContext`, `RegistrarContactContext`, `RegistrarDnsRecordContext`, `RegistrarDnsRecordRemovalContext`, `RegistrarPricingContext` and `RegistrarTestConnectionContext`. Values: `RegistrarDomain`, `RegistrarContact`, `RegistrarDnsRecord`, `RegistrarOrder`, `RegistrarEppCode` (prints as `***`), `RegistrarAvailability` and `RegistrarTldPricing`.
+  - Results: `RegistrarActionResult` and `RegistrarDataResult<T>`, with factories `Done`, `AlreadyDone`, `NotFound`, `NotSupported` and `Refused`. The outcome is the existing `PanelOperationOutcome`, the connection test answers the existing `PanelConnectionTestResult`, and a refusal carries the new `RegistrarRefusalReason`. A result never carries registrar text or a secret.
+  - Idempotency is part of the contract and documented per operation: a retried register or transfer answers `AlreadyApplied` with the same reference, a retried renewal is recognised through `RegistrarRenewContext.CurrentExpiresAt`, a switch or a list already in the wanted state is a success, and deleting a DNS record that is gone is `AlreadyApplied`, never `NotFound`.
+  - `RegistrarContract` (for a plugin's own tests, like `ProvisioningContract`): `AssertRegisterIsIdempotentAsync`, `AssertTransferIsIdempotentAsync`, `AssertRenewIsIdempotentAsync`, `AssertSetNameserversIsIdempotentAsync`, `AssertSetAutoRenewIsIdempotentAsync`, `AssertSetWhoisPrivacyIsIdempotentAsync`, `AssertSetRegistrarLockIsIdempotentAsync`, `AssertSetContactIsIdempotentAsync`, `AssertDeleteDnsRecordIsIdempotentAsync`, `AssertUnknownDomainIsNotFoundAsync`, `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. They throw `PluginContractViolationException`.
+  - `PluginCapabilities.RegistrarOperations` (`"registrarOperations"`), the manifest capability a registrar plugin lists when it implements the interface.
+  - E-mail forwarding rules, the DNS management switch and the WHOIS lookup are not part of this contract; they can be added later as separate operations.
+- Virtual server operations (innovayse/hostpanel-sdk#37): `IVirtualServerPlugin : IProvisioningPlugin`, so a virtual server or cloud platform can ship as an external plugin. It is a capability of the provisioning type and not a new `PluginType` value, because a virtual server is a service provisioned on a server the host knows, like a hosting account; `PluginType` is unchanged. Fifteen operations: `CreateServerAsync`, `StartServerAsync`, `StopServerAsync`, `RebootServerAsync`, `SuspendServerAsync`, `UnsuspendServerAsync`, `TerminateServerAsync`, `RebuildServerAsync`, `ChangePlanAsync`, `ResetRootPasswordAsync`, `CreateConsoleSessionAsync`, `GetServerUsageAsync`, `ListImagesAsync`, `ListPlansAsync` and `TestServerConnectionAsync`.
+  - The contract reuses the provisioning vocabulary instead of copying it: `PanelServerConnection`, `PanelService`, `PanelClientRef`, `PanelPackage` (the plan name), `PanelAccountContext`, `PanelSuspendContext`, `PanelTerminateContext`, `PanelChangePackageContext`, `PanelChangePasswordContext`, `PanelTestConnectionContext`, `PanelActionResult`, `PanelConnectionTestResult`, `PanelOperationOutcome` and `IPanelTransport`. The new generic `PanelDataResult<T>` (`Done`, `AlreadyDone`, `NotFound`, `NotSupported`, `Refused`) answers a value.
+  - New types: `VirtualServerCreateContext` (the root password prints as `***`), `VirtualServerRebuildContext`, `VirtualServerCatalogContext`, `VirtualServerInstance`, `VirtualServerRootPassword`, `VirtualServerConsole` (the address prints as `***`), `VirtualServerUsage`, `VirtualServerImage`, `VirtualServerPlan` and the enum `VirtualServerPowerState` (`Running`, `Stopped`, `Suspended`, `Provisioning`). A platform that cannot set the requested root password generates one and answers it in `GeneratedPassword`, which prints as `***`.
+  - Idempotency is documented per operation: a retried create is keyed by `VirtualServerCreateContext.Name`, which the host stores before the first call, and answers `AlreadyApplied` with the same `ProvisioningRef`; start, stop, suspend, unsuspend and change plan succeed when the server is already in the wanted state; a terminate of a server that is already gone is `AlreadyApplied`, never `NotFound`. Reboot, rebuild, root password reset and console sessions repeat their work by nature.
+  - `VirtualServerContract` (for a plugin's own tests): `AssertCreateIsIdempotentAsync`, `AssertStartIsIdempotentAsync`, `AssertStopIsIdempotentAsync`, `AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`, `AssertTerminateIsIdempotentAsync`, `AssertChangePlanIsIdempotentAsync`, `AssertUnknownServerIsNotFoundAsync`, `AssertCatalogIsWellFormedAsync`, `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`.
+  - `PluginCapabilities.VirtualServer` (`"virtualServer"`), the manifest capability a plugin lists when it implements the interface. `PluginManifest.ServerModules` and `PluginServerModules` now apply to a plugin that implements `IVirtualServerPlugin` as well as one that implements `IProvisioningPanelPlugin`.
+- `PanelRefusalReason.ImageUnknown` (8) and `PanelRefusalReason.NameInvalid` (9), appended for the virtual server contract; the existing values keep theirs.
+
+### Changed
+
+- The checks that `ProvisioningContract`, `RegistrarContract` and `VirtualServerContract` share (the guarded call, the outcome and reason shape, the idempotent repeat, the connection test shape, the secret scan) moved into one internal class. Their behaviour and messages are unchanged.
+- The documentation of `PanelOperationOutcome`, `PanelConnectionOutcome`, `PanelActionResult`, `PanelConnectionTestResult`, `PanelServerConnection` and `IPanelTransport` now says that the registrar and virtual server contracts use them too. No member changed.
+
+### Compatibility
+
+Everything is additive. `IRegistrarPlugin`, `RegistrarProviderBase`, `IProvisioningPlugin`, `ProvisioningProviderBase`, `IProvisioningPanelPlugin` and `PluginType` are unchanged, so a plugin built on 3.5.0 compiles and loads on 3.6.0 as it is; it has no registrar or virtual server operations, and a host that calls them skips it (`plugin is IRegistrarOperationsPlugin` and `plugin is IVirtualServerPlugin` are false). `PanelActionResult` now implements an internal interface, which a plugin never sees.
+
+### Migrating a registrar plugin to the registrar operations
+
+1. Raise the package reference to `Hostpanel.Sdk` 3.6.0.
+2. Implement `IRegistrarOperationsPlugin` on the registrar class, next to `RegistrarProviderBase`, and take an `IPanelTransport` in the constructor. The operations are required; an operation the registrar does not have answers `PanelOperationOutcome.NotSupported` instead of throwing.
+3. Add `"registrarOperations"` to `capabilities` in `plugin.json`. The list must agree with the code.
+4. Return outcomes, not exceptions, for a refusal, a missing domain and an unsupported operation; throw only when the result is unknown. Never put registrar text, a domain, a contact detail or a secret in a result, a log line or an exception message.
+5. In the plugin's tests, call the `RegistrarContract` checks against a stub of your registrar.
+
+### Migrating a provisioning plugin to the virtual server operations
+
+1. Raise the package reference to `Hostpanel.Sdk` 3.6.0.
+2. Implement `IVirtualServerPlugin` on the provisioning class, next to `ProvisioningProviderBase`, and take an `IPanelTransport` in the constructor. An operation the platform does not have answers `PanelOperationOutcome.NotSupported`.
+3. Add `"virtualServer"` to `capabilities` and the module ids to `serverModules` in `plugin.json`.
+4. In the plugin's tests, call the `VirtualServerContract` checks against a stub of your platform.
+
 ## [3.5.0]
 
 ### Added

@@ -4,7 +4,7 @@ using Hostpanel.Sdk.Plugins.Diagnostics;
 namespace Hostpanel.Sdk.Plugins.Provisioning;
 
 /// <summary>
-/// The server a hosting panel operation runs against: where it is and the credentials the host stores for it. The host
+/// The server a hosting panel or virtual server operation runs against: where it is and the credentials the host stores for it. The host
 /// fills in what it has and a plugin reads the members its panel uses; a panel that authenticates with a user and a
 /// token reads <see cref="Username"/> and <see cref="ApiToken"/>, one that uses a single key reads <see cref="AccessHash"/>.
 /// <see cref="AccessHash"/> and <see cref="ApiToken"/> are secrets: the generated <c>ToString</c> prints them masked,

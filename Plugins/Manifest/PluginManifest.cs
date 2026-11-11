@@ -176,8 +176,8 @@ public sealed class PluginManifest
     /// <summary>
     /// Gets the server module ids a provisioning plugin serves (the <c>serverModules</c> field, for example
     /// <c>["examplepanel"]</c>): the host sends a server whose module is listed here to this plugin. Required for a plugin
-    /// that implements <see cref="Provisioning.IProvisioningPanelPlugin"/> (and so lists
-    /// <see cref="PluginCapabilities.ProvisioningPanel"/>), and ignored for every other plugin. Each id follows
+    /// that implements <see cref="Provisioning.IProvisioningPanelPlugin"/> or <see cref="VirtualServers.IVirtualServerPlugin"/> (and so lists
+    /// <see cref="PluginCapabilities.ProvisioningPanel"/> or <see cref="PluginCapabilities.VirtualServer"/>), and ignored for every other plugin. Each id follows
     /// <see cref="PluginServerModules"/>, which also validates the list. A missing or <c>null</c> <c>serverModules</c>
     /// reads as an empty list, never <see langword="null"/>.
     /// </summary>

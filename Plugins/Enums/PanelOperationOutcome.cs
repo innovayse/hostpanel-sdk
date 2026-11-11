@@ -1,7 +1,9 @@
 namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
-/// How a hosting panel answered one operation of <see cref="Provisioning.IProvisioningPanelPlugin"/>. The values start at 1
+/// How the other side answered one operation of <see cref="Provisioning.IProvisioningPanelPlugin"/>, of
+/// <see cref="VirtualServers.IVirtualServerPlugin"/> or of <see cref="Registrar.IRegistrarOperationsPlugin"/>: a hosting
+/// panel, a virtual server platform or a registrar. The values start at 1
 /// and 0 is not valid: a default-initialised value means the plugin set nothing, and the host refuses it. A refusal, a
 /// missing account and an operation the panel does not have are outcomes, never exceptions: a plugin throws only when it
 /// does not know what happened, for example when the panel could not be reached.

@@ -25,7 +25,7 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Hostpanel.Sdk --version 3.2.0
+dotnet add package Hostpanel.Sdk --version 3.6.0
 ```
 
 or, in the plugin's `.csproj`:
@@ -34,7 +34,7 @@ or, in the plugin's `.csproj`:
 <ItemGroup>
   <!-- ExcludeAssets="runtime" keeps Hostpanel.Sdk.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Hostpanel.Sdk" Version="3.2.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Hostpanel.Sdk" Version="3.6.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -53,9 +53,9 @@ Upgrading from 1.x? Version 2.0.0 moves types into one namespace per area and re
 
 | `PluginType` | Contract | What it is for |
 |---|---|---|
-| `Provisioning` | `IProvisioningPlugin`, `ProvisioningProviderBase` | Hosting accounts on a server or control panel. `IProvisioningPanelPlugin` adds the account operations (see "Provisioning panel plugins"); the marker and the base class give settings access. |
+| `Provisioning` | `IProvisioningPlugin`, `ProvisioningProviderBase` | Hosting accounts on a server or control panel. `IProvisioningPanelPlugin` adds the account operations (see "Provisioning panel plugins") and `IVirtualServerPlugin` the operations of a virtual server or cloud platform (see "Virtual server plugins"); the marker and the base class give settings access. |
 | `Payment` | `IPaymentPlugin`, `PaymentGatewayBase` | A payment gateway: start a payment, read its status, refund it. |
-| `Registrar` | `IRegistrarPlugin`, `RegistrarProviderBase` | A domain registrar. The contract is a marker today: the base class gives settings access, there are no operations yet. |
+| `Registrar` | `IRegistrarPlugin`, `RegistrarProviderBase` | A domain registrar. `IRegistrarOperationsPlugin` adds the domain operations (see "Registrar plugins"); the marker and the base class give settings access. |
 | `Identity` | `IClientResolver` | Decides which client a signed-in principal acts for and what it may do there. At most one identity plugin may be enabled. |
 | `Fulfilment` | `IFulfilmentPlugin` | Delivers digital products once an invoice is paid, and is asked before a refund moves money back. Every enabled fulfilment plugin sees every digital invoice. |
 | `Hosted` | `IHostedPlugin` | A background worker the host starts after its own services are up and stops on shutdown. A plugin of another type may implement it too. |
@@ -249,6 +249,102 @@ In the plugin's own tests, run the `ProvisioningContract` checks against a stub 
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
 `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
 
+### Registrar plugins
+
+A domain registrar is a registrar plugin that also implements `IRegistrarOperationsPlugin`, which extends the
+`IRegistrarPlugin` marker. The marker and `RegistrarProviderBase` do not change, so a registrar plugin built on an earlier
+version compiles and loads as before, with no operations. List `registrarOperations` in the manifest's `capabilities`; the
+list must agree with the code. One plugin serves one registrar account: each call carries it as a `RegistrarConnection`
+(account name, `ApiKey`, optional `ApiUrl` and `ClientIp`, `TestMode`), so keep no state between calls.
+
+| Operation | Context | Result | Repeat |
+|---|---|---|---|
+| `CheckAvailabilityAsync` | `RegistrarAvailabilityContext` | `RegistrarDataResult<RegistrarAvailability>` | Read only |
+| `RegisterAsync` | `RegistrarRegisterContext` | `RegistrarDataResult<RegistrarOrder>` | A domain the account already holds is `AlreadyApplied` with the same `RegistrarRef` |
+| `TransferAsync` | `RegistrarTransferContext` | `RegistrarDataResult<RegistrarOrder>` | A transfer already under way or complete is `AlreadyApplied` |
+| `RenewAsync` | `RegistrarRenewContext` | `RegistrarDataResult<RegistrarOrder>` | An expiry already past `CurrentExpiresAt` plus the years is `AlreadyApplied` |
+| `CheckDomainActiveAsync` | `RegistrarDomainContext` | `RegistrarDataResult<RegistrarOrder>` | Read only, for an order that answered `RequiresPolling` |
+| `CancelTransferAsync`, `InitiateOutgoingTransferAsync` | `RegistrarDomainContext` | `RegistrarActionResult` | Already cancelled or prepared is a success |
+| `GetEppCodeAsync` | `RegistrarDomainContext` | `RegistrarDataResult<RegistrarEppCode>` | Read only; the code prints as `***` |
+| `GetNameserversAsync` | `RegistrarDomainContext` | `RegistrarDataResult<IReadOnlyList<string>>` | Read only |
+| `SetNameserversAsync` | `RegistrarNameserversContext` | `RegistrarActionResult` | The same list is a success |
+| `SetAutoRenewAsync`, `SetWhoisPrivacyAsync`, `SetRegistrarLockAsync` | `RegistrarFlagContext` | `RegistrarActionResult` | The state already wanted is a success |
+| `GetContactAsync` | `RegistrarDomainContext` | `RegistrarDataResult<RegistrarContact>` | Read only |
+| `SetContactAsync` | `RegistrarContactContext` | `RegistrarActionResult` | The same contact is a success |
+| `GetDnsRecordsAsync` | `RegistrarDomainContext` | `RegistrarDataResult<IReadOnlyList<RegistrarDnsRecord>>` | Read only |
+| `AddDnsRecordAsync`, `UpdateDnsRecordAsync` | `RegistrarDnsRecordContext` | `RegistrarActionResult` | The same record is a success |
+| `DeleteDnsRecordAsync` | `RegistrarDnsRecordRemovalContext` | `RegistrarActionResult` | A record already gone is `AlreadyApplied`, never `NotFound` |
+| `GetTldPricingAsync` | `RegistrarPricingContext` | `RegistrarDataResult<IReadOnlyList<RegistrarTldPricing>>` | Read only |
+| `TestConnectionAsync` | `RegistrarTestConnectionContext` | `PanelConnectionTestResult` | Never throws for an unreachable registrar |
+
+- **Outcomes, not exceptions.** Every operation answers a `PanelOperationOutcome` (`Succeeded`, `AlreadyApplied`,
+  `NotFound`, `Refused`, `NotSupported`), the same one the provisioning contracts use; the test answers a
+  `PanelConnectionOutcome`. A refusal carries a `RegistrarRefusalReason`. Throw only when you do not know what happened,
+  for example when the registrar could not be reached: the host then retries, which is safe because of the idempotency
+  column above. A purchase is a success only when the registrar did it; a registrar that is not configured refuses.
+- **No registrar text, no secrets.** A result never contains the registrar's own error text (it can carry a domain or a
+  contact detail) or a secret. `ApiKey` and the authorization code print as `***`; do not undo that in your own logs.
+- **Orders.** `RegistrarOrder.RequiresPolling` is `true` while the registrar has accepted an order but not finished it, as a
+  transfer in usually is; the host then calls `CheckDomainActiveAsync` until it is `false`. `ExpiresAt` is `null` when the
+  registrar does not say, and the host extends the expiry it holds.
+- **Network.** Take an `IPanelTransport` in the constructor and send every request on `CreateClient()`; never create your
+  own `HttpClient`. The client has no base address, so build it from `RegistrarConnection.ApiUrl` or your own default, and
+  honour `TestMode` by calling the sandbox API and never the live one.
+- **Not in the contract yet.** E-mail forwarding rules, the DNS management switch and the WHOIS lookup stay with the host
+  for now and will be added as separate operations.
+
+In the plugin's own tests, run the `RegistrarContract` checks against a stub of your registrar:
+`AssertRegisterIsIdempotentAsync`, `AssertTransferIsIdempotentAsync`, `AssertRenewIsIdempotentAsync`,
+`AssertSetNameserversIsIdempotentAsync`, `AssertSetAutoRenewIsIdempotentAsync`, `AssertSetWhoisPrivacyIsIdempotentAsync`,
+`AssertSetRegistrarLockIsIdempotentAsync`, `AssertSetContactIsIdempotentAsync`, `AssertDeleteDnsRecordIsIdempotentAsync`,
+`AssertUnknownDomainIsNotFoundAsync`, `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws
+`PluginContractViolationException` naming the promise that was broken.
+
+### Virtual server plugins
+
+A virtual server or cloud platform is a provisioning plugin that also implements `IVirtualServerPlugin`, which extends the
+`IProvisioningPlugin` marker. It is a capability of the provisioning type and not a new plugin type: a virtual server is
+a service provisioned on a server the host knows, like a hosting account, and the plugin type values do not change. The
+marker, `ProvisioningProviderBase` and `IProvisioningPanelPlugin` do not change either. List `virtualServer` in the
+manifest's `capabilities` and the module ids the plugin serves in `serverModules`; the lists must agree with the code. The
+vocabulary is the one of the panel contract: the platform arrives as a `PanelServerConnection`, the service as a
+`PanelService` whose `ProvisioningRef` is what `CreateServerAsync` returned, and the answers are `PanelActionResult` and
+`PanelDataResult<T>`.
+
+| Operation | Context | Result | Repeat |
+|---|---|---|---|
+| `CreateServerAsync` | `VirtualServerCreateContext` | `PanelDataResult<VirtualServerInstance>` | A server already held under the same `Name` is `AlreadyApplied` with the same `ProvisioningRef` |
+| `StartServerAsync`, `StopServerAsync` | `PanelAccountContext` | `PanelActionResult` | Already running or stopped is a success |
+| `RebootServerAsync` | `PanelAccountContext` | `PanelActionResult` | Restarts again each time |
+| `SuspendServerAsync` | `PanelSuspendContext` | `PanelActionResult` | Already suspended is a success |
+| `UnsuspendServerAsync` | `PanelAccountContext` | `PanelActionResult` | Not suspended is a success |
+| `TerminateServerAsync` | `PanelTerminateContext` | `PanelActionResult` | Already gone is `AlreadyApplied`, never `NotFound` |
+| `RebuildServerAsync` | `VirtualServerRebuildContext` | `PanelDataResult<VirtualServerRootPassword>` | Erases the disk again each time |
+| `ChangePlanAsync` | `PanelChangePackageContext` | `PanelActionResult` | Already on the plan is a success |
+| `ResetRootPasswordAsync` | `PanelChangePasswordContext` | `PanelDataResult<VirtualServerRootPassword>` | Sets it again and succeeds |
+| `CreateConsoleSessionAsync` | `PanelAccountContext` | `PanelDataResult<VirtualServerConsole>` | Issues a new address each time |
+| `GetServerUsageAsync` | `PanelAccountContext` | `PanelDataResult<VirtualServerUsage>` | Read only |
+| `ListImagesAsync`, `ListPlansAsync` | `VirtualServerCatalogContext` | `PanelDataResult<IReadOnlyList<...>>` | Read only |
+| `TestServerConnectionAsync` | `PanelTestConnectionContext` | `PanelConnectionTestResult` | Never throws for an unreachable platform |
+
+- **Outcomes, idempotency, secrets and network** follow the panel contract: outcomes instead of exceptions, a stable
+  create keyed by the name the host stores before the first call, no platform text in a result, and every request on the
+  `IPanelTransport` client. `PanelRefusalReason` gains `ImageUnknown` and `NameInvalid` for this contract; the plan name
+  travels in `PanelPackage.Name` and is a name `ListPlansAsync` returned.
+- **Passwords.** The host sends the root password to set. A platform that cannot set one generates it and answers it in
+  `VirtualServerInstance.GeneratedPassword` or `VirtualServerRootPassword.GeneratedPassword`; both print as `***`. The
+  console address in `VirtualServerConsole.Url` is a credential and prints as `***` too.
+- **Usage** is in bytes, and every figure is optional: report what the platform has.
+- **Suspension.** A platform with no suspension of its own powers the server off and keeps the client from starting it in
+  whatever way the platform allows; `UnsuspendServerAsync` lifts that and does not power the server on.
+
+In the plugin's own tests, run the `VirtualServerContract` checks against a stub of your platform:
+`AssertCreateIsIdempotentAsync`, `AssertStartIsIdempotentAsync`, `AssertStopIsIdempotentAsync`,
+`AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`, `AssertTerminateIsIdempotentAsync`,
+`AssertChangePlanIsIdempotentAsync`, `AssertUnknownServerIsNotFoundAsync`, `AssertCatalogIsWellFormedAsync`,
+`AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
+promise that was broken.
+
 ### Saving the method during a payment
 
 To let a payer save the method they pay with, the host sets `PaymentInstruction.SavePaymentMethod` to `true`. A plugin
@@ -418,7 +514,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Hostpanel.Sdk" Version="3.2.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Hostpanel.Sdk" Version="3.6.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
