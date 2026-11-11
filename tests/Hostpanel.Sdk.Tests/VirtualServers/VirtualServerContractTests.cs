@@ -343,7 +343,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertCatalogIsWellFormedAsync(plugin, VirtualServerFixtures.Catalog);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("without a list");
+        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("ListImagesAsync").And.Contain("without a value");
     }
 
     /// <summary>A connection test passes whatever outcome the plugin answers, as long as the result is well formed.</summary>
