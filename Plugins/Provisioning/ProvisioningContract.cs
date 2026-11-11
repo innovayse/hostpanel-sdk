@@ -1,7 +1,6 @@
 using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
-using static Hostpanel.Sdk.Plugins.Diagnostics.ContractChecks;
 
 namespace Hostpanel.Sdk.Plugins.Provisioning;
 
@@ -14,6 +13,9 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// </summary>
 public static class ProvisioningContract
 {
+    /// <summary>The checks this contract shares with the registrar and virtual server contracts, worded for a panel.</summary>
+    private static readonly ContractChecks Checks = new(new ContractWords("account", "an account", "panel"));
+
     /// <summary>
     /// Calls <see cref="IProvisioningPanelPlugin.CreateAccountAsync"/> repeatedly with one context and asserts the promise
     /// of that method: the first call creates the account (or finds the one an earlier attempt created), every later call
@@ -42,8 +44,8 @@ public static class ProvisioningContract
         PanelCreateResult? first = null;
         for (var call = 1; call <= calls; call++)
         {
-            var result = await CallAsync(operation, call, () => plugin.CreateAccountAsync(context, ct));
-            CheckShape(operation, call, result.Outcome, result.Reason);
+            var result = await Checks.CallAsync(operation, call, () => plugin.CreateAccountAsync(context, ct));
+            Checks.CheckShape(operation, call, result.Outcome, result.Reason);
 
             if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
             {
@@ -98,7 +100,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.SuspendAccountAsync), () => plugin.SuspendAccountAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.SuspendAccountAsync), () => plugin.SuspendAccountAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -121,7 +123,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.UnsuspendAccountAsync), () => plugin.UnsuspendAccountAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.UnsuspendAccountAsync), () => plugin.UnsuspendAccountAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -145,7 +147,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.TerminateAccountAsync), () => plugin.TerminateAccountAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.TerminateAccountAsync), () => plugin.TerminateAccountAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -168,7 +170,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.ChangePackageAsync), () => plugin.ChangePackageAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.ChangePackageAsync), () => plugin.ChangePackageAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -192,7 +194,7 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.ChangePasswordAsync), () => plugin.ChangePasswordAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IProvisioningPanelPlugin.ChangePasswordAsync), () => plugin.ChangePasswordAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -221,41 +223,37 @@ public static class ProvisioningContract
         var server = unknownAccount.Server;
         var service = unknownAccount.Service;
 
-        await ExpectAsync<PanelActionResult, PanelRefusalReason>(
+        await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.SuspendAccountAsync),
-            "account",
             () => plugin.SuspendAccountAsync(new PanelSuspendContext(server, service, "contract check"), ct),
             PanelOperationOutcome.NotFound);
-        await ExpectAsync<PanelActionResult, PanelRefusalReason>(
+        await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.UnsuspendAccountAsync),
-            "account",
             () => plugin.UnsuspendAccountAsync(unknownAccount, ct),
             PanelOperationOutcome.NotFound);
-        await ExpectAsync<PanelActionResult, PanelRefusalReason>(
+        await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.ChangePackageAsync),
-            "account",
             () => plugin.ChangePackageAsync(new PanelChangePackageContext(server, service, package), ct),
             PanelOperationOutcome.NotFound);
-        await ExpectAsync<PanelActionResult, PanelRefusalReason>(
+        await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.TerminateAccountAsync),
-            "account",
             () => plugin.TerminateAccountAsync(new PanelTerminateContext(server, service, "contract check"), ct),
             PanelOperationOutcome.Succeeded,
             PanelOperationOutcome.AlreadyApplied);
 
-        var usage = await CallAsync(nameof(IProvisioningPanelPlugin.GetUsageAsync), 1, () => plugin.GetUsageAsync(unknownAccount, ct));
-        CheckShape(nameof(IProvisioningPanelPlugin.GetUsageAsync), 1, usage.Outcome, usage.Reason);
+        var usage = await Checks.CallAsync(nameof(IProvisioningPanelPlugin.GetUsageAsync), 1, () => plugin.GetUsageAsync(unknownAccount, ct));
+        Checks.CheckShape(nameof(IProvisioningPanelPlugin.GetUsageAsync), 1, usage.Outcome, usage.Reason);
         if (usage.Outcome is not (PanelOperationOutcome.NotFound or PanelOperationOutcome.NotSupported))
         {
             throw new PluginContractViolationException(
                 $"{nameof(IProvisioningPanelPlugin.GetUsageAsync)} answered {usage.Outcome} for an unknown account; it must answer NotFound or NotSupported.");
         }
 
-        var sso = await CallAsync(
+        var sso = await Checks.CallAsync(
             nameof(IProvisioningPanelPlugin.CreateSsoLinkAsync),
             1,
             () => plugin.CreateSsoLinkAsync(new PanelSsoContext(server, service, null), ct));
-        CheckShape(nameof(IProvisioningPanelPlugin.CreateSsoLinkAsync), 1, sso.Outcome, sso.Reason);
+        Checks.CheckShape(nameof(IProvisioningPanelPlugin.CreateSsoLinkAsync), 1, sso.Outcome, sso.Reason);
         if (sso.Outcome is not (PanelOperationOutcome.NotFound or PanelOperationOutcome.NotSupported))
         {
             throw new PluginContractViolationException(
@@ -285,7 +283,7 @@ public static class ProvisioningContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        return ContractChecks.AssertTestConnectionAnswersAsync(nameof(IProvisioningPanelPlugin.TestConnectionAsync), () => plugin.TestConnectionAsync(context, ct));
+        return Checks.AssertTestConnectionAnswersAsync(nameof(IProvisioningPanelPlugin.TestConnectionAsync), () => plugin.TestConnectionAsync(context, ct));
     }
 
     /// <summary>
@@ -303,7 +301,7 @@ public static class ProvisioningContract
     /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="server"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxPages"/> is less than 1.</exception>
     /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, did not succeed, returned a malformed or repeated account, or kept returning cursors past <paramref name="maxPages"/>.</exception>
-    public static async Task<IReadOnlyList<PanelAccount>> AssertListAccountsIsCompleteAsync(
+    public static Task<IReadOnlyList<PanelAccount>> AssertListAccountsIsCompleteAsync(
         IProvisioningPanelPlugin plugin,
         PanelServerConnection server,
         int maxPages = 1000,
@@ -311,62 +309,11 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(server);
-        ArgumentOutOfRangeException.ThrowIfLessThan(maxPages, 1);
 
-        const string operation = nameof(IProvisioningPanelPlugin.ListAccountsAsync);
-        var accounts = new List<PanelAccount>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        string? cursor = null;
-        for (var page = 1; page <= maxPages; page++)
-        {
-            var asked = cursor;
-            var result = await CallAsync(operation, page, () => plugin.ListAccountsAsync(new PanelListAccountsContext(server, asked), ct));
-            CheckShape(operation, page, result.Outcome, result.Reason);
-
-            if (result.Outcome != PanelOperationOutcome.Succeeded)
-            {
-                throw new PluginContractViolationException($"{operation} answered {result.Outcome} on page {page}; the caller must arrange a panel that lists.");
-            }
-
-            if (result.Accounts is null)
-            {
-                throw new PluginContractViolationException($"{operation} answered null Accounts on page {page}; an empty page is an empty list.");
-            }
-
-            foreach (var account in result.Accounts)
-            {
-                if (account is null || string.IsNullOrWhiteSpace(account.ProvisioningRef))
-                {
-                    throw new PluginContractViolationException($"{operation} returned an account without a ProvisioningRef on page {page}.");
-                }
-
-                if (!Enum.IsDefined(account.Status))
-                {
-                    throw new PluginContractViolationException($"{operation} returned an account with a Status that is not a PanelAccountStatus on page {page}.");
-                }
-
-                if (!seen.Add(account.ProvisioningRef))
-                {
-                    throw new PluginContractViolationException($"{operation} returned an account twice (page {page}). Following the cursors must return every account exactly once.");
-                }
-
-                accounts.Add(account);
-            }
-
-            if (result.NextCursor is null)
-            {
-                return accounts;
-            }
-
-            if (string.Equals(result.NextCursor, asked, StringComparison.Ordinal))
-            {
-                throw new PluginContractViolationException($"{operation} answered the cursor it was asked for on page {page}; the listing would never end.");
-            }
-
-            cursor = result.NextCursor;
-        }
-
-        throw new PluginContractViolationException($"{operation} was still returning cursors after {maxPages} pages.");
+        return Checks.AssertListIsCompleteAsync(
+            nameof(IProvisioningPanelPlugin.ListAccountsAsync),
+            cursor => plugin.ListAccountsAsync(new PanelListAccountsContext(server, cursor), ct),
+            maxPages);
     }
 
     /// <summary>
@@ -380,6 +327,6 @@ public static class ProvisioningContract
     /// <exception cref="PluginContractViolationException">The printed form contains one of the secrets. The message does not repeat it.</exception>
     public static void AssertHidesSecrets(object value, params string?[] secrets)
     {
-        ContractChecks.AssertHidesSecrets(value, secrets);
+        Checks.AssertHidesSecrets(value, secrets);
     }
 }

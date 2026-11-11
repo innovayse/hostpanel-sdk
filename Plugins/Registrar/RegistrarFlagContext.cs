@@ -2,7 +2,8 @@ namespace Hostpanel.Sdk.Plugins.Registrar;
 
 /// <summary>
 /// Input for a switch on a domain: <see cref="IRegistrarOperationsPlugin.SetAutoRenewAsync"/>,
-/// <see cref="IRegistrarOperationsPlugin.SetWhoisPrivacyAsync"/> and <see cref="IRegistrarOperationsPlugin.SetRegistrarLockAsync"/>.
+/// <see cref="IRegistrarOperationsPlugin.SetWhoisPrivacyAsync"/>, <see cref="IRegistrarOperationsPlugin.SetRegistrarLockAsync"/>,
+/// <see cref="IRegistrarEmailForwardingPlugin.SetEmailForwardingAsync"/> and <see cref="IRegistrarDnsManagementPlugin.SetDnsManagementAsync"/>.
 /// </summary>
 /// <param name="Connection">The registrar account the domain is held on.</param>
 /// <param name="Domain">The domain.</param>

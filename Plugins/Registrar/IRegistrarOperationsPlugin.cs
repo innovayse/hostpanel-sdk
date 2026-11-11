@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Plugins.Provisioning;
@@ -37,7 +38,7 @@ namespace Hostpanel.Sdk.Plugins.Registrar;
 /// success. After the first success a repeat answers: register <see cref="PanelOperationOutcome.AlreadyApplied"/> with the
 /// same <see cref="RegistrarOrder.RegistrarRef"/>, because a domain the account already holds is the earlier attempt;
 /// transfer the same, for a transfer already under way or complete; renew <c>AlreadyApplied</c> when the registrar's expiry
-/// is already past <see cref="RegistrarRenewContext.CurrentExpiresAt"/> plus the years; every switch and every list of
+/// is already at or past <see cref="RegistrarRenewContext.CurrentExpiresAt"/> plus the years; every switch and every list of
 /// nameservers, contact or DNS record set to the state it is already in <c>Succeeded</c> or <c>AlreadyApplied</c>; deleting
 /// a DNS record that is gone <c>AlreadyApplied</c>. <see cref="RegistrarContract"/> checks these promises in a plugin's own
 /// tests.
@@ -52,6 +53,13 @@ namespace Hostpanel.Sdk.Plugins.Registrar;
 /// Cancellation. Every operation takes a token and honours it; a cancelled call throws <see cref="OperationCanceledException"/>
 /// and the host treats it like any unfinished call.
 /// </para>
+/// <para>
+/// Optional operations. E-mail forwarding, the DNS management switch and the WHOIS lookup are separate interfaces that
+/// extend this one: <see cref="IRegistrarEmailForwardingPlugin"/>, <see cref="IRegistrarDnsManagementPlugin"/> and
+/// <see cref="IRegistrarWhoisPlugin"/>, each with its own capability. A host treats a plugin that does not implement one as
+/// <see cref="PanelOperationOutcome.NotSupported"/> for it. New operations always arrive as new interfaces, never as
+/// members of an existing one, so that a plugin built on an earlier version keeps compiling and loading.
+/// </para>
 /// </remarks>
 public interface IRegistrarOperationsPlugin : IRegistrarPlugin
 {
@@ -59,7 +67,7 @@ public interface IRegistrarOperationsPlugin : IRegistrarPlugin
     /// <param name="context">The registrar account and the name.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c> with the availability, <c>NotSupported</c> or <c>Refused</c> (<see cref="RegistrarRefusalReason.TldNotSupported"/> for a top level domain the registrar does not sell).</returns>
-    Task<RegistrarDataResult<RegistrarAvailability>> CheckAvailabilityAsync(RegistrarAvailabilityContext context, CancellationToken ct);
+    Task<ValueResult<RegistrarAvailability, RegistrarRefusalReason>> CheckAvailabilityAsync(RegistrarAvailabilityContext context, CancellationToken ct);
 
     /// <summary>
     /// Registers a new domain. Idempotent on the domain name: a domain the registrar already holds for the account is
@@ -69,7 +77,7 @@ public interface IRegistrarOperationsPlugin : IRegistrarPlugin
     /// <param name="context">The registrar account, the name, the period, the options and the contact.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The order with the reference to keep, or a refusal (<see cref="RegistrarRefusalReason.DomainUnavailable"/>, <see cref="RegistrarRefusalReason.ContactInvalid"/>, <see cref="RegistrarRefusalReason.InsufficientFunds"/> among others).</returns>
-    Task<RegistrarDataResult<RegistrarOrder>> RegisterAsync(RegistrarRegisterContext context, CancellationToken ct);
+    Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> RegisterAsync(RegistrarRegisterContext context, CancellationToken ct);
 
     /// <summary>
     /// Starts an incoming transfer from another registrar. Idempotent on the domain name: a transfer that is already under
@@ -79,17 +87,17 @@ public interface IRegistrarOperationsPlugin : IRegistrarPlugin
     /// <param name="context">The registrar account, the name, the authorization code and the contact.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The order with the reference to keep, or a refusal (<see cref="RegistrarRefusalReason.EppCodeInvalid"/>, <see cref="RegistrarRefusalReason.TransferNotAllowed"/> among others).</returns>
-    Task<RegistrarDataResult<RegistrarOrder>> TransferAsync(RegistrarTransferContext context, CancellationToken ct);
+    Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> TransferAsync(RegistrarTransferContext context, CancellationToken ct);
 
     /// <summary>
     /// Renews a domain for more years. Idempotent through <see cref="RegistrarRenewContext.CurrentExpiresAt"/>: a domain
-    /// whose expiry is already past that date plus the years is answered <see cref="PanelOperationOutcome.AlreadyApplied"/>
+    /// whose expiry is already at or past that date plus the years is answered <see cref="PanelOperationOutcome.AlreadyApplied"/>
     /// and is not renewed again.
     /// </summary>
     /// <param name="context">The registrar account, the domain, the years and the expiry the host holds.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The order with the new expiry when the registrar reports one, <c>NotFound</c> or a refusal.</returns>
-    Task<RegistrarDataResult<RegistrarOrder>> RenewAsync(RegistrarRenewContext context, CancellationToken ct);
+    Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> RenewAsync(RegistrarRenewContext context, CancellationToken ct);
 
     /// <summary>
     /// Asks whether a registration or a transfer the registrar accepted but had not finished is now active. Read only; safe
@@ -99,13 +107,13 @@ public interface IRegistrarOperationsPlugin : IRegistrarPlugin
     /// <param name="context">The registrar account and the domain.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c> with the order, <see cref="RegistrarOrder.RequiresPolling"/> still <see langword="true"/> while the registrar works and <see langword="false"/> with the expiry once the domain is active; <c>NotFound</c> or <c>Refused</c>.</returns>
-    Task<RegistrarDataResult<RegistrarOrder>> CheckDomainActiveAsync(RegistrarDomainContext context, CancellationToken ct);
+    Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> CheckDomainActiveAsync(RegistrarDomainContext context, CancellationToken ct);
 
     /// <summary>Cancels an incoming transfer that has not completed. Idempotent: a transfer that is already cancelled is a success.</summary>
     /// <param name="context">The registrar account and the domain.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c>, <c>NotSupported</c> or <c>Refused</c>.</returns>
-    Task<RegistrarActionResult> CancelTransferAsync(RegistrarDomainContext context, CancellationToken ct);
+    Task<OperationResult<RegistrarRefusalReason>> CancelTransferAsync(RegistrarDomainContext context, CancellationToken ct);
 
     /// <summary>
     /// Prepares an outgoing transfer to another registrar: it unlocks the domain and makes the authorization code available,
@@ -114,85 +122,85 @@ public interface IRegistrarOperationsPlugin : IRegistrarPlugin
     /// <param name="context">The registrar account and the domain.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c>, <c>NotSupported</c> or <c>Refused</c>.</returns>
-    Task<RegistrarActionResult> InitiateOutgoingTransferAsync(RegistrarDomainContext context, CancellationToken ct);
+    Task<OperationResult<RegistrarRefusalReason>> InitiateOutgoingTransferAsync(RegistrarDomainContext context, CancellationToken ct);
 
     /// <summary>Reads the authorization (EPP) code of a domain. Read only; safe to repeat. The code is a secret.</summary>
     /// <param name="context">The registrar account and the domain.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c> with the code, <c>NotFound</c>, <c>NotSupported</c> for a registrar that never reveals it, or <c>Refused</c>.</returns>
-    Task<RegistrarDataResult<RegistrarEppCode>> GetEppCodeAsync(RegistrarDomainContext context, CancellationToken ct);
+    Task<ValueResult<RegistrarEppCode, RegistrarRefusalReason>> GetEppCodeAsync(RegistrarDomainContext context, CancellationToken ct);
 
     /// <summary>Reads the nameservers a domain delegates to. Read only; safe to repeat.</summary>
     /// <param name="context">The registrar account and the domain.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c> with the nameservers in order, <c>NotFound</c> or <c>Refused</c>.</returns>
-    Task<RegistrarDataResult<IReadOnlyList<string>>> GetNameserversAsync(RegistrarDomainContext context, CancellationToken ct);
+    Task<ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>> GetNameserversAsync(RegistrarDomainContext context, CancellationToken ct);
 
     /// <summary>Replaces the nameservers of a domain. Idempotent: a domain that already has exactly this list is a success.</summary>
     /// <param name="context">The registrar account, the domain and the complete list.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c> or <c>Refused</c> (<see cref="RegistrarRefusalReason.NameserverInvalid"/> for a nameserver the registrar rejects).</returns>
-    Task<RegistrarActionResult> SetNameserversAsync(RegistrarNameserversContext context, CancellationToken ct);
+    Task<OperationResult<RegistrarRefusalReason>> SetNameserversAsync(RegistrarNameserversContext context, CancellationToken ct);
 
     /// <summary>Switches the registrar's automatic renewal of a domain on or off. Idempotent: a domain already in the wanted state is a success.</summary>
     /// <param name="context">The registrar account, the domain and the wanted state.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c>, <c>NotSupported</c> or <c>Refused</c>.</returns>
-    Task<RegistrarActionResult> SetAutoRenewAsync(RegistrarFlagContext context, CancellationToken ct);
+    Task<OperationResult<RegistrarRefusalReason>> SetAutoRenewAsync(RegistrarFlagContext context, CancellationToken ct);
 
     /// <summary>Switches WHOIS privacy of a domain on or off. Idempotent: a domain already in the wanted state is a success.</summary>
     /// <param name="context">The registrar account, the domain and the wanted state.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c>, <c>NotSupported</c> or <c>Refused</c>.</returns>
-    Task<RegistrarActionResult> SetWhoisPrivacyAsync(RegistrarFlagContext context, CancellationToken ct);
+    Task<OperationResult<RegistrarRefusalReason>> SetWhoisPrivacyAsync(RegistrarFlagContext context, CancellationToken ct);
 
     /// <summary>Switches the registrar lock (the transfer prohibition) of a domain on or off. Idempotent: a domain already in the wanted state is a success.</summary>
     /// <param name="context">The registrar account, the domain and the wanted state.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c>, <c>NotSupported</c> or <c>Refused</c>.</returns>
-    Task<RegistrarActionResult> SetRegistrarLockAsync(RegistrarFlagContext context, CancellationToken ct);
+    Task<OperationResult<RegistrarRefusalReason>> SetRegistrarLockAsync(RegistrarFlagContext context, CancellationToken ct);
 
     /// <summary>Reads the registrant contact the registrar holds for a domain. Read only; safe to repeat.</summary>
     /// <param name="context">The registrar account and the domain.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c> with the contact, <c>NotFound</c> when the registrar holds no domain or no contact for it, or <c>Refused</c>.</returns>
-    Task<RegistrarDataResult<RegistrarContact>> GetContactAsync(RegistrarDomainContext context, CancellationToken ct);
+    Task<ValueResult<RegistrarContact, RegistrarRefusalReason>> GetContactAsync(RegistrarDomainContext context, CancellationToken ct);
 
     /// <summary>Replaces the registrant contact of a domain. Idempotent: a domain that already has this contact is a success.</summary>
     /// <param name="context">The registrar account, the domain and the contact.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c> or <c>Refused</c> (<see cref="RegistrarRefusalReason.ContactInvalid"/> for a contact the registrar rejects).</returns>
-    Task<RegistrarActionResult> SetContactAsync(RegistrarContactContext context, CancellationToken ct);
+    Task<OperationResult<RegistrarRefusalReason>> SetContactAsync(RegistrarContactContext context, CancellationToken ct);
 
     /// <summary>Reads every record of the DNS zone the registrar hosts for a domain. Read only; safe to repeat.</summary>
     /// <param name="context">The registrar account and the domain.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c> with the records (an empty list for an empty zone), <c>NotFound</c>, <c>NotSupported</c> for a registrar with no DNS hosting, or <c>Refused</c>.</returns>
-    Task<RegistrarDataResult<IReadOnlyList<RegistrarDnsRecord>>> GetDnsRecordsAsync(RegistrarDomainContext context, CancellationToken ct);
+    Task<ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>> GetDnsRecordsAsync(RegistrarDomainContext context, CancellationToken ct);
 
     /// <summary>Adds a record to the domain's DNS zone. A record with the same type, host and value that is already there is <see cref="PanelOperationOutcome.AlreadyApplied"/>.</summary>
     /// <param name="context">The registrar account, the domain and the record, without an id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c>, <c>NotSupported</c> or <c>Refused</c> (<see cref="RegistrarRefusalReason.DnsRecordInvalid"/> for a record the registrar rejects).</returns>
-    Task<RegistrarActionResult> AddDnsRecordAsync(RegistrarDnsRecordContext context, CancellationToken ct);
+    Task<OperationResult<RegistrarRefusalReason>> AddDnsRecordAsync(RegistrarDnsRecordContext context, CancellationToken ct);
 
-    /// <summary>Changes a record of the domain's DNS zone. Idempotent: a record that already has this content is a success.</summary>
-    /// <param name="context">The registrar account, the domain and the record, with its id.</param>
+    /// <summary>Changes a record of the domain's DNS zone. The plugin finds the record by the type, host and value of <see cref="RegistrarDnsRecordUpdateContext.Current"/> (or by its id when the host gives one). Idempotent: a record that already has the updated content is a success.</summary>
+    /// <param name="context">The registrar account, the domain, the record as it is now and the content it should have.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c> for a domain or a record the registrar does not hold, <c>NotSupported</c> or <c>Refused</c>.</returns>
-    Task<RegistrarActionResult> UpdateDnsRecordAsync(RegistrarDnsRecordContext context, CancellationToken ct);
+    Task<OperationResult<RegistrarRefusalReason>> UpdateDnsRecordAsync(RegistrarDnsRecordUpdateContext context, CancellationToken ct);
 
-    /// <summary>Removes a record from the domain's DNS zone. Idempotent: a record that is already gone is <see cref="PanelOperationOutcome.AlreadyApplied"/>, never <c>NotFound</c>.</summary>
-    /// <param name="context">The registrar account, the domain and the id of the record.</param>
+    /// <summary>Removes a record from the domain's DNS zone. The plugin finds the record by its type, host and value (or by its id when the host gives one). Idempotent: a record that is already gone is <see cref="PanelOperationOutcome.AlreadyApplied"/>, never <c>NotFound</c>; a domain the registrar does not hold is <c>NotFound</c>.</summary>
+    /// <param name="context">The registrar account, the domain and the record.</param>
     /// <param name="ct">Cancellation token.</param>
-    /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotSupported</c> or <c>Refused</c>.</returns>
-    Task<RegistrarActionResult> DeleteDnsRecordAsync(RegistrarDnsRecordRemovalContext context, CancellationToken ct);
+    /// <returns><c>Succeeded</c>, <c>AlreadyApplied</c>, <c>NotFound</c> for a domain the registrar does not hold, <c>NotSupported</c> or <c>Refused</c>.</returns>
+    Task<OperationResult<RegistrarRefusalReason>> DeleteDnsRecordAsync(RegistrarDnsRecordRemovalContext context, CancellationToken ct);
 
     /// <summary>Reads the registrar's price list for the top level domains it sells. Read only; safe to repeat.</summary>
     /// <param name="context">The registrar account.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c> with one entry per top level domain, <c>NotSupported</c> or <c>Refused</c>.</returns>
-    Task<RegistrarDataResult<IReadOnlyList<RegistrarTldPricing>>> GetTldPricingAsync(RegistrarPricingContext context, CancellationToken ct);
+    Task<ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>> GetTldPricingAsync(RegistrarPricingContext context, CancellationToken ct);
 
     /// <summary>
     /// Checks that the host can reach the registrar with the saved credentials. Unlike every other operation it does not

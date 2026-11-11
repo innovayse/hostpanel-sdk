@@ -23,6 +23,18 @@ public static class PluginCapabilities
     /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarOperationsPlugin"/>, the domain operations of a registrar.</summary>
     public const string RegistrarOperations = "registrarOperations";
 
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarEmailForwardingPlugin"/>, e-mail forwarding for its domains.</summary>
+    public const string RegistrarEmailForwarding = "registrarEmailForwarding";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarDnsManagementPlugin"/>, the DNS management switch.</summary>
+    public const string RegistrarDnsManagement = "registrarDnsManagement";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarWhoisPlugin"/>, the WHOIS lookup.</summary>
+    public const string RegistrarWhois = "registrarWhois";
+
+    /// <summary>The virtual server plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerListPlugin"/>, the listing of the servers a platform holds, for reconciliation.</summary>
+    public const string VirtualServerList = "virtualServerList";
+
     /// <summary>
     /// Any plugin type may declare it. It means the plugin class also implements
     /// <see cref="Hostpanel.Sdk.Plugins.Endpoints.IPluginEndpoints"/>, so the host serves the plugin's declared

@@ -1,8 +1,8 @@
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
-using static Hostpanel.Sdk.Plugins.Diagnostics.ContractChecks;
 
 namespace Hostpanel.Sdk.Plugins.VirtualServers;
 
@@ -15,6 +15,9 @@ namespace Hostpanel.Sdk.Plugins.VirtualServers;
 /// </summary>
 public static class VirtualServerContract
 {
+    /// <summary>The checks this contract shares with the other contracts, worded for a virtual server platform.</summary>
+    private static readonly ContractChecks Checks = new(new ContractWords("server", "a server", "platform"));
+
     /// <summary>The password the not found check sends; it is never a real one.</summary>
     private const string CheckPassword = "contract-check-password";
 
@@ -32,7 +35,7 @@ public static class VirtualServerContract
     /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
     /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, created again, or changed the reference.</exception>
-    public static Task<PanelDataResult<VirtualServerInstance>> AssertCreateIsIdempotentAsync(
+    public static Task<ValueResult<VirtualServerInstance, PanelRefusalReason>> AssertCreateIsIdempotentAsync(
         IVirtualServerPlugin plugin,
         VirtualServerCreateContext context,
         int calls = 3,
@@ -41,7 +44,7 @@ public static class VirtualServerContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        return ContractChecks.AssertCreateIsIdempotentAsync<PanelDataResult<VirtualServerInstance>, PanelRefusalReason>(
+        return Checks.AssertCreateIsIdempotentAsync<ValueResult<VirtualServerInstance, PanelRefusalReason>, PanelRefusalReason>(
             nameof(IVirtualServerPlugin.CreateServerAsync),
             () => plugin.CreateServerAsync(context, ct),
             calls,
@@ -69,7 +72,7 @@ public static class VirtualServerContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.StartServerAsync), () => plugin.StartServerAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.StartServerAsync), () => plugin.StartServerAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -93,7 +96,7 @@ public static class VirtualServerContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.StopServerAsync), () => plugin.StopServerAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.StopServerAsync), () => plugin.StopServerAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -117,7 +120,7 @@ public static class VirtualServerContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.SuspendServerAsync), () => plugin.SuspendServerAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.SuspendServerAsync), () => plugin.SuspendServerAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -141,7 +144,7 @@ public static class VirtualServerContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.UnsuspendServerAsync), () => plugin.UnsuspendServerAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.UnsuspendServerAsync), () => plugin.UnsuspendServerAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -166,7 +169,7 @@ public static class VirtualServerContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.TerminateServerAsync), () => plugin.TerminateServerAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.TerminateServerAsync), () => plugin.TerminateServerAsync(context, ct), calls);
     }
 
     /// <summary>
@@ -190,14 +193,14 @@ public static class VirtualServerContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        return AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.ChangePlanAsync), () => plugin.ChangePlanAsync(context, ct), calls);
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerPlugin.ChangePlanAsync), () => plugin.ChangePlanAsync(context, ct), calls);
     }
 
     /// <summary>
     /// Asserts how the plugin treats a server the platform does not hold. Start, stop, reboot, suspend, unsuspend, change
     /// plan, rebuild and root password reset answer <c>NotFound</c>; the console and usage answer <c>NotFound</c> or
-    /// <c>NotSupported</c>; terminate answers <c>Succeeded</c> or <c>AlreadyApplied</c>, because a server that is not there
-    /// is already terminated. No call throws. The caller arranges a platform that holds no server under the reference in
+    /// <c>NotSupported</c>; terminate answers only <c>AlreadyApplied</c>, because a server that is not there
+    /// is already terminated and nothing was deleted now. No call throws. The caller arranges a platform that holds no server under the reference in
     /// <paramref name="unknownServer"/>.
     /// </summary>
     /// <param name="plugin">The plugin under test.</param>
@@ -238,7 +241,6 @@ public static class VirtualServerContract
         await ExpectActionAsync(
             nameof(IVirtualServerPlugin.TerminateServerAsync),
             () => plugin.TerminateServerAsync(new PanelTerminateContext(server, service, "contract check"), ct),
-            PanelOperationOutcome.Succeeded,
             PanelOperationOutcome.AlreadyApplied);
         await ExpectDataAsync(
             nameof(IVirtualServerPlugin.RebuildServerAsync),
@@ -310,6 +312,93 @@ public static class VirtualServerContract
     }
 
     /// <summary>
+    /// Calls <see cref="IVirtualServerPlugin.StartServerAsync"/> on a server the host has suspended and asserts that the
+    /// plugin refuses with <see cref="PanelRefusalReason.AccessDenied"/>: a suspended server is not started. The caller
+    /// arranges a suspended server.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="suspendedServer">The platform and a server that is suspended.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when the check passed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="suspendedServer"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, or answered anything but a refusal with <see cref="PanelRefusalReason.AccessDenied"/>.</exception>
+    public static async Task AssertSuspendedServerIsNotStartedAsync(
+        IVirtualServerPlugin plugin,
+        PanelAccountContext suspendedServer,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(suspendedServer);
+
+        const string operation = nameof(IVirtualServerPlugin.StartServerAsync);
+        var result = await Checks.CallAsync(operation, 1, () => plugin.StartServerAsync(suspendedServer, ct));
+        Checks.CheckShape(operation, 1, result.Outcome, result.Reason);
+
+        if (result.Outcome != PanelOperationOutcome.Refused || result.Reason != PanelRefusalReason.AccessDenied)
+        {
+            throw new PluginContractViolationException($"{operation} answered {result.Outcome} for a suspended server; it must refuse with AccessDenied.");
+        }
+    }
+
+    /// <summary>
+    /// Asserts that the reads of a server the platform holds answer a value: the usage figures and the console address. A
+    /// read that succeeds without a value is a broken promise, and so is any outcome but <c>Succeeded</c>, except that the
+    /// console may be <c>NotSupported</c>. The caller arranges a platform that holds the server.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="knownServer">The platform and a server it holds.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when every check passed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="knownServer"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, answered an outcome that does not fit, or succeeded without a value.</exception>
+    public static async Task AssertReadsAnswerValuesAsync(
+        IVirtualServerPlugin plugin,
+        PanelAccountContext knownServer,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(knownServer);
+
+        await Checks.AssertReadAnswersValueAsync<ValueResult<VirtualServerUsage, PanelRefusalReason>, PanelRefusalReason>(
+            nameof(IVirtualServerPlugin.GetServerUsageAsync),
+            () => plugin.GetServerUsageAsync(knownServer, ct),
+            false);
+        await Checks.AssertReadAnswersValueAsync<ValueResult<VirtualServerConsole, PanelRefusalReason>, PanelRefusalReason>(
+            nameof(IVirtualServerPlugin.CreateConsoleSessionAsync),
+            () => plugin.CreateConsoleSessionAsync(knownServer, ct),
+            true);
+    }
+
+    /// <summary>
+    /// Follows <see cref="PanelAccountListResult.NextCursor"/> of <see cref="IVirtualServerListPlugin.ListServersAsync"/> from
+    /// the first page to the last and asserts that the listing is well formed: every page succeeds, every server has a
+    /// reference and a defined status, no reference appears twice, and the cursor moves on. The caller arranges a platform
+    /// with several servers, and with <paramref name="maxPages"/> small enough to be reached only by a loop.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="server">The platform to list.</param>
+    /// <param name="maxPages">The most pages to follow before the listing counts as a loop; at least 1.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>Every server of every page, in the order the plugin returned them.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="server"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxPages"/> is less than 1.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, did not succeed, returned a malformed or repeated server, or kept returning cursors past <paramref name="maxPages"/>.</exception>
+    public static Task<IReadOnlyList<PanelAccount>> AssertListServersIsCompleteAsync(
+        IVirtualServerListPlugin plugin,
+        PanelServerConnection server,
+        int maxPages = 1000,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(server);
+
+        return Checks.AssertListIsCompleteAsync(
+            nameof(IVirtualServerListPlugin.ListServersAsync),
+            cursor => plugin.ListServersAsync(new PanelListAccountsContext(server, cursor), ct),
+            maxPages);
+    }
+
+    /// <summary>
     /// Calls <see cref="IVirtualServerPlugin.TestServerConnectionAsync"/> and asserts that it answers instead of throwing,
     /// whatever the platform: an unreachable or refusing platform is an outcome. The caller arranges the platform
     /// (reachable, wrong credentials, nothing listening) and compares the returned outcome with what it arranged.
@@ -331,7 +420,7 @@ public static class VirtualServerContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
 
-        return ContractChecks.AssertTestConnectionAnswersAsync(nameof(IVirtualServerPlugin.TestServerConnectionAsync), () => plugin.TestServerConnectionAsync(context, ct));
+        return Checks.AssertTestConnectionAnswersAsync(nameof(IVirtualServerPlugin.TestServerConnectionAsync), () => plugin.TestServerConnectionAsync(context, ct));
     }
 
     /// <summary>
@@ -345,7 +434,7 @@ public static class VirtualServerContract
     /// <exception cref="PluginContractViolationException">The printed form contains one of the secrets. The message does not repeat it.</exception>
     public static void AssertHidesSecrets(object value, params string?[] secrets)
     {
-        ContractChecks.AssertHidesSecrets(value, secrets);
+        Checks.AssertHidesSecrets(value, secrets);
     }
 
     /// <summary>Calls an action once on the unknown server and asserts that its outcome is one of the allowed ones.</summary>
@@ -356,7 +445,7 @@ public static class VirtualServerContract
     /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/> or answered an outcome that is not allowed.</exception>
     private static Task ExpectActionAsync(string operation, Func<Task<PanelActionResult>> invoke, params PanelOperationOutcome[] allowed)
     {
-        return ExpectAsync<PanelActionResult, PanelRefusalReason>(operation, "server", invoke, allowed);
+        return Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(operation, invoke, allowed);
     }
 
     /// <summary>Calls a value operation once on the unknown server and asserts that its outcome is one of the allowed ones.</summary>
@@ -366,10 +455,10 @@ public static class VirtualServerContract
     /// <param name="allowed">The outcomes the promise allows.</param>
     /// <returns>A task that completes when the check passed.</returns>
     /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/> or answered an outcome that is not allowed.</exception>
-    private static Task ExpectDataAsync<T>(string operation, Func<Task<PanelDataResult<T>>> invoke, params PanelOperationOutcome[] allowed)
+    private static Task ExpectDataAsync<T>(string operation, Func<Task<ValueResult<T, PanelRefusalReason>>> invoke, params PanelOperationOutcome[] allowed)
         where T : class
     {
-        return ExpectAsync<PanelDataResult<T>, PanelRefusalReason>(operation, "server", invoke, allowed);
+        return Checks.ExpectAsync<ValueResult<T, PanelRefusalReason>, PanelRefusalReason>(operation, invoke, allowed);
     }
 
     /// <summary>Calls a catalogue operation once and asserts that it succeeded with a list.</summary>
@@ -378,10 +467,10 @@ public static class VirtualServerContract
     /// <param name="invoke">The call.</param>
     /// <returns>The entries the plugin listed.</returns>
     /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, did not succeed, or answered no list.</exception>
-    private static async Task<IReadOnlyList<T>> ReadCatalogAsync<T>(string operation, Func<Task<PanelDataResult<IReadOnlyList<T>>>> invoke)
+    private static async Task<IReadOnlyList<T>> ReadCatalogAsync<T>(string operation, Func<Task<ValueResult<IReadOnlyList<T>, PanelRefusalReason>>> invoke)
     {
-        var result = await CallAsync(operation, 1, invoke);
-        CheckShape(operation, 1, result.Outcome, result.Reason);
+        var result = await Checks.CallAsync(operation, 1, invoke);
+        Checks.CheckShape(operation, 1, result.Outcome, result.Reason);
 
         if (result.Outcome != PanelOperationOutcome.Succeeded)
         {

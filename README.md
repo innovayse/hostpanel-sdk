@@ -259,22 +259,28 @@ list must agree with the code. One plugin serves one registrar account: each cal
 
 | Operation | Context | Result | Repeat |
 |---|---|---|---|
-| `CheckAvailabilityAsync` | `RegistrarAvailabilityContext` | `RegistrarDataResult<RegistrarAvailability>` | Read only |
-| `RegisterAsync` | `RegistrarRegisterContext` | `RegistrarDataResult<RegistrarOrder>` | A domain the account already holds is `AlreadyApplied` with the same `RegistrarRef` |
-| `TransferAsync` | `RegistrarTransferContext` | `RegistrarDataResult<RegistrarOrder>` | A transfer already under way or complete is `AlreadyApplied` |
-| `RenewAsync` | `RegistrarRenewContext` | `RegistrarDataResult<RegistrarOrder>` | An expiry already past `CurrentExpiresAt` plus the years is `AlreadyApplied` |
-| `CheckDomainActiveAsync` | `RegistrarDomainContext` | `RegistrarDataResult<RegistrarOrder>` | Read only, for an order that answered `RequiresPolling` |
-| `CancelTransferAsync`, `InitiateOutgoingTransferAsync` | `RegistrarDomainContext` | `RegistrarActionResult` | Already cancelled or prepared is a success |
-| `GetEppCodeAsync` | `RegistrarDomainContext` | `RegistrarDataResult<RegistrarEppCode>` | Read only; the code prints as `***` |
-| `GetNameserversAsync` | `RegistrarDomainContext` | `RegistrarDataResult<IReadOnlyList<string>>` | Read only |
-| `SetNameserversAsync` | `RegistrarNameserversContext` | `RegistrarActionResult` | The same list is a success |
-| `SetAutoRenewAsync`, `SetWhoisPrivacyAsync`, `SetRegistrarLockAsync` | `RegistrarFlagContext` | `RegistrarActionResult` | The state already wanted is a success |
-| `GetContactAsync` | `RegistrarDomainContext` | `RegistrarDataResult<RegistrarContact>` | Read only |
-| `SetContactAsync` | `RegistrarContactContext` | `RegistrarActionResult` | The same contact is a success |
-| `GetDnsRecordsAsync` | `RegistrarDomainContext` | `RegistrarDataResult<IReadOnlyList<RegistrarDnsRecord>>` | Read only |
-| `AddDnsRecordAsync`, `UpdateDnsRecordAsync` | `RegistrarDnsRecordContext` | `RegistrarActionResult` | The same record is a success |
-| `DeleteDnsRecordAsync` | `RegistrarDnsRecordRemovalContext` | `RegistrarActionResult` | A record already gone is `AlreadyApplied`, never `NotFound` |
-| `GetTldPricingAsync` | `RegistrarPricingContext` | `RegistrarDataResult<IReadOnlyList<RegistrarTldPricing>>` | Read only |
+| `CheckAvailabilityAsync` | `RegistrarAvailabilityContext` | `ValueResult<RegistrarAvailability, RegistrarRefusalReason>` | Read only |
+| `RegisterAsync` | `RegistrarRegisterContext` | `ValueResult<RegistrarOrder, RegistrarRefusalReason>` | A domain the account already holds is `AlreadyApplied` with the same `RegistrarRef` |
+| `TransferAsync` | `RegistrarTransferContext` | `ValueResult<RegistrarOrder, RegistrarRefusalReason>` | A transfer already under way or complete is `AlreadyApplied` |
+| `RenewAsync` | `RegistrarRenewContext` | `ValueResult<RegistrarOrder, RegistrarRefusalReason>` | An expiry already at or past `CurrentExpiresAt` plus the years is `AlreadyApplied` |
+| `CheckDomainActiveAsync` | `RegistrarDomainContext` | `ValueResult<RegistrarOrder, RegistrarRefusalReason>` | Read only, for an order that answered `RequiresPolling` |
+| `CancelTransferAsync`, `InitiateOutgoingTransferAsync` | `RegistrarDomainContext` | `OperationResult<RegistrarRefusalReason>` | Already cancelled or prepared is a success |
+| `GetEppCodeAsync` | `RegistrarDomainContext` | `ValueResult<RegistrarEppCode, RegistrarRefusalReason>` | Read only; the code prints as `***` |
+| `GetNameserversAsync` | `RegistrarDomainContext` | `ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>` | Read only |
+| `SetNameserversAsync` | `RegistrarNameserversContext` | `OperationResult<RegistrarRefusalReason>` | The same list is a success |
+| `SetAutoRenewAsync`, `SetWhoisPrivacyAsync`, `SetRegistrarLockAsync` | `RegistrarFlagContext` | `OperationResult<RegistrarRefusalReason>` | The state already wanted is a success |
+| `GetContactAsync` | `RegistrarDomainContext` | `ValueResult<RegistrarContact, RegistrarRefusalReason>` | Read only |
+| `SetContactAsync` | `RegistrarContactContext` | `OperationResult<RegistrarRefusalReason>` | The same contact is a success |
+| `GetDnsRecordsAsync` | `RegistrarDomainContext` | `ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>` | Read only |
+| `AddDnsRecordAsync` | `RegistrarDnsRecordContext` | `OperationResult<RegistrarRefusalReason>` | The same record is a success |
+| `UpdateDnsRecordAsync` | `RegistrarDnsRecordUpdateContext` | `OperationResult<RegistrarRefusalReason>` | The updated content already there is a success |
+| `DeleteDnsRecordAsync` | `RegistrarDnsRecordRemovalContext` | `OperationResult<RegistrarRefusalReason>` | A record already gone is `AlreadyApplied`, never `NotFound` |
+| `GetTldPricingAsync` | `RegistrarPricingContext` | `ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>` | Read only |
+| `SetEmailForwardingAsync` | `RegistrarFlagContext` | `OperationResult<RegistrarRefusalReason>` | Optional interface; the state already wanted is a success |
+| `AddEmailForwardingRuleAsync`, `UpdateEmailForwardingRuleAsync` | `RegistrarEmailForwardingRuleContext` | `OperationResult<RegistrarRefusalReason>` | Optional interface; the same rule is a success |
+| `DeleteEmailForwardingRuleAsync` | `RegistrarEmailForwardingRemovalContext` | `OperationResult<RegistrarRefusalReason>` | Optional interface; a rule already gone is `AlreadyApplied` |
+| `SetDnsManagementAsync` | `RegistrarFlagContext` | `OperationResult<RegistrarRefusalReason>` | Optional interface; the state already wanted is a success |
+| `GetWhoisAsync` | `RegistrarWhoisContext` | `ValueResult<RegistrarWhois, RegistrarRefusalReason>` | Optional interface; read only |
 | `TestConnectionAsync` | `RegistrarTestConnectionContext` | `PanelConnectionTestResult` | Never throws for an unreachable registrar |
 
 - **Outcomes, not exceptions.** Every operation answers a `PanelOperationOutcome` (`Succeeded`, `AlreadyApplied`,
@@ -290,13 +296,29 @@ list must agree with the code. One plugin serves one registrar account: each cal
 - **Network.** Take an `IPanelTransport` in the constructor and send every request on `CreateClient()`; never create your
   own `HttpClient`. The client has no base address, so build it from `RegistrarConnection.ApiUrl` or your own default, and
   honour `TestMode` by calling the sandbox API and never the live one.
-- **Not in the contract yet.** E-mail forwarding rules, the DNS management switch and the WHOIS lookup stay with the host
-  for now and will be added as separate operations.
+- **Optional operations are separate interfaces.** E-mail forwarding (`IRegistrarEmailForwardingPlugin`:
+  `SetEmailForwardingAsync`, `AddEmailForwardingRuleAsync`, `UpdateEmailForwardingRuleAsync`,
+  `DeleteEmailForwardingRuleAsync`), the DNS management switch (`IRegistrarDnsManagementPlugin`:
+  `SetDnsManagementAsync`) and the WHOIS lookup (`IRegistrarWhoisPlugin`: `GetWhoisAsync`) extend
+  `IRegistrarOperationsPlugin`, each with its own capability (`registrarEmailForwarding`, `registrarDnsManagement`,
+  `registrarWhois`). A host treats a plugin that does not implement one as `NotSupported` for it. New operations always
+  arrive as new interfaces, never as members of an existing one.
+- **DNS records have no registrar id on the host side.** `RegistrarDnsRecordUpdateContext` carries the record as it is now
+  and the content it should have, and `RegistrarDnsRecordRemovalContext` carries the whole record; find the record by type,
+  host and value, and use `RegistrarDnsRecord.Id` only when it is given. A delete of a record that is gone is
+  `AlreadyApplied`; a delete on a domain the registrar does not hold is `NotFound`.
+- **Personal data.** `RegistrarContact` and the registrant of `RegistrarWhois` print masked, so a context or a result that
+  holds them does not leak them into a log line.
 
 In the plugin's own tests, run the `RegistrarContract` checks against a stub of your registrar:
 `AssertRegisterIsIdempotentAsync`, `AssertTransferIsIdempotentAsync`, `AssertRenewIsIdempotentAsync`,
 `AssertSetNameserversIsIdempotentAsync`, `AssertSetAutoRenewIsIdempotentAsync`, `AssertSetWhoisPrivacyIsIdempotentAsync`,
-`AssertSetRegistrarLockIsIdempotentAsync`, `AssertSetContactIsIdempotentAsync`, `AssertDeleteDnsRecordIsIdempotentAsync`,
+`AssertSetRegistrarLockIsIdempotentAsync`, `AssertSetContactIsIdempotentAsync`, `AssertAddDnsRecordIsIdempotentAsync`, `AssertUpdateDnsRecordIsIdempotentAsync`,
+`AssertDeleteDnsRecordIsIdempotentAsync`, `AssertCancelTransferIsIdempotentAsync`,
+`AssertInitiateOutgoingTransferIsIdempotentAsync`, the matching checks for the optional interfaces
+(`AssertSetEmailForwardingIsIdempotentAsync`, `AssertAddEmailForwardingRuleIsIdempotentAsync`,
+`AssertUpdateEmailForwardingRuleIsIdempotentAsync`, `AssertDeleteEmailForwardingRuleIsIdempotentAsync`,
+`AssertSetDnsManagementIsIdempotentAsync`, `AssertWhoisAnswersAsync`), `AssertReadsAnswerValuesAsync`,
 `AssertUnknownDomainIsNotFoundAsync`, `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws
 `PluginContractViolationException` naming the promise that was broken.
 
@@ -309,22 +331,23 @@ marker, `ProvisioningProviderBase` and `IProvisioningPanelPlugin` do not change 
 manifest's `capabilities` and the module ids the plugin serves in `serverModules`; the lists must agree with the code. The
 vocabulary is the one of the panel contract: the platform arrives as a `PanelServerConnection`, the service as a
 `PanelService` whose `ProvisioningRef` is what `CreateServerAsync` returned, and the answers are `PanelActionResult` and
-`PanelDataResult<T>`.
+`ValueResult<T, PanelRefusalReason>`.
 
 | Operation | Context | Result | Repeat |
 |---|---|---|---|
-| `CreateServerAsync` | `VirtualServerCreateContext` | `PanelDataResult<VirtualServerInstance>` | A server already held under the same `Name` is `AlreadyApplied` with the same `ProvisioningRef` |
-| `StartServerAsync`, `StopServerAsync` | `PanelAccountContext` | `PanelActionResult` | Already running or stopped is a success |
+| `CreateServerAsync` | `VirtualServerCreateContext` | `ValueResult<VirtualServerInstance, PanelRefusalReason>` | A server already held under the same `Name` is `AlreadyApplied` with the same `ProvisioningRef` |
+| `StartServerAsync`, `StopServerAsync` | `PanelAccountContext` | `PanelActionResult` | Already running or stopped is a success; starting a suspended server is `Refused` with `AccessDenied` |
 | `RebootServerAsync` | `PanelAccountContext` | `PanelActionResult` | Restarts again each time |
 | `SuspendServerAsync` | `PanelSuspendContext` | `PanelActionResult` | Already suspended is a success |
 | `UnsuspendServerAsync` | `PanelAccountContext` | `PanelActionResult` | Not suspended is a success |
 | `TerminateServerAsync` | `PanelTerminateContext` | `PanelActionResult` | Already gone is `AlreadyApplied`, never `NotFound` |
-| `RebuildServerAsync` | `VirtualServerRebuildContext` | `PanelDataResult<VirtualServerRootPassword>` | Erases the disk again each time |
+| `RebuildServerAsync` | `VirtualServerRebuildContext` | `ValueResult<VirtualServerRootPassword, PanelRefusalReason>` | Erases the disk again each time |
 | `ChangePlanAsync` | `PanelChangePackageContext` | `PanelActionResult` | Already on the plan is a success |
-| `ResetRootPasswordAsync` | `PanelChangePasswordContext` | `PanelDataResult<VirtualServerRootPassword>` | Sets it again and succeeds |
-| `CreateConsoleSessionAsync` | `PanelAccountContext` | `PanelDataResult<VirtualServerConsole>` | Issues a new address each time |
-| `GetServerUsageAsync` | `PanelAccountContext` | `PanelDataResult<VirtualServerUsage>` | Read only |
-| `ListImagesAsync`, `ListPlansAsync` | `VirtualServerCatalogContext` | `PanelDataResult<IReadOnlyList<...>>` | Read only |
+| `ResetRootPasswordAsync` | `PanelChangePasswordContext` | `ValueResult<VirtualServerRootPassword, PanelRefusalReason>` | Sets it again and succeeds |
+| `CreateConsoleSessionAsync` | `PanelAccountContext` | `ValueResult<VirtualServerConsole, PanelRefusalReason>` | Issues a new address each time |
+| `GetServerUsageAsync` | `PanelAccountContext` | `ValueResult<VirtualServerUsage, PanelRefusalReason>` | Read only |
+| `ListImagesAsync`, `ListPlansAsync` | `VirtualServerCatalogContext` | `ValueResult<IReadOnlyList<...>, PanelRefusalReason>` | Read only |
+| `ListServersAsync` | `PanelListAccountsContext` | `PanelAccountListResult` | Optional interface `IVirtualServerListPlugin` (capability `virtualServerList`); read only, paged by `NextCursor`, a server is a `PanelAccount` |
 | `TestServerConnectionAsync` | `PanelTestConnectionContext` | `PanelConnectionTestResult` | Never throws for an unreachable platform |
 
 - **Outcomes, idempotency, secrets and network** follow the panel contract: outcomes instead of exceptions, a stable
@@ -341,7 +364,8 @@ vocabulary is the one of the panel contract: the platform arrives as a `PanelSer
 In the plugin's own tests, run the `VirtualServerContract` checks against a stub of your platform:
 `AssertCreateIsIdempotentAsync`, `AssertStartIsIdempotentAsync`, `AssertStopIsIdempotentAsync`,
 `AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`, `AssertTerminateIsIdempotentAsync`,
-`AssertChangePlanIsIdempotentAsync`, `AssertUnknownServerIsNotFoundAsync`, `AssertCatalogIsWellFormedAsync`,
+`AssertChangePlanIsIdempotentAsync`, `AssertSuspendedServerIsNotStartedAsync`, `AssertUnknownServerIsNotFoundAsync`,
+`AssertReadsAnswerValuesAsync`, `AssertCatalogIsWellFormedAsync`, `AssertListServersIsCompleteAsync`,
 `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
 promise that was broken.
 

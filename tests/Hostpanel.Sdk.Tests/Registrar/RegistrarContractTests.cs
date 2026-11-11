@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
 using Hostpanel.Sdk.Plugins.Registrar;
@@ -27,7 +28,7 @@ public sealed class RegistrarContractTests
     public async Task AssertRegister_FirstCallAlreadyRegistered_Passes()
     {
         var order = new RegistrarOrder("dom-1", null, false);
-        var plugin = new ScriptedRegistrarPlugin { Register = _ => RegistrarDataResult<RegistrarOrder>.AlreadyDone(order) };
+        var plugin = new ScriptedRegistrarPlugin { Register = _ => ValueResult<RegistrarOrder, RegistrarRefusalReason>.AlreadyDone(order) };
 
         var first = await RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
@@ -39,7 +40,7 @@ public sealed class RegistrarContractTests
     public async Task AssertRegister_RegistersTwice_Throws()
     {
         var order = new RegistrarOrder("dom-1", null, false);
-        var plugin = new ScriptedRegistrarPlugin { Register = _ => RegistrarDataResult<RegistrarOrder>.Done(order) };
+        var plugin = new ScriptedRegistrarPlugin { Register = _ => ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(order) };
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
@@ -53,8 +54,8 @@ public sealed class RegistrarContractTests
         var plugin = new ScriptedRegistrarPlugin
         {
             Register = call => call == 1
-                ? RegistrarDataResult<RegistrarOrder>.Done(new RegistrarOrder("dom-1", null, false))
-                : RegistrarDataResult<RegistrarOrder>.AlreadyDone(new RegistrarOrder("dom-2", null, false)),
+                ? ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(new RegistrarOrder("dom-1", null, false))
+                : ValueResult<RegistrarOrder, RegistrarRefusalReason>.AlreadyDone(new RegistrarOrder("dom-2", null, false)),
         };
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
@@ -66,7 +67,7 @@ public sealed class RegistrarContractTests
     [Fact]
     public async Task AssertRegister_NoReference_Throws()
     {
-        var plugin = new ScriptedRegistrarPlugin { Register = _ => RegistrarDataResult<RegistrarOrder>.Done(new RegistrarOrder(" ", null, false)) };
+        var plugin = new ScriptedRegistrarPlugin { Register = _ => ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(new RegistrarOrder(" ", null, false)) };
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
@@ -80,7 +81,7 @@ public sealed class RegistrarContractTests
         var plugin = new ScriptedRegistrarPlugin
         {
             Register = call => call == 1
-                ? RegistrarDataResult<RegistrarOrder>.Done(new RegistrarOrder("dom-1", null, false))
+                ? ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(new RegistrarOrder("dom-1", null, false))
                 : throw new InvalidOperationException("domain example.test exists on api.registrar.example.test"),
         };
 
@@ -94,7 +95,7 @@ public sealed class RegistrarContractTests
     [Fact]
     public async Task AssertRegister_Refused_Throws()
     {
-        var plugin = new ScriptedRegistrarPlugin { Register = _ => RegistrarDataResult<RegistrarOrder>.Refused(RegistrarRefusalReason.DomainUnavailable) };
+        var plugin = new ScriptedRegistrarPlugin { Register = _ => ValueResult<RegistrarOrder, RegistrarRefusalReason>.Refused(RegistrarRefusalReason.DomainUnavailable) };
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
@@ -105,10 +106,10 @@ public sealed class RegistrarContractTests
     [Fact]
     public async Task AssertRegister_MalformedReason_Throws()
     {
-        var noReason = new ScriptedRegistrarPlugin { Register = _ => new RegistrarDataResult<RegistrarOrder>(PanelOperationOutcome.Refused, null, null) };
+        var noReason = new ScriptedRegistrarPlugin { Register = _ => new ValueResult<RegistrarOrder, RegistrarRefusalReason>(PanelOperationOutcome.Refused, null, null) };
         var strayReason = new ScriptedRegistrarPlugin
         {
-            Register = _ => new RegistrarDataResult<RegistrarOrder>(PanelOperationOutcome.Succeeded, new RegistrarOrder("dom-1", null, false), RegistrarRefusalReason.Other),
+            Register = _ => new ValueResult<RegistrarOrder, RegistrarRefusalReason>(PanelOperationOutcome.Succeeded, new RegistrarOrder("dom-1", null, false), RegistrarRefusalReason.Other),
         };
 
         var missing = () => RegistrarContract.AssertRegisterIsIdempotentAsync(noReason, RegistrarFixtures.Register);
@@ -145,13 +146,13 @@ public sealed class RegistrarContractTests
     public async Task AssertTransfer_IsChecked()
     {
         var good = new ScriptedRegistrarPlugin();
-        var twice = new ScriptedRegistrarPlugin { Transfer = _ => RegistrarDataResult<RegistrarOrder>.Done(new RegistrarOrder("dom-1", null, true)) };
+        var twice = new ScriptedRegistrarPlugin { Transfer = _ => ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(new RegistrarOrder("dom-1", null, true)) };
 
         var first = await RegistrarContract.AssertTransferIsIdempotentAsync(good, RegistrarFixtures.Transfer);
         var run = () => RegistrarContract.AssertTransferIsIdempotentAsync(twice, RegistrarFixtures.Transfer);
 
         first.Outcome.Should().Be(PanelOperationOutcome.Succeeded);
-        await run.Should().ThrowAsync<PluginContractViolationException>();
+        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("call 2");
     }
 
     /// <summary>A renewal that notices the expiry already moved passes; one that renews twice is rejected.</summary>
@@ -159,13 +160,13 @@ public sealed class RegistrarContractTests
     public async Task AssertRenew_IsChecked()
     {
         var good = new ScriptedRegistrarPlugin();
-        var twice = new ScriptedRegistrarPlugin { Renew = _ => RegistrarDataResult<RegistrarOrder>.Done(new RegistrarOrder("dom-1", null, false)) };
+        var twice = new ScriptedRegistrarPlugin { Renew = _ => ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(new RegistrarOrder("dom-1", null, false)) };
 
         var first = await RegistrarContract.AssertRenewIsIdempotentAsync(good, RegistrarFixtures.Renew);
         var run = () => RegistrarContract.AssertRenewIsIdempotentAsync(twice, RegistrarFixtures.Renew);
 
         first.Outcome.Should().Be(PanelOperationOutcome.Succeeded);
-        await run.Should().ThrowAsync<PluginContractViolationException>();
+        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("call 2");
     }
 
     /// <summary>A renewal context without the host's expiry cannot be repeated safely, so the check refuses to run it.</summary>
@@ -191,6 +192,10 @@ public sealed class RegistrarContractTests
         await RegistrarContract.AssertSetWhoisPrivacyIsIdempotentAsync(plugin, RegistrarFixtures.Flag);
         await RegistrarContract.AssertSetRegistrarLockIsIdempotentAsync(plugin, RegistrarFixtures.Flag);
         await RegistrarContract.AssertSetContactIsIdempotentAsync(plugin, RegistrarFixtures.ContactChange);
+        await RegistrarContract.AssertAddDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.AddRecord);
+        await RegistrarContract.AssertUpdateDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.UpdateRecord);
+        await RegistrarContract.AssertCancelTransferIsIdempotentAsync(plugin, RegistrarFixtures.DomainContext);
+        await RegistrarContract.AssertInitiateOutgoingTransferIsIdempotentAsync(plugin, RegistrarFixtures.DomainContext);
         await RegistrarContract.AssertDeleteDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.Removal);
 
         plugin.CallsOf(nameof(IRegistrarOperationsPlugin.SetNameserversAsync)).Should().Be(3);
@@ -208,6 +213,10 @@ public sealed class RegistrarContractTests
             SetWhoisPrivacy = DoneThenNotFound,
             SetRegistrarLock = DoneThenNotFound,
             SetContact = DoneThenNotFound,
+            AddDnsRecord = DoneThenNotFound,
+            UpdateDnsRecord = DoneThenNotFound,
+            CancelTransfer = DoneThenNotFound,
+            InitiateOutgoingTransfer = DoneThenNotFound,
             DeleteDnsRecord = DoneThenNotFound,
         };
 
@@ -218,6 +227,10 @@ public sealed class RegistrarContractTests
             () => RegistrarContract.AssertSetWhoisPrivacyIsIdempotentAsync(plugin, RegistrarFixtures.Flag),
             () => RegistrarContract.AssertSetRegistrarLockIsIdempotentAsync(plugin, RegistrarFixtures.Flag),
             () => RegistrarContract.AssertSetContactIsIdempotentAsync(plugin, RegistrarFixtures.ContactChange),
+            () => RegistrarContract.AssertAddDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.AddRecord),
+            () => RegistrarContract.AssertUpdateDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.UpdateRecord),
+            () => RegistrarContract.AssertCancelTransferIsIdempotentAsync(plugin, RegistrarFixtures.DomainContext),
+            () => RegistrarContract.AssertInitiateOutgoingTransferIsIdempotentAsync(plugin, RegistrarFixtures.DomainContext),
             () => RegistrarContract.AssertDeleteDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.Removal),
         };
 
@@ -246,8 +259,8 @@ public sealed class RegistrarContractTests
         var plugin = new ScriptedRegistrarPlugin
         {
             HoldsDomain = false,
-            GetEppCode = _ => RegistrarDataResult<RegistrarEppCode>.NotSupported(),
-            GetDnsRecords = _ => RegistrarDataResult<IReadOnlyList<RegistrarDnsRecord>>.NotSupported(),
+            GetEppCode = _ => ValueResult<RegistrarEppCode, RegistrarRefusalReason>.NotSupported(),
+            GetDnsRecords = _ => ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>.NotSupported(),
         };
 
         await RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
@@ -257,7 +270,7 @@ public sealed class RegistrarContractTests
     [Fact]
     public async Task AssertUnknownDomain_ChangesUnknownDomain_Throws()
     {
-        var plugin = new ScriptedRegistrarPlugin { HoldsDomain = false, SetNameservers = _ => RegistrarActionResult.Done() };
+        var plugin = new ScriptedRegistrarPlugin { HoldsDomain = false, SetNameservers = _ => OperationResult<RegistrarRefusalReason>.Done() };
 
         var run = () => RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
 
@@ -271,7 +284,7 @@ public sealed class RegistrarContractTests
         var plugin = new ScriptedRegistrarPlugin
         {
             HoldsDomain = false,
-            Renew = _ => RegistrarDataResult<RegistrarOrder>.Refused(RegistrarRefusalReason.Other),
+            Renew = _ => ValueResult<RegistrarOrder, RegistrarRefusalReason>.Refused(RegistrarRefusalReason.Other),
         };
 
         var run = () => RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
@@ -340,9 +353,9 @@ public sealed class RegistrarContractTests
     /// <summary>A script for a change that is done the first time and then answers not found, which breaks the idempotency promise.</summary>
     /// <param name="call">The call number, starting at 1.</param>
     /// <returns>The answer of that call.</returns>
-    private static RegistrarActionResult DoneThenNotFound(int call)
+    private static OperationResult<RegistrarRefusalReason> DoneThenNotFound(int call)
     {
-        return call == 1 ? RegistrarActionResult.Done() : RegistrarActionResult.NotFound();
+        return call == 1 ? OperationResult<RegistrarRefusalReason>.Done() : OperationResult<RegistrarRefusalReason>.NotFound();
     }
 
     /// <summary>An object whose printed form leaks the value it was given, to show the secret check catches it.</summary>

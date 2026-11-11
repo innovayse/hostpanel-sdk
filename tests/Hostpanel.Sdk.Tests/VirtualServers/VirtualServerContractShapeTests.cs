@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Plugins.Provisioning;
@@ -39,7 +40,7 @@ public sealed class VirtualServerContractShapeTests
 
         instance.ToString().Should().NotContain(VirtualServerFixtures.GeneratedPassword).And.Contain("GeneratedPassword = ***").And.Contain("ProvisioningRef = srv-1");
         password.ToString().Should().NotContain(VirtualServerFixtures.GeneratedPassword);
-        PanelDataResult<VirtualServerRootPassword>.Done(password).ToString().Should().NotContain(VirtualServerFixtures.GeneratedPassword);
+        ValueResult<VirtualServerRootPassword, PanelRefusalReason>.Done(password).ToString().Should().NotContain(VirtualServerFixtures.GeneratedPassword);
         console.ToString().Should().NotContain("t=abc").And.Contain("Url = ***");
         new VirtualServerRootPassword(null).ToString().Should().Contain("GeneratedPassword = null");
         new VirtualServerInstance("srv-1", null, null, null).ToString().Should().Contain("GeneratedPassword = null");
@@ -51,19 +52,19 @@ public sealed class VirtualServerContractShapeTests
     {
         var instance = new VirtualServerInstance("srv-1", null, null, null);
 
-        PanelDataResult<VirtualServerInstance>.Done(instance).Should().Be(new PanelDataResult<VirtualServerInstance>(PanelOperationOutcome.Succeeded, instance, null));
-        PanelDataResult<VirtualServerInstance>.AlreadyDone(instance).Outcome.Should().Be(PanelOperationOutcome.AlreadyApplied);
-        PanelDataResult<VirtualServerInstance>.NotFound().Value.Should().BeNull();
-        PanelDataResult<VirtualServerInstance>.NotSupported().Outcome.Should().Be(PanelOperationOutcome.NotSupported);
-        PanelDataResult<VirtualServerInstance>.Refused(PanelRefusalReason.NameInvalid).Reason.Should().Be(PanelRefusalReason.NameInvalid);
+        ValueResult<VirtualServerInstance, PanelRefusalReason>.Done(instance).Should().Be(new ValueResult<VirtualServerInstance, PanelRefusalReason>(PanelOperationOutcome.Succeeded, instance, null));
+        ValueResult<VirtualServerInstance, PanelRefusalReason>.AlreadyDone(instance).Outcome.Should().Be(PanelOperationOutcome.AlreadyApplied);
+        ValueResult<VirtualServerInstance, PanelRefusalReason>.NotFound().Value.Should().BeNull();
+        ValueResult<VirtualServerInstance, PanelRefusalReason>.NotSupported().Outcome.Should().Be(PanelOperationOutcome.NotSupported);
+        ValueResult<VirtualServerInstance, PanelRefusalReason>.Refused(PanelRefusalReason.NameInvalid).Reason.Should().Be(PanelRefusalReason.NameInvalid);
     }
 
     /// <summary>A success cannot be built without its value.</summary>
     [Fact]
     public void DataResult_SuccessWithoutValue_Throws()
     {
-        var done = () => PanelDataResult<VirtualServerInstance>.Done(null!);
-        var already = () => PanelDataResult<VirtualServerInstance>.AlreadyDone(null!);
+        var done = () => ValueResult<VirtualServerInstance, PanelRefusalReason>.Done(null!);
+        var already = () => ValueResult<VirtualServerInstance, PanelRefusalReason>.AlreadyDone(null!);
 
         done.Should().Throw<ArgumentNullException>();
         already.Should().Throw<ArgumentNullException>();
@@ -88,6 +89,15 @@ public sealed class VirtualServerContractShapeTests
     {
         PluginCapabilities.VirtualServer.Should().Be("virtualServer");
         Enum.GetValues<PluginType>().Should().HaveCount(7);
+    }
+
+    /// <summary>The server listing is a separate opt in that extends the virtual server interface and has its own capability name.</summary>
+    [Fact]
+    public void ServerListing_IsASeparateOptIn()
+    {
+        typeof(IVirtualServerListPlugin).GetInterfaces().Should().Contain(typeof(IVirtualServerPlugin));
+        typeof(IVirtualServerPlugin).GetMethods().Select(method => method.Name).Should().NotContain("ListServersAsync");
+        PluginCapabilities.VirtualServerList.Should().Be("virtualServerList");
     }
 
     /// <summary>

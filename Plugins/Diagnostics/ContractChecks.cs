@@ -8,10 +8,21 @@ namespace Hostpanel.Sdk.Plugins.Diagnostics;
 /// The checks the contract helpers (<see cref="ProvisioningContract"/>, <see cref="Registrar.RegistrarContract"/> and
 /// <see cref="VirtualServers.VirtualServerContract"/>) share, so a promise is checked by one piece of code whichever
 /// contract it belongs to. Every check throws <see cref="PluginContractViolationException"/> naming the promise that was
-/// broken, and never repeats a value the plugin was given.
+/// broken, and never repeats a value the plugin was given. Each contract owns one instance, built with its own
+/// <see cref="ContractWords"/>, so the messages of a contract keep their own nouns.
 /// </summary>
-internal static class ContractChecks
+internal sealed class ContractChecks
 {
+    /// <summary>The nouns the messages of this instance use.</summary>
+    private readonly ContractWords _words;
+
+    /// <summary>Initializes a new instance of the <see cref="ContractChecks"/> class.</summary>
+    /// <param name="words">The nouns the messages use.</param>
+    internal ContractChecks(ContractWords words)
+    {
+        _words = words;
+    }
+
     /// <summary>
     /// Calls the plugin once. An exception other than a cancellation is a broken promise (the caller arranged a server that
     /// answers), and so is a <see langword="null"/> answer.
@@ -22,7 +33,7 @@ internal static class ContractChecks
     /// <param name="invoke">The call.</param>
     /// <returns>The plugin's answer.</returns>
     /// <exception cref="PluginContractViolationException">The call threw or answered <see langword="null"/>.</exception>
-    internal static async Task<T> CallAsync<T>(string operation, int call, Func<Task<T>> invoke)
+    internal async Task<T> CallAsync<T>(string operation, int call, Func<Task<T>> invoke)
         where T : class
     {
         T? result;
@@ -34,7 +45,7 @@ internal static class ContractChecks
         {
             // Only the type is named: the message may carry an address or a user name.
             throw new PluginContractViolationException(
-                $"{operation} threw on call {call}: {ex.GetType().Name}. A refusal, a missing target and an unsupported operation are outcomes, and a repeat must answer the same as the first call.");
+                $"{operation} threw on call {call}: {ex.GetType().Name}. A refusal, a missing {_words.Target} and an unsupported operation are outcomes, and a repeat must answer the same as the first call.");
         }
 
         if (result is null)
@@ -52,7 +63,7 @@ internal static class ContractChecks
     /// <param name="outcome">The outcome the plugin answered.</param>
     /// <param name="reason">The reason the plugin answered.</param>
     /// <exception cref="PluginContractViolationException">The outcome is not defined, a refusal has no reason, or another outcome has one.</exception>
-    internal static void CheckShape<TReason>(string operation, int call, PanelOperationOutcome outcome, TReason? reason)
+    internal void CheckShape<TReason>(string operation, int call, PanelOperationOutcome outcome, TReason? reason)
         where TReason : struct, Enum
     {
         var reasonName = typeof(TReason).Name;
@@ -88,7 +99,7 @@ internal static class ContractChecks
     /// <returns>The result of the first call.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
     /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered an outcome that does not fit.</exception>
-    internal static async Task<TResult> AssertIsIdempotentAsync<TResult, TReason>(string operation, Func<Task<TResult>> invoke, int calls)
+    internal async Task<TResult> AssertIsIdempotentAsync<TResult, TReason>(string operation, Func<Task<TResult>> invoke, int calls)
         where TResult : class, IOperationAnswer<TReason>
         where TReason : struct, Enum
     {
@@ -103,7 +114,7 @@ internal static class ContractChecks
             if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
             {
                 throw new PluginContractViolationException(
-                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a target the operation is accepted for, and a repeat must answer Succeeded or AlreadyApplied.");
+                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange {_words.IndefiniteTarget} the {_words.Other} accepts the operation for, and a repeat must answer Succeeded or AlreadyApplied.");
             }
 
             first ??= result;
@@ -126,7 +137,7 @@ internal static class ContractChecks
     /// <returns>The result of the first call.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
     /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, answered without a reference, repeated the work, or changed the reference.</exception>
-    internal static async Task<TResult> AssertCreateIsIdempotentAsync<TResult, TReason>(
+    internal async Task<TResult> AssertCreateIsIdempotentAsync<TResult, TReason>(
         string operation,
         Func<Task<TResult>> invoke,
         int calls,
@@ -146,7 +157,7 @@ internal static class ContractChecks
             if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
             {
                 throw new PluginContractViolationException(
-                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a call the other side accepts, and a repeat must answer AlreadyApplied.");
+                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a call the {_words.Other} accepts, and a repeat must answer AlreadyApplied.");
             }
 
             var reference = referenceOf(result);
@@ -182,16 +193,11 @@ internal static class ContractChecks
     /// <typeparam name="TResult">The result type of the operation.</typeparam>
     /// <typeparam name="TReason">The refusal reason enum of the contract.</typeparam>
     /// <param name="operation">The operation's name, for the message.</param>
-    /// <param name="subject">What the caller arranged not to exist (account, domain, server), for the message.</param>
     /// <param name="invoke">The call.</param>
     /// <param name="allowed">The outcomes the promise allows.</param>
     /// <returns>A task that completes when the check passed.</returns>
     /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/> or answered an outcome that is not allowed.</exception>
-    internal static async Task ExpectAsync<TResult, TReason>(
-        string operation,
-        string subject,
-        Func<Task<TResult>> invoke,
-        params PanelOperationOutcome[] allowed)
+    internal async Task ExpectAsync<TResult, TReason>(string operation, Func<Task<TResult>> invoke, params PanelOperationOutcome[] allowed)
         where TResult : class, IOperationAnswer<TReason>
         where TReason : struct, Enum
     {
@@ -201,7 +207,42 @@ internal static class ContractChecks
         if (!allowed.Contains(result.Outcome))
         {
             throw new PluginContractViolationException(
-                $"{operation} answered {result.Outcome} for an unknown {subject}; it must answer {string.Join(" or ", allowed)}.");
+                $"{operation} answered {result.Outcome} for an unknown {_words.Target}; it must answer {string.Join(" or ", allowed)}.");
+        }
+    }
+
+    /// <summary>
+    /// Calls a read or a list once and asserts that it answers a value: <c>Succeeded</c> with a value, or, when the other
+    /// side may lack the operation, <c>NotSupported</c>. A success without a value would leave the host with nothing to show.
+    /// </summary>
+    /// <typeparam name="TResult">The result type of the operation.</typeparam>
+    /// <typeparam name="TReason">The refusal reason enum of the contract.</typeparam>
+    /// <param name="operation">The operation's name, for the message.</param>
+    /// <param name="invoke">The call.</param>
+    /// <param name="mayBeUnsupported"><see langword="true"/> when the other side may lack the operation.</param>
+    /// <returns>A task that completes when the check passed.</returns>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, answered an outcome that does not fit, or succeeded without a value.</exception>
+    internal async Task AssertReadAnswersValueAsync<TResult, TReason>(string operation, Func<Task<TResult>> invoke, bool mayBeUnsupported)
+        where TResult : class, IOperationAnswer<TReason>, IValueAnswer
+        where TReason : struct, Enum
+    {
+        var result = await CallAsync(operation, 1, invoke);
+        CheckShape(operation, 1, result.Outcome, result.Reason);
+
+        if (result.Outcome == PanelOperationOutcome.NotSupported && mayBeUnsupported)
+        {
+            return;
+        }
+
+        if (result.Outcome != PanelOperationOutcome.Succeeded)
+        {
+            throw new PluginContractViolationException(
+                $"{operation} answered {result.Outcome}; the caller must arrange {_words.IndefiniteTarget} the {_words.Other} reads, and a read answers Succeeded{(mayBeUnsupported ? " or NotSupported" : string.Empty)}.");
+        }
+
+        if (result.Value is null)
+        {
+            throw new PluginContractViolationException($"{operation} answered Succeeded without a value; a read that succeeded must answer what it read, and an empty list is an empty list.");
         }
     }
 
@@ -213,7 +254,7 @@ internal static class ContractChecks
     /// <param name="invoke">The call.</param>
     /// <returns>The result, so the test can assert the outcome it arranged.</returns>
     /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/> or broke the shape of a test result.</exception>
-    internal static async Task<PanelConnectionTestResult> AssertTestConnectionAnswersAsync(string operation, Func<Task<PanelConnectionTestResult>> invoke)
+    internal async Task<PanelConnectionTestResult> AssertTestConnectionAnswersAsync(string operation, Func<Task<PanelConnectionTestResult>> invoke)
     {
         var result = await CallAsync(operation, 1, invoke);
 
@@ -235,12 +276,85 @@ internal static class ContractChecks
         return result;
     }
 
+    /// <summary>
+    /// Follows <see cref="PanelAccountListResult.NextCursor"/> from the first page to the last and asserts that the listing
+    /// is well formed: every page succeeds, every account has a reference and a defined status, no reference appears twice,
+    /// and the cursor moves on (a page that returns the cursor it was asked for would loop forever).
+    /// </summary>
+    /// <param name="operation">The operation's name, for the message.</param>
+    /// <param name="list">Asks for one page, given the cursor of the previous one or <see langword="null"/> for the first.</param>
+    /// <param name="maxPages">The most pages to follow before the listing counts as a loop; at least 1.</param>
+    /// <returns>Every account of every page, in the order the plugin returned them.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxPages"/> is less than 1.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, did not succeed, returned a malformed or repeated account, or kept returning cursors past <paramref name="maxPages"/>.</exception>
+    internal async Task<IReadOnlyList<PanelAccount>> AssertListIsCompleteAsync(
+        string operation,
+        Func<string?, Task<PanelAccountListResult>> list,
+        int maxPages)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(maxPages, 1);
+
+        var accounts = new List<PanelAccount>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        string? cursor = null;
+        for (var page = 1; page <= maxPages; page++)
+        {
+            var asked = cursor;
+            var result = await CallAsync(operation, page, () => list(asked));
+            CheckShape(operation, page, result.Outcome, result.Reason);
+
+            if (result.Outcome != PanelOperationOutcome.Succeeded)
+            {
+                throw new PluginContractViolationException($"{operation} answered {result.Outcome} on page {page}; the caller must arrange a {_words.Other} that lists.");
+            }
+
+            if (result.Accounts is null)
+            {
+                throw new PluginContractViolationException($"{operation} answered null Accounts on page {page}; an empty page is an empty list.");
+            }
+
+            foreach (var account in result.Accounts)
+            {
+                if (account is null || string.IsNullOrWhiteSpace(account.ProvisioningRef))
+                {
+                    throw new PluginContractViolationException($"{operation} returned an account without a ProvisioningRef on page {page}.");
+                }
+
+                if (!Enum.IsDefined(account.Status))
+                {
+                    throw new PluginContractViolationException($"{operation} returned an account with a Status that is not a PanelAccountStatus on page {page}.");
+                }
+
+                if (!seen.Add(account.ProvisioningRef))
+                {
+                    throw new PluginContractViolationException($"{operation} returned an account twice (page {page}). Following the cursors must return every account exactly once.");
+                }
+
+                accounts.Add(account);
+            }
+
+            if (result.NextCursor is null)
+            {
+                return accounts;
+            }
+
+            if (string.Equals(result.NextCursor, asked, StringComparison.Ordinal))
+            {
+                throw new PluginContractViolationException($"{operation} answered the cursor it was asked for on page {page}; the listing would never end.");
+            }
+
+            cursor = result.NextCursor;
+        }
+
+        throw new PluginContractViolationException($"{operation} was still returning cursors after {maxPages} pages.");
+    }
+
     /// <summary>Asserts that the printed form of an object contains none of the given secrets.</summary>
     /// <param name="value">The object to print.</param>
     /// <param name="secrets">The secret values that must not appear. A <see langword="null"/> or empty value is skipped.</param>
     /// <exception cref="ArgumentNullException"><paramref name="value"/> or <paramref name="secrets"/> is <see langword="null"/>.</exception>
     /// <exception cref="PluginContractViolationException">The printed form contains one of the secrets. The message does not repeat it.</exception>
-    internal static void AssertHidesSecrets(object value, string?[] secrets)
+    internal void AssertHidesSecrets(object value, string?[] secrets)
     {
         ArgumentNullException.ThrowIfNull(value);
         ArgumentNullException.ThrowIfNull(secrets);

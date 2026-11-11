@@ -1,17 +1,18 @@
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
 using Hostpanel.Sdk.Plugins.Registrar;
+using Hostpanel.Sdk.Plugins.Results;
 
 namespace Hostpanel.Sdk.Tests.Fakes;
 
 /// <summary>
 /// A registrar plugin the test scripts, so the contract helper can be shown to accept a well behaved plugin and to reject
-/// each way of breaking a promise. By default it behaves like a registrar that holds one domain: the first order is done,
-/// every repeat finds it, the changes succeed and then are already applied, and the reads answer fixed values. Setting
-/// <see cref="HoldsDomain"/> to <see langword="false"/> makes it a registrar that holds nothing. A script receives the call
-/// number of its operation, which starts at 1, and may throw.
+/// each way of breaking a promise. It implements the operations and all three optional interfaces. By default it behaves
+/// like a registrar that holds one domain: the first order is done, every repeat finds it, the changes succeed and then are
+/// already applied, and the reads answer fixed values. Setting <see cref="HoldsDomain"/> to <see langword="false"/> makes it
+/// a registrar that holds nothing. A script receives the call number of its operation, which starts at 1, and may throw.
 /// </summary>
-internal sealed class ScriptedRegistrarPlugin : IRegistrarOperationsPlugin
+internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin, IRegistrarDnsManagementPlugin, IRegistrarWhoisPlugin
 {
     /// <summary>The order every default answer carries.</summary>
     private static readonly RegistrarOrder DefaultOrder = new("dom-1", DateTimeOffset.UnixEpoch, false);
@@ -23,37 +24,70 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarOperationsPlugin
     public bool HoldsDomain { get; set; } = true;
 
     /// <summary>Gets or sets what <c>RegisterAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarDataResult<RegistrarOrder>>? Register { get; set; }
+    public Func<int, ValueResult<RegistrarOrder, RegistrarRefusalReason>>? Register { get; set; }
 
     /// <summary>Gets or sets what <c>TransferAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarDataResult<RegistrarOrder>>? Transfer { get; set; }
+    public Func<int, ValueResult<RegistrarOrder, RegistrarRefusalReason>>? Transfer { get; set; }
 
     /// <summary>Gets or sets what <c>RenewAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarDataResult<RegistrarOrder>>? Renew { get; set; }
+    public Func<int, ValueResult<RegistrarOrder, RegistrarRefusalReason>>? Renew { get; set; }
+
+    /// <summary>Gets or sets what <c>CancelTransferAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, OperationResult<RegistrarRefusalReason>>? CancelTransfer { get; set; }
+
+    /// <summary>Gets or sets what <c>InitiateOutgoingTransferAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, OperationResult<RegistrarRefusalReason>>? InitiateOutgoingTransfer { get; set; }
 
     /// <summary>Gets or sets what <c>SetNameserversAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarActionResult>? SetNameservers { get; set; }
+    public Func<int, OperationResult<RegistrarRefusalReason>>? SetNameservers { get; set; }
 
     /// <summary>Gets or sets what <c>SetAutoRenewAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarActionResult>? SetAutoRenew { get; set; }
+    public Func<int, OperationResult<RegistrarRefusalReason>>? SetAutoRenew { get; set; }
 
     /// <summary>Gets or sets what <c>SetWhoisPrivacyAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarActionResult>? SetWhoisPrivacy { get; set; }
+    public Func<int, OperationResult<RegistrarRefusalReason>>? SetWhoisPrivacy { get; set; }
 
     /// <summary>Gets or sets what <c>SetRegistrarLockAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarActionResult>? SetRegistrarLock { get; set; }
+    public Func<int, OperationResult<RegistrarRefusalReason>>? SetRegistrarLock { get; set; }
 
     /// <summary>Gets or sets what <c>SetContactAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarActionResult>? SetContact { get; set; }
+    public Func<int, OperationResult<RegistrarRefusalReason>>? SetContact { get; set; }
+
+    /// <summary>Gets or sets what <c>AddDnsRecordAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, OperationResult<RegistrarRefusalReason>>? AddDnsRecord { get; set; }
+
+    /// <summary>Gets or sets what <c>UpdateDnsRecordAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, OperationResult<RegistrarRefusalReason>>? UpdateDnsRecord { get; set; }
 
     /// <summary>Gets or sets what <c>DeleteDnsRecordAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarActionResult>? DeleteDnsRecord { get; set; }
+    public Func<int, OperationResult<RegistrarRefusalReason>>? DeleteDnsRecord { get; set; }
+
+    /// <summary>Gets or sets what <c>SetEmailForwardingAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, OperationResult<RegistrarRefusalReason>>? SetEmailForwarding { get; set; }
+
+    /// <summary>Gets or sets what <c>AddEmailForwardingRuleAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, OperationResult<RegistrarRefusalReason>>? AddEmailForwardingRule { get; set; }
+
+    /// <summary>Gets or sets what <c>UpdateEmailForwardingRuleAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, OperationResult<RegistrarRefusalReason>>? UpdateEmailForwardingRule { get; set; }
+
+    /// <summary>Gets or sets what <c>DeleteEmailForwardingRuleAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, OperationResult<RegistrarRefusalReason>>? DeleteEmailForwardingRule { get; set; }
+
+    /// <summary>Gets or sets what <c>SetDnsManagementAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, OperationResult<RegistrarRefusalReason>>? SetDnsManagement { get; set; }
 
     /// <summary>Gets or sets what <c>GetEppCodeAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarDataResult<RegistrarEppCode>>? GetEppCode { get; set; }
+    public Func<int, ValueResult<RegistrarEppCode, RegistrarRefusalReason>>? GetEppCode { get; set; }
+
+    /// <summary>Gets or sets what <c>GetNameserversAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>>? GetNameservers { get; set; }
 
     /// <summary>Gets or sets what <c>GetDnsRecordsAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, RegistrarDataResult<IReadOnlyList<RegistrarDnsRecord>>>? GetDnsRecords { get; set; }
+    public Func<int, ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>>? GetDnsRecords { get; set; }
+
+    /// <summary>Gets or sets what <c>GetWhoisAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, ValueResult<RegistrarWhois, RegistrarRefusalReason>>? GetWhois { get; set; }
 
     /// <summary>Gets or sets what <c>TestConnectionAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, PanelConnectionTestResult>? Test { get; set; }
@@ -67,130 +101,167 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarOperationsPlugin
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<RegistrarAvailability>> CheckAvailabilityAsync(RegistrarAvailabilityContext context, CancellationToken ct)
+    public Task<ValueResult<RegistrarAvailability, RegistrarRefusalReason>> CheckAvailabilityAsync(RegistrarAvailabilityContext context, CancellationToken ct)
     {
         Count(nameof(CheckAvailabilityAsync));
-        return Task.FromResult(RegistrarDataResult<RegistrarAvailability>.Done(new RegistrarAvailability(true)));
+        return Task.FromResult(ValueResult<RegistrarAvailability, RegistrarRefusalReason>.Done(new RegistrarAvailability(true)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<RegistrarOrder>> RegisterAsync(RegistrarRegisterContext context, CancellationToken ct)
+    public Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> RegisterAsync(RegistrarRegisterContext context, CancellationToken ct)
     {
         return Task.FromResult(Order(Register, nameof(RegisterAsync), true));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<RegistrarOrder>> TransferAsync(RegistrarTransferContext context, CancellationToken ct)
+    public Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> TransferAsync(RegistrarTransferContext context, CancellationToken ct)
     {
         return Task.FromResult(Order(Transfer, nameof(TransferAsync), true));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<RegistrarOrder>> RenewAsync(RegistrarRenewContext context, CancellationToken ct)
+    public Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> RenewAsync(RegistrarRenewContext context, CancellationToken ct)
     {
         return Task.FromResult(Order(Renew, nameof(RenewAsync), false));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<RegistrarOrder>> CheckDomainActiveAsync(RegistrarDomainContext context, CancellationToken ct)
+    public Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> CheckDomainActiveAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        return Task.FromResult(Read(nameof(CheckDomainActiveAsync), DefaultOrder));
+        Count(nameof(CheckDomainActiveAsync));
+        return Task.FromResult(DataOrNotFound(DefaultOrder));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> CancelTransferAsync(RegistrarDomainContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> CancelTransferAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        return Task.FromResult(Change(null, nameof(CancelTransferAsync)));
+        return Task.FromResult(Change(CancelTransfer, nameof(CancelTransferAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> InitiateOutgoingTransferAsync(RegistrarDomainContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> InitiateOutgoingTransferAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        return Task.FromResult(Change(null, nameof(InitiateOutgoingTransferAsync)));
+        return Task.FromResult(Change(InitiateOutgoingTransfer, nameof(InitiateOutgoingTransferAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<RegistrarEppCode>> GetEppCodeAsync(RegistrarDomainContext context, CancellationToken ct)
+    public Task<ValueResult<RegistrarEppCode, RegistrarRefusalReason>> GetEppCodeAsync(RegistrarDomainContext context, CancellationToken ct)
     {
         var call = Count(nameof(GetEppCodeAsync));
         return Task.FromResult(GetEppCode is null ? DataOrNotFound(new RegistrarEppCode(RegistrarFixtures.EppCode)) : GetEppCode(call));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<IReadOnlyList<string>>> GetNameserversAsync(RegistrarDomainContext context, CancellationToken ct)
+    public Task<ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>> GetNameserversAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        Count(nameof(GetNameserversAsync));
-        return Task.FromResult(DataOrNotFound<IReadOnlyList<string>>(["ns1.example.test", "ns2.example.test"]));
+        var call = Count(nameof(GetNameserversAsync));
+        return Task.FromResult(GetNameservers is null ? DataOrNotFound<IReadOnlyList<string>>(["ns1.example.test", "ns2.example.test"]) : GetNameservers(call));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> SetNameserversAsync(RegistrarNameserversContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> SetNameserversAsync(RegistrarNameserversContext context, CancellationToken ct)
     {
         return Task.FromResult(Change(SetNameservers, nameof(SetNameserversAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> SetAutoRenewAsync(RegistrarFlagContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> SetAutoRenewAsync(RegistrarFlagContext context, CancellationToken ct)
     {
         return Task.FromResult(Change(SetAutoRenew, nameof(SetAutoRenewAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> SetWhoisPrivacyAsync(RegistrarFlagContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> SetWhoisPrivacyAsync(RegistrarFlagContext context, CancellationToken ct)
     {
         return Task.FromResult(Change(SetWhoisPrivacy, nameof(SetWhoisPrivacyAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> SetRegistrarLockAsync(RegistrarFlagContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> SetRegistrarLockAsync(RegistrarFlagContext context, CancellationToken ct)
     {
         return Task.FromResult(Change(SetRegistrarLock, nameof(SetRegistrarLockAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<RegistrarContact>> GetContactAsync(RegistrarDomainContext context, CancellationToken ct)
+    public Task<ValueResult<RegistrarContact, RegistrarRefusalReason>> GetContactAsync(RegistrarDomainContext context, CancellationToken ct)
     {
         Count(nameof(GetContactAsync));
         return Task.FromResult(DataOrNotFound(RegistrarFixtures.Contact));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> SetContactAsync(RegistrarContactContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> SetContactAsync(RegistrarContactContext context, CancellationToken ct)
     {
         return Task.FromResult(Change(SetContact, nameof(SetContactAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<IReadOnlyList<RegistrarDnsRecord>>> GetDnsRecordsAsync(RegistrarDomainContext context, CancellationToken ct)
+    public Task<ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>> GetDnsRecordsAsync(RegistrarDomainContext context, CancellationToken ct)
     {
         var call = Count(nameof(GetDnsRecordsAsync));
         return Task.FromResult(GetDnsRecords is null ? DataOrNotFound<IReadOnlyList<RegistrarDnsRecord>>([]) : GetDnsRecords(call));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> AddDnsRecordAsync(RegistrarDnsRecordContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> AddDnsRecordAsync(RegistrarDnsRecordContext context, CancellationToken ct)
     {
-        return Task.FromResult(Change(null, nameof(AddDnsRecordAsync)));
+        return Task.FromResult(Change(AddDnsRecord, nameof(AddDnsRecordAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> UpdateDnsRecordAsync(RegistrarDnsRecordContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> UpdateDnsRecordAsync(RegistrarDnsRecordUpdateContext context, CancellationToken ct)
     {
-        return Task.FromResult(Change(null, nameof(UpdateDnsRecordAsync)));
+        return Task.FromResult(Change(UpdateDnsRecord, nameof(UpdateDnsRecordAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarActionResult> DeleteDnsRecordAsync(RegistrarDnsRecordRemovalContext context, CancellationToken ct)
+    public Task<OperationResult<RegistrarRefusalReason>> DeleteDnsRecordAsync(RegistrarDnsRecordRemovalContext context, CancellationToken ct)
     {
-        var call = Count(nameof(DeleteDnsRecordAsync));
-        return Task.FromResult(DeleteDnsRecord is null ? RepeatOf(call) : DeleteDnsRecord(call));
+        return Task.FromResult(Change(DeleteDnsRecord, nameof(DeleteDnsRecordAsync)));
     }
 
     /// <inheritdoc />
-    public Task<RegistrarDataResult<IReadOnlyList<RegistrarTldPricing>>> GetTldPricingAsync(RegistrarPricingContext context, CancellationToken ct)
+    public Task<ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>> GetTldPricingAsync(RegistrarPricingContext context, CancellationToken ct)
     {
         Count(nameof(GetTldPricingAsync));
-        return Task.FromResult(RegistrarDataResult<IReadOnlyList<RegistrarTldPricing>>.Done([]));
+        return Task.FromResult(ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>.Done([]));
+    }
+
+    /// <inheritdoc />
+    public Task<OperationResult<RegistrarRefusalReason>> SetEmailForwardingAsync(RegistrarFlagContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(SetEmailForwarding, nameof(SetEmailForwardingAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<OperationResult<RegistrarRefusalReason>> AddEmailForwardingRuleAsync(RegistrarEmailForwardingRuleContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(AddEmailForwardingRule, nameof(AddEmailForwardingRuleAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<OperationResult<RegistrarRefusalReason>> UpdateEmailForwardingRuleAsync(RegistrarEmailForwardingRuleContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(UpdateEmailForwardingRule, nameof(UpdateEmailForwardingRuleAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<OperationResult<RegistrarRefusalReason>> DeleteEmailForwardingRuleAsync(RegistrarEmailForwardingRemovalContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(DeleteEmailForwardingRule, nameof(DeleteEmailForwardingRuleAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<OperationResult<RegistrarRefusalReason>> SetDnsManagementAsync(RegistrarFlagContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(SetDnsManagement, nameof(SetDnsManagementAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<ValueResult<RegistrarWhois, RegistrarRefusalReason>> GetWhoisAsync(RegistrarWhoisContext context, CancellationToken ct)
+    {
+        var call = Count(nameof(GetWhoisAsync));
+        return Task.FromResult(GetWhois is null ? DataOrNotFound(new RegistrarWhois("Example Registrar", "Registrant Name", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)) : GetWhois(call));
     }
 
     /// <inheritdoc />
@@ -205,7 +276,7 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarOperationsPlugin
     /// <param name="operation">The method name.</param>
     /// <param name="createsDomain"><see langword="true"/> for an order that needs no domain yet (register, transfer).</param>
     /// <returns>The answer.</returns>
-    private RegistrarDataResult<RegistrarOrder> Order(Func<int, RegistrarDataResult<RegistrarOrder>>? script, string operation, bool createsDomain)
+    private ValueResult<RegistrarOrder, RegistrarRefusalReason> Order(Func<int, ValueResult<RegistrarOrder, RegistrarRefusalReason>>? script, string operation, bool createsDomain)
     {
         var call = Count(operation);
         if (script is not null)
@@ -215,29 +286,19 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarOperationsPlugin
 
         if (!createsDomain && !HoldsDomain)
         {
-            return RegistrarDataResult<RegistrarOrder>.NotFound();
+            return ValueResult<RegistrarOrder, RegistrarRefusalReason>.NotFound();
         }
 
-        return call == 1 ? RegistrarDataResult<RegistrarOrder>.Done(DefaultOrder) : RegistrarDataResult<RegistrarOrder>.AlreadyDone(DefaultOrder);
+        return call == 1
+            ? ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(DefaultOrder)
+            : ValueResult<RegistrarOrder, RegistrarRefusalReason>.AlreadyDone(DefaultOrder);
     }
 
-    /// <summary>Answers a read of the domain.</summary>
-    /// <typeparam name="T">The value read.</typeparam>
-    /// <param name="operation">The method name.</param>
-    /// <param name="value">The value the registrar holds.</param>
-    /// <returns>The value, or not found when the registrar holds no domain.</returns>
-    private RegistrarDataResult<T> Read<T>(string operation, T value)
-        where T : class
-    {
-        Count(operation);
-        return DataOrNotFound(value);
-    }
-
-    /// <summary>Answers a change of the domain: the script when there is one, otherwise done on the first call and already done after.</summary>
+    /// <summary>Answers a change of the domain: the script when there is one, otherwise done on the first call and already done after, or not found when the registrar holds no domain.</summary>
     /// <param name="script">The test's script, or <see langword="null"/>.</param>
     /// <param name="operation">The method name.</param>
     /// <returns>The answer.</returns>
-    private RegistrarActionResult Change(Func<int, RegistrarActionResult>? script, string operation)
+    private OperationResult<RegistrarRefusalReason> Change(Func<int, OperationResult<RegistrarRefusalReason>>? script, string operation)
     {
         var call = Count(operation);
         if (script is not null)
@@ -245,25 +306,22 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarOperationsPlugin
             return script(call);
         }
 
-        return HoldsDomain ? RepeatOf(call) : RegistrarActionResult.NotFound();
-    }
+        if (!HoldsDomain)
+        {
+            return OperationResult<RegistrarRefusalReason>.NotFound();
+        }
 
-    /// <summary>Gets the answer of an idempotent change: done the first time and already done after.</summary>
-    /// <param name="call">The call number, starting at 1.</param>
-    /// <returns>The answer.</returns>
-    private static RegistrarActionResult RepeatOf(int call)
-    {
-        return call == 1 ? RegistrarActionResult.Done() : RegistrarActionResult.AlreadyDone();
+        return call == 1 ? OperationResult<RegistrarRefusalReason>.Done() : OperationResult<RegistrarRefusalReason>.AlreadyDone();
     }
 
     /// <summary>Gets a successful answer when the registrar holds the domain, otherwise not found.</summary>
     /// <typeparam name="T">The value read.</typeparam>
     /// <param name="value">The value the registrar holds.</param>
     /// <returns>The answer.</returns>
-    private RegistrarDataResult<T> DataOrNotFound<T>(T value)
+    private ValueResult<T, RegistrarRefusalReason> DataOrNotFound<T>(T value)
         where T : class
     {
-        return HoldsDomain ? RegistrarDataResult<T>.Done(value) : RegistrarDataResult<T>.NotFound();
+        return HoldsDomain ? ValueResult<T, RegistrarRefusalReason>.Done(value) : ValueResult<T, RegistrarRefusalReason>.NotFound();
     }
 
     /// <summary>Counts one call of an operation.</summary>

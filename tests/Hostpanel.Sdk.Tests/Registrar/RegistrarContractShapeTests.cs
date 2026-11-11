@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Base;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
@@ -54,18 +55,18 @@ public sealed class RegistrarContractShapeTests
         var code = new RegistrarEppCode(RegistrarFixtures.EppCode);
 
         code.ToString().Should().NotContain(RegistrarFixtures.EppCode).And.Contain("Code = ***");
-        RegistrarDataResult<RegistrarEppCode>.Done(code).ToString().Should().NotContain(RegistrarFixtures.EppCode);
+        ValueResult<RegistrarEppCode, RegistrarRefusalReason>.Done(code).ToString().Should().NotContain(RegistrarFixtures.EppCode);
     }
 
     /// <summary>Every action factory sets the outcome and the reason that its name promises.</summary>
     [Fact]
     public void ActionResult_Factories_SetOutcomeAndReason()
     {
-        RegistrarActionResult.Done().Should().Be(new RegistrarActionResult(PanelOperationOutcome.Succeeded, null));
-        RegistrarActionResult.AlreadyDone().Outcome.Should().Be(PanelOperationOutcome.AlreadyApplied);
-        RegistrarActionResult.NotFound().Outcome.Should().Be(PanelOperationOutcome.NotFound);
-        RegistrarActionResult.NotSupported().Outcome.Should().Be(PanelOperationOutcome.NotSupported);
-        RegistrarActionResult.Refused(RegistrarRefusalReason.ContactInvalid).Should().Be(new RegistrarActionResult(PanelOperationOutcome.Refused, RegistrarRefusalReason.ContactInvalid));
+        OperationResult<RegistrarRefusalReason>.Done().Should().Be(new OperationResult<RegistrarRefusalReason>(PanelOperationOutcome.Succeeded, null));
+        OperationResult<RegistrarRefusalReason>.AlreadyDone().Outcome.Should().Be(PanelOperationOutcome.AlreadyApplied);
+        OperationResult<RegistrarRefusalReason>.NotFound().Outcome.Should().Be(PanelOperationOutcome.NotFound);
+        OperationResult<RegistrarRefusalReason>.NotSupported().Outcome.Should().Be(PanelOperationOutcome.NotSupported);
+        OperationResult<RegistrarRefusalReason>.Refused(RegistrarRefusalReason.ContactInvalid).Should().Be(new OperationResult<RegistrarRefusalReason>(PanelOperationOutcome.Refused, RegistrarRefusalReason.ContactInvalid));
     }
 
     /// <summary>Every data factory sets the outcome, the value and the reason that its name promises.</summary>
@@ -74,19 +75,19 @@ public sealed class RegistrarContractShapeTests
     {
         var order = new RegistrarOrder("dom-1", null, true);
 
-        RegistrarDataResult<RegistrarOrder>.Done(order).Should().Be(new RegistrarDataResult<RegistrarOrder>(PanelOperationOutcome.Succeeded, order, null));
-        RegistrarDataResult<RegistrarOrder>.AlreadyDone(order).Outcome.Should().Be(PanelOperationOutcome.AlreadyApplied);
-        RegistrarDataResult<RegistrarOrder>.NotFound().Value.Should().BeNull();
-        RegistrarDataResult<RegistrarOrder>.NotSupported().Outcome.Should().Be(PanelOperationOutcome.NotSupported);
-        RegistrarDataResult<RegistrarOrder>.Refused(RegistrarRefusalReason.InsufficientFunds).Reason.Should().Be(RegistrarRefusalReason.InsufficientFunds);
+        ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(order).Should().Be(new ValueResult<RegistrarOrder, RegistrarRefusalReason>(PanelOperationOutcome.Succeeded, order, null));
+        ValueResult<RegistrarOrder, RegistrarRefusalReason>.AlreadyDone(order).Outcome.Should().Be(PanelOperationOutcome.AlreadyApplied);
+        ValueResult<RegistrarOrder, RegistrarRefusalReason>.NotFound().Value.Should().BeNull();
+        ValueResult<RegistrarOrder, RegistrarRefusalReason>.NotSupported().Outcome.Should().Be(PanelOperationOutcome.NotSupported);
+        ValueResult<RegistrarOrder, RegistrarRefusalReason>.Refused(RegistrarRefusalReason.InsufficientFunds).Reason.Should().Be(RegistrarRefusalReason.InsufficientFunds);
     }
 
     /// <summary>A success cannot be built without its value.</summary>
     [Fact]
     public void DataResult_SuccessWithoutValue_Throws()
     {
-        var done = () => RegistrarDataResult<RegistrarOrder>.Done(null!);
-        var already = () => RegistrarDataResult<RegistrarOrder>.AlreadyDone(null!);
+        var done = () => ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(null!);
+        var already = () => ValueResult<RegistrarOrder, RegistrarRefusalReason>.AlreadyDone(null!);
 
         done.Should().Throw<ArgumentNullException>();
         already.Should().Throw<ArgumentNullException>();
@@ -102,6 +103,53 @@ public sealed class RegistrarContractShapeTests
         ((int)RegistrarRefusalReason.Other).Should().Be(10);
         ((int)RegistrarDnsRecordType.A).Should().Be(1);
         ((int)RegistrarDnsRecordType.Srv).Should().Be(7);
+    }
+
+    /// <summary>The contact prints every personal detail masked, so a context or a result that holds it never leaks it.</summary>
+    [Fact]
+    public void Contact_ToString_MasksPersonalData()
+    {
+        var contact = RegistrarFixtures.Contact with { Organization = "Example Organization", Address2 = "Flat 2" };
+
+        var printed = contact.ToString();
+
+        printed.Should().NotContain("Ada").And.NotContain("Lovelace").And.NotContain("ada@example.test").And.NotContain("+1.5550100");
+        printed.Should().NotContain("1 Example Street").And.NotContain("Flat 2").And.NotContain("Example Organization").And.NotContain("Example City");
+        printed.Should().Contain("Email = ***").And.Contain("Phone = ***").And.Contain("Address1 = ***").And.Contain("Country = US");
+        RegistrarFixtures.Contact.ToString().Should().Contain("Organization = null").And.Contain("Address2 = null");
+    }
+
+    /// <summary>The contexts and results that hold a contact or a registrant do not leak it either.</summary>
+    [Fact]
+    public void ContextsAndResults_HoldingPersonalData_DoNotLeakIt()
+    {
+        var register = RegistrarFixtures.Register.ToString();
+        var transfer = RegistrarFixtures.Transfer.ToString();
+        var contactChange = RegistrarFixtures.ContactChange.ToString();
+        var result = ValueResult<RegistrarContact, RegistrarRefusalReason>.Done(RegistrarFixtures.Contact).ToString();
+        var whois = new RegistrarWhois("Example Registrar", "Registrant Name", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch);
+
+        foreach (var printed in new[] { register, transfer, contactChange, result })
+        {
+            printed.Should().NotContain("ada@example.test").And.NotContain("+1.5550100").And.NotContain("1 Example Street");
+        }
+
+        whois.ToString().Should().NotContain("Registrant Name").And.Contain("Registrant = ***").And.Contain("Registrar = Example Registrar");
+    }
+
+    /// <summary>The optional interfaces are separate opt ins that extend the operations interface, each with its own capability name.</summary>
+    [Fact]
+    public void OptionalInterfaces_AreSeparateOptIns_WithOwnCapabilities()
+    {
+        typeof(IRegistrarEmailForwardingPlugin).GetInterfaces().Should().Contain(typeof(IRegistrarOperationsPlugin));
+        typeof(IRegistrarDnsManagementPlugin).GetInterfaces().Should().Contain(typeof(IRegistrarOperationsPlugin));
+        typeof(IRegistrarWhoisPlugin).GetInterfaces().Should().Contain(typeof(IRegistrarOperationsPlugin));
+        typeof(IRegistrarOperationsPlugin).GetInterfaces().Should().NotContain(typeof(IRegistrarEmailForwardingPlugin));
+        typeof(IRegistrarOperationsPlugin).GetMethods().Select(method => method.Name).Should().NotContain(
+            ["SetEmailForwardingAsync", "AddEmailForwardingRuleAsync", "SetDnsManagementAsync", "GetWhoisAsync"]);
+        PluginCapabilities.RegistrarEmailForwarding.Should().Be("registrarEmailForwarding");
+        PluginCapabilities.RegistrarDnsManagement.Should().Be("registrarDnsManagement");
+        PluginCapabilities.RegistrarWhois.Should().Be("registrarWhois");
     }
 
     /// <summary>The capability name the manifest lists is fixed.</summary>

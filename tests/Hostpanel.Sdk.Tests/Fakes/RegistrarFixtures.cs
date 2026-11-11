@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Registrar;
 
 namespace Hostpanel.Sdk.Tests.Fakes;
@@ -52,8 +53,26 @@ internal static class RegistrarFixtures
     /// <summary>Gets a change of the contact.</summary>
     public static RegistrarContactContext ContactChange { get; } = new(Connection, Domain, Contact);
 
+    /// <summary>Gets a DNS record the host knows, without a registrar side id.</summary>
+    public static RegistrarDnsRecord DnsRecord { get; } = new(null, RegistrarDnsRecordType.A, "www", "192.0.2.1", 300, null);
+
     /// <summary>Gets the removal of a DNS record.</summary>
-    public static RegistrarDnsRecordRemovalContext Removal { get; } = new(Connection, Domain, "rec-1");
+    public static RegistrarDnsRecordRemovalContext Removal { get; } = new(Connection, Domain, DnsRecord);
+
+    /// <summary>Gets the addition of a DNS record.</summary>
+    public static RegistrarDnsRecordContext AddRecord { get; } = new(Connection, Domain, DnsRecord);
+
+    /// <summary>Gets the change of a DNS record to another value.</summary>
+    public static RegistrarDnsRecordUpdateContext UpdateRecord { get; } = new(Connection, Domain, DnsRecord, DnsRecord with { Value = "192.0.2.2" });
+
+    /// <summary>Gets an e-mail forwarding rule.</summary>
+    public static RegistrarEmailForwardingRuleContext ForwardingRule { get; } = new(Connection, Domain, new RegistrarEmailForwardingRule("info", "owner@example.test"));
+
+    /// <summary>Gets the removal of an e-mail forwarding rule.</summary>
+    public static RegistrarEmailForwardingRemovalContext ForwardingRemoval { get; } = new(Connection, Domain, "info");
+
+    /// <summary>Gets a WHOIS lookup.</summary>
+    public static RegistrarWhoisContext Whois { get; } = new(Connection, "example.test");
 
     /// <summary>Gets a connection test.</summary>
     public static RegistrarTestConnectionContext Test { get; } = new(Connection);
