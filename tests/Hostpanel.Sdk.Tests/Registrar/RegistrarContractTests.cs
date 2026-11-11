@@ -71,7 +71,7 @@ public sealed class RegistrarContractTests
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("without a reference");
+        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("without a RegistrarRef");
     }
 
     /// <summary>A plugin that throws on the repeat is rejected, with the exception type and not its text.</summary>
