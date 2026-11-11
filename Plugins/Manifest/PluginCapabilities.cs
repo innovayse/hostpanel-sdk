@@ -14,6 +14,28 @@ public static class PluginCapabilities
     public const string ProvisioningPanel = "provisioningPanel";
 
     /// <summary>
+    /// The provisioning plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerPlugin"/>, the
+    /// operations of a virtual server or cloud platform. The plugin type stays <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.Provisioning"/>:
+    /// a virtual server is a service provisioned on a server the host knows, like a hosting account.
+    /// </summary>
+    public const string VirtualServer = "virtualServer";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarOperationsPlugin"/>, the domain operations of a registrar.</summary>
+    public const string RegistrarOperations = "registrarOperations";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarEmailForwardingPlugin"/>, e-mail forwarding for its domains.</summary>
+    public const string RegistrarEmailForwarding = "registrarEmailForwarding";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarDnsManagementPlugin"/>, the DNS management switch.</summary>
+    public const string RegistrarDnsManagement = "registrarDnsManagement";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarWhoisPlugin"/>, the WHOIS lookup.</summary>
+    public const string RegistrarWhois = "registrarWhois";
+
+    /// <summary>The virtual server plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerListPlugin"/>, the listing of the servers a platform holds, for reconciliation.</summary>
+    public const string VirtualServerList = "virtualServerList";
+
+    /// <summary>
     /// Any plugin type may declare it. It means the plugin class also implements
     /// <see cref="Hostpanel.Sdk.Plugins.Endpoints.IPluginEndpoints"/>, so the host serves the plugin's declared
     /// <c>api</c> routes and its <c>ui</c> pages, menus and slots. An <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.App"/>

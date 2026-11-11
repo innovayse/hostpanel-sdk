@@ -1,13 +1,14 @@
 namespace Hostpanel.Sdk.Plugins.Provisioning;
 
 /// <summary>
-/// The only way a panel plugin reaches its panel over the network. The host implements it and hands it to the plugin;
+/// The only way a panel plugin, a virtual server plugin or a registrar plugin reaches the other side over the network. The
+/// host implements it and hands it to the plugin;
 /// a plugin takes it in its constructor, next to the other services it asks for, and builds every request on the client
 /// it returns.
 /// </summary>
 /// <remarks>
 /// <para>
-/// A panel plugin must never create its own <see cref="HttpClient"/>, handler or socket. The client from
+/// A plugin that takes this transport must never create its own <see cref="HttpClient"/>, handler or socket. The client from
 /// <see cref="CreateClient"/> is already routed through the host's rules, which a plugin could neither see nor keep
 /// if it went around them: the host's outbound address guard (a server address that points into the host's own network
 /// is refused before a request leaves), its private route map for servers reached over a private path, its timeouts,
