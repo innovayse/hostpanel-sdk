@@ -14,7 +14,7 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 public static class ProvisioningContract
 {
     /// <summary>The checks this contract shares with the registrar and virtual server contracts, worded for a panel.</summary>
-    private static readonly ContractChecks Checks = new(new ContractWords("account", "an account", "panel"));
+    private static readonly ContractChecks Checks = new(new ContractWords("account", "an account", "panel", "ProvisioningRef", "the account was created again. A repeat with the same user name must answer AlreadyApplied."));
 
     /// <summary>
     /// Calls <see cref="IProvisioningPanelPlugin.CreateAccountAsync"/> repeatedly with one context and asserts the promise
@@ -30,7 +30,7 @@ public static class ProvisioningContract
     /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
     /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, refused, answered an outcome that does not fit, created twice or changed the reference.</exception>
-    public static async Task<PanelCreateResult> AssertCreateIsIdempotentAsync(
+    public static Task<PanelCreateResult> AssertCreateIsIdempotentAsync(
         IProvisioningPanelPlugin plugin,
         PanelCreateAccountContext context,
         int calls = 3,
@@ -38,46 +38,12 @@ public static class ProvisioningContract
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(context);
-        ArgumentOutOfRangeException.ThrowIfLessThan(calls, 2);
 
-        const string operation = nameof(IProvisioningPanelPlugin.CreateAccountAsync);
-        PanelCreateResult? first = null;
-        for (var call = 1; call <= calls; call++)
-        {
-            var result = await Checks.CallAsync(operation, call, () => plugin.CreateAccountAsync(context, ct));
-            Checks.CheckShape(operation, call, result.Outcome, result.Reason);
-
-            if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
-            {
-                throw new PluginContractViolationException(
-                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a create the panel accepts, and a repeat must answer AlreadyApplied.");
-            }
-
-            if (string.IsNullOrWhiteSpace(result.ProvisioningRef))
-            {
-                throw new PluginContractViolationException($"{operation} answered {result.Outcome} without a ProvisioningRef on call {call}.");
-            }
-
-            if (first is null)
-            {
-                first = result;
-                continue;
-            }
-
-            if (result.Outcome != PanelOperationOutcome.AlreadyApplied)
-            {
-                throw new PluginContractViolationException(
-                    $"{operation} answered {result.Outcome} on call {call}: the account was created again. A repeat with the same user name must answer AlreadyApplied.");
-            }
-
-            if (!string.Equals(result.ProvisioningRef, first.ProvisioningRef, StringComparison.Ordinal))
-            {
-                throw new PluginContractViolationException(
-                    $"{operation} answered a different ProvisioningRef on call {call} than on call 1. The reference must be stable across retries.");
-            }
-        }
-
-        return first!;
+        return Checks.AssertCreateIsIdempotentAsync<PanelCreateResult, PanelRefusalReason>(
+            nameof(IProvisioningPanelPlugin.CreateAccountAsync),
+            () => plugin.CreateAccountAsync(context, ct),
+            calls,
+            result => result.ProvisioningRef);
     }
 
     /// <summary>
@@ -241,24 +207,16 @@ public static class ProvisioningContract
             PanelOperationOutcome.Succeeded,
             PanelOperationOutcome.AlreadyApplied);
 
-        var usage = await Checks.CallAsync(nameof(IProvisioningPanelPlugin.GetUsageAsync), 1, () => plugin.GetUsageAsync(unknownAccount, ct));
-        Checks.CheckShape(nameof(IProvisioningPanelPlugin.GetUsageAsync), 1, usage.Outcome, usage.Reason);
-        if (usage.Outcome is not (PanelOperationOutcome.NotFound or PanelOperationOutcome.NotSupported))
-        {
-            throw new PluginContractViolationException(
-                $"{nameof(IProvisioningPanelPlugin.GetUsageAsync)} answered {usage.Outcome} for an unknown account; it must answer NotFound or NotSupported.");
-        }
-
-        var sso = await Checks.CallAsync(
+        await Checks.ExpectAsync<PanelUsageResult, PanelRefusalReason>(
+            nameof(IProvisioningPanelPlugin.GetUsageAsync),
+            () => plugin.GetUsageAsync(unknownAccount, ct),
+            PanelOperationOutcome.NotFound,
+            PanelOperationOutcome.NotSupported);
+        await Checks.ExpectAsync<PanelSsoResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.CreateSsoLinkAsync),
-            1,
-            () => plugin.CreateSsoLinkAsync(new PanelSsoContext(server, service, null), ct));
-        Checks.CheckShape(nameof(IProvisioningPanelPlugin.CreateSsoLinkAsync), 1, sso.Outcome, sso.Reason);
-        if (sso.Outcome is not (PanelOperationOutcome.NotFound or PanelOperationOutcome.NotSupported))
-        {
-            throw new PluginContractViolationException(
-                $"{nameof(IProvisioningPanelPlugin.CreateSsoLinkAsync)} answered {sso.Outcome} for an unknown account; it must answer NotFound or NotSupported.");
-        }
+            () => plugin.CreateSsoLinkAsync(new PanelSsoContext(server, service, null), ct),
+            PanelOperationOutcome.NotFound,
+            PanelOperationOutcome.NotSupported);
     }
 
     /// <summary>

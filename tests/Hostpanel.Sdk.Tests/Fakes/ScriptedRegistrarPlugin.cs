@@ -80,8 +80,14 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <summary>Gets or sets what <c>GetEppCodeAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, ValueResult<RegistrarEppCode, RegistrarRefusalReason>>? GetEppCode { get; set; }
 
-    /// <summary>Gets or sets what <c>GetNameserversAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
-    public Func<int, ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>>? GetNameservers { get; set; }
+    /// <summary>Gets or sets what <c>GetContactAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, ValueResult<RegistrarContact, RegistrarRefusalReason>>? GetContact { get; set; }
+
+    /// <summary>Gets or sets what <c>CheckAvailabilityAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, ValueResult<RegistrarAvailability, RegistrarRefusalReason>>? CheckAvailability { get; set; }
+
+    /// <summary>Gets or sets what <c>GetTldPricingAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>>? GetTldPricing { get; set; }
 
     /// <summary>Gets or sets what <c>GetDnsRecordsAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>>? GetDnsRecords { get; set; }
@@ -103,8 +109,8 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<RegistrarAvailability, RegistrarRefusalReason>> CheckAvailabilityAsync(RegistrarAvailabilityContext context, CancellationToken ct)
     {
-        Count(nameof(CheckAvailabilityAsync));
-        return Task.FromResult(ValueResult<RegistrarAvailability, RegistrarRefusalReason>.Done(new RegistrarAvailability(true)));
+        var call = Count(nameof(CheckAvailabilityAsync));
+        return Task.FromResult(CheckAvailability is null ? ValueResult<RegistrarAvailability, RegistrarRefusalReason>.Done(new RegistrarAvailability(true)) : CheckAvailability(call));
     }
 
     /// <inheritdoc />
@@ -152,13 +158,6 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     }
 
     /// <inheritdoc />
-    public Task<ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>> GetNameserversAsync(RegistrarDomainContext context, CancellationToken ct)
-    {
-        var call = Count(nameof(GetNameserversAsync));
-        return Task.FromResult(GetNameservers is null ? DataOrNotFound<IReadOnlyList<string>>(["ns1.example.test", "ns2.example.test"]) : GetNameservers(call));
-    }
-
-    /// <inheritdoc />
     public Task<OperationResult<RegistrarRefusalReason>> SetNameserversAsync(RegistrarNameserversContext context, CancellationToken ct)
     {
         return Task.FromResult(Change(SetNameservers, nameof(SetNameserversAsync)));
@@ -185,8 +184,8 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<RegistrarContact, RegistrarRefusalReason>> GetContactAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        Count(nameof(GetContactAsync));
-        return Task.FromResult(DataOrNotFound(RegistrarFixtures.Contact));
+        var call = Count(nameof(GetContactAsync));
+        return Task.FromResult(GetContact is null ? DataOrNotFound(RegistrarFixtures.Contact) : GetContact(call));
     }
 
     /// <inheritdoc />
@@ -223,8 +222,8 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>> GetTldPricingAsync(RegistrarPricingContext context, CancellationToken ct)
     {
-        Count(nameof(GetTldPricingAsync));
-        return Task.FromResult(ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>.Done([]));
+        var call = Count(nameof(GetTldPricingAsync));
+        return Task.FromResult(GetTldPricing is null ? ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>.Done([]) : GetTldPricing(call));
     }
 
     /// <inheritdoc />

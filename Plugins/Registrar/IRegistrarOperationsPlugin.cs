@@ -1,7 +1,7 @@
-using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Plugins.Provisioning;
+using Hostpanel.Sdk.Plugins.Results;
 
 namespace Hostpanel.Sdk.Plugins.Registrar;
 
@@ -129,12 +129,6 @@ public interface IRegistrarOperationsPlugin : IRegistrarPlugin
     /// <param name="ct">Cancellation token.</param>
     /// <returns><c>Succeeded</c> with the code, <c>NotFound</c>, <c>NotSupported</c> for a registrar that never reveals it, or <c>Refused</c>.</returns>
     Task<ValueResult<RegistrarEppCode, RegistrarRefusalReason>> GetEppCodeAsync(RegistrarDomainContext context, CancellationToken ct);
-
-    /// <summary>Reads the nameservers a domain delegates to. Read only; safe to repeat.</summary>
-    /// <param name="context">The registrar account and the domain.</param>
-    /// <param name="ct">Cancellation token.</param>
-    /// <returns><c>Succeeded</c> with the nameservers in order, <c>NotFound</c> or <c>Refused</c>.</returns>
-    Task<ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>> GetNameserversAsync(RegistrarDomainContext context, CancellationToken ct);
 
     /// <summary>Replaces the nameservers of a domain. Idempotent: a domain that already has exactly this list is a success.</summary>
     /// <param name="context">The registrar account, the domain and the complete list.</param>

@@ -6,8 +6,8 @@ using Hostpanel.Sdk.Tests.Fakes;
 
 namespace Hostpanel.Sdk.Tests.Registrar;
 
-/// <summary>Tests of the parts of <see cref="RegistrarContract"/> that cover DNS records, the optional interfaces and the reads.</summary>
-public sealed class RegistrarContractCoverageTests
+/// <summary>Tests of the parts of <see cref="RegistrarContract"/> that check DNS records, the optional interfaces (e-mail forwarding, DNS management, WHOIS) and the reads.</summary>
+public sealed class RegistrarDnsAndOptionalContractTests
 {
     /// <summary>A delete that finds the record gone on a repeat and answers already applied passes, and counts its calls.</summary>
     [Fact]
@@ -91,11 +91,11 @@ public sealed class RegistrarContractCoverageTests
     {
         var plugin = new ScriptedRegistrarPlugin
         {
-            SetEmailForwarding = DoneThenNotFound,
-            AddEmailForwardingRule = DoneThenNotFound,
-            UpdateEmailForwardingRule = DoneThenNotFound,
-            DeleteEmailForwardingRule = DoneThenNotFound,
-            SetDnsManagement = DoneThenNotFound,
+            SetEmailForwarding = ScriptedAnswers.RegistrarDoneThenNotFound,
+            AddEmailForwardingRule = ScriptedAnswers.RegistrarDoneThenNotFound,
+            UpdateEmailForwardingRule = ScriptedAnswers.RegistrarDoneThenNotFound,
+            DeleteEmailForwardingRule = ScriptedAnswers.RegistrarDoneThenNotFound,
+            SetDnsManagement = ScriptedAnswers.RegistrarDoneThenNotFound,
         };
 
         var runs = new (string Method, Func<Task> Run)[]
@@ -109,7 +109,7 @@ public sealed class RegistrarContractCoverageTests
 
         foreach (var (method, run) in runs)
         {
-            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method);
+            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("call 2");
         }
     }
 
@@ -125,12 +125,14 @@ public sealed class RegistrarContractCoverageTests
         plugin.CallsOf(nameof(IRegistrarOperationsPlugin.GetTldPricingAsync)).Should().Be(1);
     }
 
-    /// <summary>The authorization code and the DNS records may be not supported, and the check still passes.</summary>
+    /// <summary>The availability, the price list, the authorization code and the DNS records may be not supported, as the interface allows, and the check still passes.</summary>
     [Fact]
     public async Task AssertReads_OptionalReadsNotSupported_Passes()
     {
         var plugin = new ScriptedRegistrarPlugin
         {
+            CheckAvailability = _ => ValueResult<RegistrarAvailability, RegistrarRefusalReason>.NotSupported(),
+            GetTldPricing = _ => ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>.NotSupported(),
             GetEppCode = _ => ValueResult<RegistrarEppCode, RegistrarRefusalReason>.NotSupported(),
             GetDnsRecords = _ => ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>.NotSupported(),
         };
@@ -138,18 +140,18 @@ public sealed class RegistrarContractCoverageTests
         await RegistrarContract.AssertReadsAnswerValuesAsync(plugin, RegistrarFixtures.DomainContext);
     }
 
-    /// <summary>A list that succeeds without a value is rejected, because an empty list is an empty list.</summary>
+    /// <summary>A read that succeeds without a value is rejected, because a read that succeeded must answer what it read.</summary>
     [Fact]
     public async Task AssertReads_SuccessWithoutValue_Throws()
     {
         var plugin = new ScriptedRegistrarPlugin
         {
-            GetNameservers = _ => new ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>(PanelOperationOutcome.Succeeded, null, null),
+            GetContact = _ => new ValueResult<RegistrarContact, RegistrarRefusalReason>(PanelOperationOutcome.Succeeded, null, null),
         };
 
         var run = () => RegistrarContract.AssertReadsAnswerValuesAsync(plugin, RegistrarFixtures.DomainContext);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("GetNameserversAsync").And.Contain("without a value");
+        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("GetContactAsync").And.Contain("without a value");
     }
 
     /// <summary>A read that is not supported where the registrar must support it is rejected.</summary>
@@ -158,12 +160,12 @@ public sealed class RegistrarContractCoverageTests
     {
         var plugin = new ScriptedRegistrarPlugin
         {
-            GetNameservers = _ => ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>.NotSupported(),
+            GetContact = _ => ValueResult<RegistrarContact, RegistrarRefusalReason>.NotSupported(),
         };
 
         var run = () => RegistrarContract.AssertReadsAnswerValuesAsync(plugin, RegistrarFixtures.DomainContext);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("GetNameserversAsync").And.Contain("NotSupported");
+        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("GetContactAsync").And.Contain("NotSupported");
     }
 
     /// <summary>A WHOIS lookup that answers a record passes, and one that succeeds without a value is rejected.</summary>
@@ -231,11 +233,32 @@ public sealed class RegistrarContractCoverageTests
         await RegistrarContract.AssertUnknownDomainIsNotFoundAsync(new ScriptedRegistrarPlugin { HoldsDomain = false }, RegistrarFixtures.DomainContext);
     }
 
-    /// <summary>A script for a change that is done the first time and then answers not found, which breaks the idempotency promise.</summary>
-    /// <param name="call">The call number, starting at 1.</param>
-    /// <returns>The answer of that call.</returns>
-    private static OperationResult<RegistrarRefusalReason> DoneThenNotFound(int call)
+    /// <summary>A read that is refused where the caller arranged a registrar that reads is reported, naming the method.</summary>
+    [Fact]
+    public async Task AssertReads_Refused_Throws()
     {
-        return call == 1 ? OperationResult<RegistrarRefusalReason>.Done() : OperationResult<RegistrarRefusalReason>.NotFound();
+        var plugin = new ScriptedRegistrarPlugin
+        {
+            GetContact = _ => ValueResult<RegistrarContact, RegistrarRefusalReason>.Refused(RegistrarRefusalReason.AccessDenied),
+        };
+
+        var run = () => RegistrarContract.AssertReadsAnswerValuesAsync(plugin, RegistrarFixtures.DomainContext);
+
+        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("GetContactAsync").And.Contain("Refused");
+    }
+
+    /// <summary>A plugin that implements only the operations interface is checked without the optional operations, which it does not have.</summary>
+    [Fact]
+    public async Task AssertUnknownDomain_PluginWithoutOptionalInterfaces_SkipsThem()
+    {
+        var plugin = new OperationsOnlyRegistrarPlugin(new ScriptedRegistrarPlugin { HoldsDomain = false });
+
+        await RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
+
+        plugin.Should().NotBeAssignableTo<IRegistrarEmailForwardingPlugin>().And.NotBeAssignableTo<IRegistrarDnsManagementPlugin>().And.NotBeAssignableTo<IRegistrarWhoisPlugin>();
+        plugin.Inner.CallsOf(nameof(IRegistrarOperationsPlugin.AddDnsRecordAsync)).Should().Be(1);
+        plugin.Inner.CallsOf(nameof(IRegistrarEmailForwardingPlugin.AddEmailForwardingRuleAsync)).Should().Be(0);
+        plugin.Inner.CallsOf(nameof(IRegistrarDnsManagementPlugin.SetDnsManagementAsync)).Should().Be(0);
+        plugin.Inner.CallsOf(nameof(IRegistrarWhoisPlugin.GetWhoisAsync)).Should().Be(0);
     }
 }

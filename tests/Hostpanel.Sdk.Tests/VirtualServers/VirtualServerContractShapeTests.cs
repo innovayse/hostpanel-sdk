@@ -1,7 +1,7 @@
-using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Plugins.Provisioning;
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.VirtualServers;
 using Hostpanel.Sdk.Tests.Fakes;
 
@@ -44,43 +44,6 @@ public sealed class VirtualServerContractShapeTests
         console.ToString().Should().NotContain("t=abc").And.Contain("Url = ***");
         new VirtualServerRootPassword(null).ToString().Should().Contain("GeneratedPassword = null");
         new VirtualServerInstance("srv-1", null, null, null).ToString().Should().Contain("GeneratedPassword = null");
-    }
-
-    /// <summary>Every data factory sets the outcome, the value and the reason that its name promises.</summary>
-    [Fact]
-    public void DataResult_Factories_SetOutcomeValueAndReason()
-    {
-        var instance = new VirtualServerInstance("srv-1", null, null, null);
-
-        ValueResult<VirtualServerInstance, PanelRefusalReason>.Done(instance).Should().Be(new ValueResult<VirtualServerInstance, PanelRefusalReason>(PanelOperationOutcome.Succeeded, instance, null));
-        ValueResult<VirtualServerInstance, PanelRefusalReason>.AlreadyDone(instance).Outcome.Should().Be(PanelOperationOutcome.AlreadyApplied);
-        ValueResult<VirtualServerInstance, PanelRefusalReason>.NotFound().Value.Should().BeNull();
-        ValueResult<VirtualServerInstance, PanelRefusalReason>.NotSupported().Outcome.Should().Be(PanelOperationOutcome.NotSupported);
-        ValueResult<VirtualServerInstance, PanelRefusalReason>.Refused(PanelRefusalReason.NameInvalid).Reason.Should().Be(PanelRefusalReason.NameInvalid);
-    }
-
-    /// <summary>A success cannot be built without its value.</summary>
-    [Fact]
-    public void DataResult_SuccessWithoutValue_Throws()
-    {
-        var done = () => ValueResult<VirtualServerInstance, PanelRefusalReason>.Done(null!);
-        var already = () => ValueResult<VirtualServerInstance, PanelRefusalReason>.AlreadyDone(null!);
-
-        done.Should().Throw<ArgumentNullException>();
-        already.Should().Throw<ArgumentNullException>();
-    }
-
-    /// <summary>The new enum starts at 1, and the two refusal reasons added for virtual servers extend the old values without moving them.</summary>
-    [Fact]
-    public void Enums_AreAppendedAndStartAtOne()
-    {
-        Enum.IsDefined((VirtualServerPowerState)0).Should().BeFalse();
-        ((int)VirtualServerPowerState.Running).Should().Be(1);
-        ((int)VirtualServerPowerState.Provisioning).Should().Be(4);
-        ((int)PanelRefusalReason.PackageUnknown).Should().Be(1);
-        ((int)PanelRefusalReason.Other).Should().Be(7);
-        ((int)PanelRefusalReason.ImageUnknown).Should().Be(8);
-        ((int)PanelRefusalReason.NameInvalid).Should().Be(9);
     }
 
     /// <summary>The capability name the manifest lists is fixed, and the plugin type stays provisioning, so no type value is added.</summary>

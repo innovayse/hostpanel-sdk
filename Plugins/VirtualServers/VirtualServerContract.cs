@@ -1,7 +1,7 @@
-using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
 
 namespace Hostpanel.Sdk.Plugins.VirtualServers;
@@ -16,7 +16,7 @@ namespace Hostpanel.Sdk.Plugins.VirtualServers;
 public static class VirtualServerContract
 {
     /// <summary>The checks this contract shares with the other contracts, worded for a virtual server platform.</summary>
-    private static readonly ContractChecks Checks = new(new ContractWords("server", "a server", "platform"));
+    private static readonly ContractChecks Checks = new(new ContractWords("server", "a server", "platform", "ProvisioningRef", "the server was created again. A repeat with the same name must answer AlreadyApplied."));
 
     /// <summary>The password the not found check sends; it is never a real one.</summary>
     private const string CheckPassword = "contract-check-password";
@@ -263,7 +263,7 @@ public static class VirtualServerContract
     }
 
     /// <summary>
-    /// Lists the images and the plans and asserts that both catalogues are well formed: each call succeeds, every entry has
+    /// Lists the images and the plans and asserts that both catalogues are well formed: each call succeeds with a list (or is not supported, and then has no entries to check), every entry has
     /// an id or a name and a display name, and no id or name appears twice. The caller arranges a platform that lists.
     /// </summary>
     /// <param name="plugin">The plugin under test.</param>
@@ -271,7 +271,7 @@ public static class VirtualServerContract
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A task that completes when both listings passed.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
-    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, did not succeed, or returned a malformed or repeated entry.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, answered an outcome that does not fit, succeeded without a list, or returned a malformed or repeated entry.</exception>
     public static async Task AssertCatalogIsWellFormedAsync(
         IVirtualServerPlugin plugin,
         VirtualServerCatalogContext context,
@@ -343,7 +343,7 @@ public static class VirtualServerContract
     /// <summary>
     /// Asserts that the reads of a server the platform holds answer a value: the usage figures and the console address. A
     /// read that succeeds without a value is a broken promise, and so is any outcome but <c>Succeeded</c>, except that the
-    /// console may be <c>NotSupported</c>. The caller arranges a platform that holds the server.
+    /// usage and the console may be <c>NotSupported</c>, as the interface allows. The caller arranges a platform that holds the server.
     /// </summary>
     /// <param name="plugin">The plugin under test.</param>
     /// <param name="knownServer">The platform and a server it holds.</param>
@@ -362,7 +362,7 @@ public static class VirtualServerContract
         await Checks.AssertReadAnswersValueAsync<ValueResult<VirtualServerUsage, PanelRefusalReason>, PanelRefusalReason>(
             nameof(IVirtualServerPlugin.GetServerUsageAsync),
             () => plugin.GetServerUsageAsync(knownServer, ct),
-            false);
+            true);
         await Checks.AssertReadAnswersValueAsync<ValueResult<VirtualServerConsole, PanelRefusalReason>, PanelRefusalReason>(
             nameof(IVirtualServerPlugin.CreateConsoleSessionAsync),
             () => plugin.CreateConsoleSessionAsync(knownServer, ct),
@@ -461,22 +461,18 @@ public static class VirtualServerContract
         return Checks.ExpectAsync<ValueResult<T, PanelRefusalReason>, PanelRefusalReason>(operation, invoke, allowed);
     }
 
-    /// <summary>Calls a catalogue operation once and asserts that it succeeded with a list.</summary>
+    /// <summary>
+    /// Calls a catalogue operation once and asserts that it answers a list, or is not supported. The caller then checks the
+    /// entries; a platform that lacks the catalogue has none to check.
+    /// </summary>
     /// <typeparam name="T">The entry type of the catalogue.</typeparam>
     /// <param name="operation">The operation's name, for the message.</param>
     /// <param name="invoke">The call.</param>
-    /// <returns>The entries the plugin listed.</returns>
-    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, did not succeed, or answered no list.</exception>
+    /// <returns>The entries the plugin listed, or an empty list when it does not support the catalogue.</returns>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, answered an outcome that does not fit, or succeeded without a list.</exception>
     private static async Task<IReadOnlyList<T>> ReadCatalogAsync<T>(string operation, Func<Task<ValueResult<IReadOnlyList<T>, PanelRefusalReason>>> invoke)
     {
-        var result = await Checks.CallAsync(operation, 1, invoke);
-        Checks.CheckShape(operation, 1, result.Outcome, result.Reason);
+        var result = await Checks.AssertReadAnswersValueAsync<ValueResult<IReadOnlyList<T>, PanelRefusalReason>, PanelRefusalReason>(operation, invoke, true);
 
-        if (result.Outcome != PanelOperationOutcome.Succeeded)
-        {
-            throw new PluginContractViolationException($"{operation} answered {result.Outcome}; the caller must arrange a platform that lists.");
-        }
-
-        return result.Value ?? throw new PluginContractViolationException($"{operation} answered Succeeded without a list; an empty catalogue is an empty list.");
+        return result.Value ?? [];
     }
-}

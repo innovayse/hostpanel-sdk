@@ -266,7 +266,6 @@ list must agree with the code. One plugin serves one registrar account: each cal
 | `CheckDomainActiveAsync` | `RegistrarDomainContext` | `ValueResult<RegistrarOrder, RegistrarRefusalReason>` | Read only, for an order that answered `RequiresPolling` |
 | `CancelTransferAsync`, `InitiateOutgoingTransferAsync` | `RegistrarDomainContext` | `OperationResult<RegistrarRefusalReason>` | Already cancelled or prepared is a success |
 | `GetEppCodeAsync` | `RegistrarDomainContext` | `ValueResult<RegistrarEppCode, RegistrarRefusalReason>` | Read only; the code prints as `***` |
-| `GetNameserversAsync` | `RegistrarDomainContext` | `ValueResult<IReadOnlyList<string>, RegistrarRefusalReason>` | Read only |
 | `SetNameserversAsync` | `RegistrarNameserversContext` | `OperationResult<RegistrarRefusalReason>` | The same list is a success |
 | `SetAutoRenewAsync`, `SetWhoisPrivacyAsync`, `SetRegistrarLockAsync` | `RegistrarFlagContext` | `OperationResult<RegistrarRefusalReason>` | The state already wanted is a success |
 | `GetContactAsync` | `RegistrarDomainContext` | `ValueResult<RegistrarContact, RegistrarRefusalReason>` | Read only |

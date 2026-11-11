@@ -1,6 +1,6 @@
 using Hostpanel.Sdk.Plugins.Enums;
-using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Provisioning;
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.VirtualServers;
 
 namespace Hostpanel.Sdk.Tests.Fakes;
@@ -58,6 +58,9 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
 
     /// <summary>Gets or sets what <c>CreateConsoleSessionAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, ValueResult<VirtualServerConsole, PanelRefusalReason>>? ConsoleSession { get; set; }
+
+    /// <summary>Gets or sets what <c>GetServerUsageAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, ValueResult<VirtualServerUsage, PanelRefusalReason>>? Usage { get; set; }
 
     /// <summary>Gets or sets what <c>TestServerConnectionAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, PanelConnectionTestResult>? Test { get; set; }
@@ -161,8 +164,8 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<ValueResult<VirtualServerUsage, PanelRefusalReason>> GetServerUsageAsync(PanelAccountContext context, CancellationToken ct)
     {
-        Count(nameof(GetServerUsageAsync));
-        return Task.FromResult(DataOrNotFound(new VirtualServerUsage(null, 5.5, 1, 2, 3, 4, null, null, DateTimeOffset.UnixEpoch)));
+        var call = Count(nameof(GetServerUsageAsync));
+        return Task.FromResult(Usage is null ? DataOrNotFound(new VirtualServerUsage(null, 5.5, 1, 2, 3, 4, null, null, DateTimeOffset.UnixEpoch)) : Usage(call));
     }
 
     /// <inheritdoc />

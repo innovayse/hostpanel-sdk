@@ -1,6 +1,6 @@
-using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Plugins.VirtualServers;
 using Hostpanel.Sdk.Tests.Fakes;
@@ -108,27 +108,27 @@ public sealed class VirtualServerContractTests
     {
         var plugin = new ScriptedVirtualServerPlugin
         {
-            Start = DoneThenNotFound,
-            Stop = DoneThenNotFound,
-            Suspend = DoneThenNotFound,
-            Unsuspend = DoneThenNotFound,
-            Terminate = DoneThenNotFound,
-            ChangePlan = DoneThenNotFound,
+            Start = ScriptedAnswers.PanelDoneThenNotFound,
+            Stop = ScriptedAnswers.PanelDoneThenNotFound,
+            Suspend = ScriptedAnswers.PanelDoneThenNotFound,
+            Unsuspend = ScriptedAnswers.PanelDoneThenNotFound,
+            Terminate = ScriptedAnswers.PanelDoneThenNotFound,
+            ChangePlan = ScriptedAnswers.PanelDoneThenNotFound,
         };
 
-        var runs = new Func<Task>[]
+        var runs = new (string Method, Func<Task> Run)[]
         {
-            () => VirtualServerContract.AssertStartIsIdempotentAsync(plugin, PanelFixtures.Account),
-            () => VirtualServerContract.AssertStopIsIdempotentAsync(plugin, PanelFixtures.Account),
-            () => VirtualServerContract.AssertSuspendIsIdempotentAsync(plugin, PanelFixtures.Suspend),
-            () => VirtualServerContract.AssertUnsuspendIsIdempotentAsync(plugin, PanelFixtures.Account),
-            () => VirtualServerContract.AssertTerminateIsIdempotentAsync(plugin, PanelFixtures.Terminate),
-            () => VirtualServerContract.AssertChangePlanIsIdempotentAsync(plugin, PanelFixtures.ChangePackage),
+            (nameof(IVirtualServerPlugin.StartServerAsync), () => VirtualServerContract.AssertStartIsIdempotentAsync(plugin, PanelFixtures.Account)),
+            (nameof(IVirtualServerPlugin.StopServerAsync), () => VirtualServerContract.AssertStopIsIdempotentAsync(plugin, PanelFixtures.Account)),
+            (nameof(IVirtualServerPlugin.SuspendServerAsync), () => VirtualServerContract.AssertSuspendIsIdempotentAsync(plugin, PanelFixtures.Suspend)),
+            (nameof(IVirtualServerPlugin.UnsuspendServerAsync), () => VirtualServerContract.AssertUnsuspendIsIdempotentAsync(plugin, PanelFixtures.Account)),
+            (nameof(IVirtualServerPlugin.TerminateServerAsync), () => VirtualServerContract.AssertTerminateIsIdempotentAsync(plugin, PanelFixtures.Terminate)),
+            (nameof(IVirtualServerPlugin.ChangePlanAsync), () => VirtualServerContract.AssertChangePlanIsIdempotentAsync(plugin, PanelFixtures.ChangePackage)),
         };
 
-        foreach (var run in runs)
+        foreach (var (method, run) in runs)
         {
-            await run.Should().ThrowAsync<PluginContractViolationException>();
+            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("call 2");
         }
     }
 
@@ -203,23 +203,27 @@ public sealed class VirtualServerContractTests
         var startsRun = () => VirtualServerContract.AssertSuspendedServerIsNotStartedAsync(starts, PanelFixtures.Account);
         var otherRun = () => VirtualServerContract.AssertSuspendedServerIsNotStartedAsync(other, PanelFixtures.Account);
 
-        (await startsRun.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("AccessDenied");
-        await otherRun.Should().ThrowAsync<PluginContractViolationException>();
+        (await startsRun.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("StartServerAsync").And.Contain("Succeeded").And.Contain("AccessDenied");
+        (await otherRun.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("StartServerAsync").And.Contain("Refused").And.Contain("AccessDenied");
     }
 
-    /// <summary>The reads of a held server answer values, the console may be not supported, and a success without a value is rejected.</summary>
+    /// <summary>The reads of a held server answer values, the usage and the console may be not supported, and a success without a value is rejected.</summary>
     [Fact]
     public async Task AssertReads_AreChecked()
     {
         var good = new ScriptedVirtualServerPlugin();
-        var noConsole = new ScriptedVirtualServerPlugin { ConsoleSession = _ => ValueResult<VirtualServerConsole, PanelRefusalReason>.NotSupported() };
+        var notSupported = new ScriptedVirtualServerPlugin
+        {
+            Usage = _ => ValueResult<VirtualServerUsage, PanelRefusalReason>.NotSupported(),
+            ConsoleSession = _ => ValueResult<VirtualServerConsole, PanelRefusalReason>.NotSupported(),
+        };
         var empty = new ScriptedVirtualServerPlugin
         {
             ConsoleSession = _ => new ValueResult<VirtualServerConsole, PanelRefusalReason>(PanelOperationOutcome.Succeeded, null, null),
         };
 
         await VirtualServerContract.AssertReadsAnswerValuesAsync(good, PanelFixtures.Account);
-        await VirtualServerContract.AssertReadsAnswerValuesAsync(noConsole, PanelFixtures.Account);
+        await VirtualServerContract.AssertReadsAnswerValuesAsync(notSupported, PanelFixtures.Account);
         var run = () => VirtualServerContract.AssertReadsAnswerValuesAsync(empty, PanelFixtures.Account);
 
         (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("CreateConsoleSessionAsync").And.Contain("without a value");
@@ -289,28 +293,43 @@ public sealed class VirtualServerContractTests
             ListPlans = _ => ValueResult<IReadOnlyList<VirtualServerPlan>, PanelRefusalReason>.Done([new VirtualServerPlan("s", null, null, null), new VirtualServerPlan("s", null, null, null)]),
         };
 
-        var runs = new Func<Task>[]
+        var runs = new (string Method, string Text, Func<Task> Run)[]
         {
-            () => VirtualServerContract.AssertCatalogIsWellFormedAsync(twiceImage, VirtualServerFixtures.Catalog),
-            () => VirtualServerContract.AssertCatalogIsWellFormedAsync(blankImage, VirtualServerFixtures.Catalog),
-            () => VirtualServerContract.AssertCatalogIsWellFormedAsync(twicePlan, VirtualServerFixtures.Catalog),
+            (nameof(IVirtualServerPlugin.ListImagesAsync), "an image id twice", () => VirtualServerContract.AssertCatalogIsWellFormedAsync(twiceImage, VirtualServerFixtures.Catalog)),
+            (nameof(IVirtualServerPlugin.ListImagesAsync), "without an Id or a Name", () => VirtualServerContract.AssertCatalogIsWellFormedAsync(blankImage, VirtualServerFixtures.Catalog)),
+            (nameof(IVirtualServerPlugin.ListPlansAsync), "a plan name twice", () => VirtualServerContract.AssertCatalogIsWellFormedAsync(twicePlan, VirtualServerFixtures.Catalog)),
         };
 
-        foreach (var run in runs)
+        foreach (var (method, text, run) in runs)
         {
-            await run.Should().ThrowAsync<PluginContractViolationException>();
+            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain(text);
         }
     }
 
-    /// <summary>A catalogue that is not supported is reported, because the caller arranged a platform that lists.</summary>
+    /// <summary>A catalogue the platform does not have is accepted, because the interface allows NotSupported, and has no entries to check.</summary>
     [Fact]
-    public async Task AssertCatalog_NotSupported_Throws()
+    public async Task AssertCatalog_NotSupported_IsAccepted()
     {
-        var plugin = new ScriptedVirtualServerPlugin { ListPlans = _ => ValueResult<IReadOnlyList<VirtualServerPlan>, PanelRefusalReason>.NotSupported() };
+        var plugin = new ScriptedVirtualServerPlugin
+        {
+            ListImages = _ => ValueResult<IReadOnlyList<VirtualServerImage>, PanelRefusalReason>.NotSupported(),
+            ListPlans = _ => ValueResult<IReadOnlyList<VirtualServerPlan>, PanelRefusalReason>.NotSupported(),
+        };
+
+        await VirtualServerContract.AssertCatalogIsWellFormedAsync(plugin, VirtualServerFixtures.Catalog);
+
+        plugin.CallsOf(nameof(IVirtualServerPlugin.ListPlansAsync)).Should().Be(1);
+    }
+
+    /// <summary>A catalogue the platform refuses is reported, because a refusal is not one of the allowed answers of a list.</summary>
+    [Fact]
+    public async Task AssertCatalog_Refused_Throws()
+    {
+        var plugin = new ScriptedVirtualServerPlugin { ListPlans = _ => ValueResult<IReadOnlyList<VirtualServerPlan>, PanelRefusalReason>.Refused(PanelRefusalReason.AccessDenied) };
 
         var run = () => VirtualServerContract.AssertCatalogIsWellFormedAsync(plugin, VirtualServerFixtures.Catalog);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("ListPlansAsync");
+        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("ListPlansAsync").And.Contain("Refused");
     }
 
     /// <summary>A catalogue that succeeds without a list is rejected: an empty catalogue is an empty list.</summary>
@@ -391,16 +410,4 @@ public sealed class VirtualServerContractTests
             return PanelAccountListResult.Page([server], next);
         };
     }
-
-    /// <summary>A script for a change that is done the first time and then answers not found, which breaks the idempotency promise.</summary>
-    /// <param name="call">The call number, starting at 1.</param>
-    /// <returns>The answer of that call.</returns>
-    private static PanelActionResult DoneThenNotFound(int call)
-    {
-        return call == 1 ? PanelActionResult.Done() : PanelActionResult.NotFound();
-    }
-
-    /// <summary>An object whose printed form leaks the value it was given, to show the secret check catches it.</summary>
-    /// <param name="Value">The value the printed form shows.</param>
-    private sealed record LeakyResult(string Value);
 }

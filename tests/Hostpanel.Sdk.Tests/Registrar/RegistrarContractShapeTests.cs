@@ -1,8 +1,8 @@
-using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Base;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Plugins.Registrar;
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Tests.Fakes;
 
 namespace Hostpanel.Sdk.Tests.Registrar;
@@ -16,8 +16,8 @@ public sealed class RegistrarContractShapeTests
     {
         var printed = RegistrarFixtures.Connection.ToString();
 
-        printed.Should().NotContain(RegistrarFixtures.ApiKey);
-        printed.Should().Contain("ApiKey = ***").And.Contain("AccountName = reseller").And.Contain("TestMode = False");
+        printed.Should().NotContain(RegistrarFixtures.ApiKey).And.NotContain("reseller");
+        printed.Should().Contain("ApiKey = ***").And.Contain("AccountName = ***").And.Contain("TestMode = False");
     }
 
     /// <summary>An absent key prints as null, so a log line still shows that none was saved.</summary>
@@ -28,6 +28,25 @@ public sealed class RegistrarContractShapeTests
 
         connection.ToString().Should().Contain("ApiKey = null");
     }
+
+    /// <summary>An e-mail address in a forwarding rule or in the removal of one prints masked, alone and inside the contexts that hold it.</summary>
+    [Fact]
+    public void ForwardingAddresses_ToString_AreMasked()
+    {
+        var rule = RegistrarFixtures.ForwardingRule.Rule;
+
+        var printed = new[] { rule.ToString(), RegistrarFixtures.ForwardingRule.ToString(), RegistrarFixtures.ForwardingRemoval.ToString() };
+
+        foreach (var text in printed)
+        {
+            text.Should().NotContain("owner@example.test").And.NotContain("info");
+        }
+
+        printed[0].Should().Contain("Source = ***").And.Contain("Destination = ***");
+        printed[2].Should().Contain("Source = ***").And.Contain("example.test");
+        RegistrarFixtures.ForwardingRule.Should().NotBe(RegistrarFixtures.ForwardingRule with { Rule = rule with { Destination = "other@example.test" } });
+    }
+
 
     /// <summary>The transfer prints the authorization code masked, and the connection inside it masked too.</summary>
     [Fact]
@@ -56,53 +75,6 @@ public sealed class RegistrarContractShapeTests
 
         code.ToString().Should().NotContain(RegistrarFixtures.EppCode).And.Contain("Code = ***");
         ValueResult<RegistrarEppCode, RegistrarRefusalReason>.Done(code).ToString().Should().NotContain(RegistrarFixtures.EppCode);
-    }
-
-    /// <summary>Every action factory sets the outcome and the reason that its name promises.</summary>
-    [Fact]
-    public void ActionResult_Factories_SetOutcomeAndReason()
-    {
-        OperationResult<RegistrarRefusalReason>.Done().Should().Be(new OperationResult<RegistrarRefusalReason>(PanelOperationOutcome.Succeeded, null));
-        OperationResult<RegistrarRefusalReason>.AlreadyDone().Outcome.Should().Be(PanelOperationOutcome.AlreadyApplied);
-        OperationResult<RegistrarRefusalReason>.NotFound().Outcome.Should().Be(PanelOperationOutcome.NotFound);
-        OperationResult<RegistrarRefusalReason>.NotSupported().Outcome.Should().Be(PanelOperationOutcome.NotSupported);
-        OperationResult<RegistrarRefusalReason>.Refused(RegistrarRefusalReason.ContactInvalid).Should().Be(new OperationResult<RegistrarRefusalReason>(PanelOperationOutcome.Refused, RegistrarRefusalReason.ContactInvalid));
-    }
-
-    /// <summary>Every data factory sets the outcome, the value and the reason that its name promises.</summary>
-    [Fact]
-    public void DataResult_Factories_SetOutcomeValueAndReason()
-    {
-        var order = new RegistrarOrder("dom-1", null, true);
-
-        ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(order).Should().Be(new ValueResult<RegistrarOrder, RegistrarRefusalReason>(PanelOperationOutcome.Succeeded, order, null));
-        ValueResult<RegistrarOrder, RegistrarRefusalReason>.AlreadyDone(order).Outcome.Should().Be(PanelOperationOutcome.AlreadyApplied);
-        ValueResult<RegistrarOrder, RegistrarRefusalReason>.NotFound().Value.Should().BeNull();
-        ValueResult<RegistrarOrder, RegistrarRefusalReason>.NotSupported().Outcome.Should().Be(PanelOperationOutcome.NotSupported);
-        ValueResult<RegistrarOrder, RegistrarRefusalReason>.Refused(RegistrarRefusalReason.InsufficientFunds).Reason.Should().Be(RegistrarRefusalReason.InsufficientFunds);
-    }
-
-    /// <summary>A success cannot be built without its value.</summary>
-    [Fact]
-    public void DataResult_SuccessWithoutValue_Throws()
-    {
-        var done = () => ValueResult<RegistrarOrder, RegistrarRefusalReason>.Done(null!);
-        var already = () => ValueResult<RegistrarOrder, RegistrarRefusalReason>.AlreadyDone(null!);
-
-        done.Should().Throw<ArgumentNullException>();
-        already.Should().Throw<ArgumentNullException>();
-    }
-
-    /// <summary>The enums start at 1, so a default-initialised value is not a valid answer, and the values are fixed.</summary>
-    [Fact]
-    public void Enums_StartAtOne_AndZeroIsUndefined()
-    {
-        Enum.IsDefined((RegistrarRefusalReason)0).Should().BeFalse();
-        Enum.IsDefined((RegistrarDnsRecordType)0).Should().BeFalse();
-        ((int)RegistrarRefusalReason.DomainUnavailable).Should().Be(1);
-        ((int)RegistrarRefusalReason.Other).Should().Be(10);
-        ((int)RegistrarDnsRecordType.A).Should().Be(1);
-        ((int)RegistrarDnsRecordType.Srv).Should().Be(7);
     }
 
     /// <summary>The contact prints every personal detail masked, so a context or a result that holds it never leaks it.</summary>

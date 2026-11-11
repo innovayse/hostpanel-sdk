@@ -31,6 +31,6 @@ public enum PanelRefusalReason
     /// <summary>The image a virtual server is created or rebuilt from is not one the platform knows.</summary>
     ImageUnknown = 8,
 
-    /// <summary>The name of a virtual server is not acceptable to the platform (too long, reserved or badly formed), or another server already has it.</summary>
+    /// <summary>The name of a virtual server is not acceptable to the platform (too long, reserved or badly formed), or a different server already holds it. A retried create of our own name is not a refusal: it is <see cref="PanelOperationOutcome.AlreadyApplied"/>.</summary>
     NameInvalid = 9,
 }

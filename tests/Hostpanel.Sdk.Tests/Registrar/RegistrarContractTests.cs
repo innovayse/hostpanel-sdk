@@ -1,7 +1,7 @@
-using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
 using Hostpanel.Sdk.Plugins.Registrar;
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
 
@@ -208,35 +208,35 @@ public sealed class RegistrarContractTests
     {
         var plugin = new ScriptedRegistrarPlugin
         {
-            SetNameservers = DoneThenNotFound,
-            SetAutoRenew = DoneThenNotFound,
-            SetWhoisPrivacy = DoneThenNotFound,
-            SetRegistrarLock = DoneThenNotFound,
-            SetContact = DoneThenNotFound,
-            AddDnsRecord = DoneThenNotFound,
-            UpdateDnsRecord = DoneThenNotFound,
-            CancelTransfer = DoneThenNotFound,
-            InitiateOutgoingTransfer = DoneThenNotFound,
-            DeleteDnsRecord = DoneThenNotFound,
+            SetNameservers = ScriptedAnswers.RegistrarDoneThenNotFound,
+            SetAutoRenew = ScriptedAnswers.RegistrarDoneThenNotFound,
+            SetWhoisPrivacy = ScriptedAnswers.RegistrarDoneThenNotFound,
+            SetRegistrarLock = ScriptedAnswers.RegistrarDoneThenNotFound,
+            SetContact = ScriptedAnswers.RegistrarDoneThenNotFound,
+            AddDnsRecord = ScriptedAnswers.RegistrarDoneThenNotFound,
+            UpdateDnsRecord = ScriptedAnswers.RegistrarDoneThenNotFound,
+            CancelTransfer = ScriptedAnswers.RegistrarDoneThenNotFound,
+            InitiateOutgoingTransfer = ScriptedAnswers.RegistrarDoneThenNotFound,
+            DeleteDnsRecord = ScriptedAnswers.RegistrarDoneThenNotFound,
         };
 
-        var runs = new Func<Task>[]
+        var runs = new (string Method, Func<Task> Run)[]
         {
-            () => RegistrarContract.AssertSetNameserversIsIdempotentAsync(plugin, RegistrarFixtures.Nameservers),
-            () => RegistrarContract.AssertSetAutoRenewIsIdempotentAsync(plugin, RegistrarFixtures.Flag),
-            () => RegistrarContract.AssertSetWhoisPrivacyIsIdempotentAsync(plugin, RegistrarFixtures.Flag),
-            () => RegistrarContract.AssertSetRegistrarLockIsIdempotentAsync(plugin, RegistrarFixtures.Flag),
-            () => RegistrarContract.AssertSetContactIsIdempotentAsync(plugin, RegistrarFixtures.ContactChange),
-            () => RegistrarContract.AssertAddDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.AddRecord),
-            () => RegistrarContract.AssertUpdateDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.UpdateRecord),
-            () => RegistrarContract.AssertCancelTransferIsIdempotentAsync(plugin, RegistrarFixtures.DomainContext),
-            () => RegistrarContract.AssertInitiateOutgoingTransferIsIdempotentAsync(plugin, RegistrarFixtures.DomainContext),
-            () => RegistrarContract.AssertDeleteDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.Removal),
+            (nameof(IRegistrarOperationsPlugin.SetNameserversAsync), () => RegistrarContract.AssertSetNameserversIsIdempotentAsync(plugin, RegistrarFixtures.Nameservers)),
+            (nameof(IRegistrarOperationsPlugin.SetAutoRenewAsync), () => RegistrarContract.AssertSetAutoRenewIsIdempotentAsync(plugin, RegistrarFixtures.Flag)),
+            (nameof(IRegistrarOperationsPlugin.SetWhoisPrivacyAsync), () => RegistrarContract.AssertSetWhoisPrivacyIsIdempotentAsync(plugin, RegistrarFixtures.Flag)),
+            (nameof(IRegistrarOperationsPlugin.SetRegistrarLockAsync), () => RegistrarContract.AssertSetRegistrarLockIsIdempotentAsync(plugin, RegistrarFixtures.Flag)),
+            (nameof(IRegistrarOperationsPlugin.SetContactAsync), () => RegistrarContract.AssertSetContactIsIdempotentAsync(plugin, RegistrarFixtures.ContactChange)),
+            (nameof(IRegistrarOperationsPlugin.AddDnsRecordAsync), () => RegistrarContract.AssertAddDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.AddRecord)),
+            (nameof(IRegistrarOperationsPlugin.UpdateDnsRecordAsync), () => RegistrarContract.AssertUpdateDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.UpdateRecord)),
+            (nameof(IRegistrarOperationsPlugin.CancelTransferAsync), () => RegistrarContract.AssertCancelTransferIsIdempotentAsync(plugin, RegistrarFixtures.DomainContext)),
+            (nameof(IRegistrarOperationsPlugin.InitiateOutgoingTransferAsync), () => RegistrarContract.AssertInitiateOutgoingTransferIsIdempotentAsync(plugin, RegistrarFixtures.DomainContext)),
+            (nameof(IRegistrarOperationsPlugin.DeleteDnsRecordAsync), () => RegistrarContract.AssertDeleteDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.Removal)),
         };
 
-        foreach (var run in runs)
+        foreach (var (method, run) in runs)
         {
-            await run.Should().ThrowAsync<PluginContractViolationException>();
+            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("call 2");
         }
     }
 
@@ -248,7 +248,6 @@ public sealed class RegistrarContractTests
 
         await RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
 
-        plugin.CallsOf(nameof(IRegistrarOperationsPlugin.GetNameserversAsync)).Should().Be(1);
         plugin.CallsOf(nameof(IRegistrarOperationsPlugin.InitiateOutgoingTransferAsync)).Should().Be(1);
     }
 
@@ -319,8 +318,8 @@ public sealed class RegistrarContractTests
         var withNegative = () => RegistrarContract.AssertTestConnectionAnswersAsync(negative, RegistrarFixtures.Test);
 
         (await thrown.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("HttpRequestException").And.NotContain("registrar.example.test");
-        await withCount.Should().ThrowAsync<PluginContractViolationException>();
-        await withNegative.Should().ThrowAsync<PluginContractViolationException>();
+        (await withCount.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("TestConnectionAsync").And.Contain("Version or an AccountCount");
+        (await withNegative.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("TestConnectionAsync").And.Contain("negative AccountCount");
     }
 
     /// <summary>A printed form that holds none of the secrets passes, and one that holds a secret is rejected without repeating it.</summary>
@@ -349,16 +348,4 @@ public sealed class RegistrarContractTests
         await noContext.Should().ThrowAsync<ArgumentNullException>();
         noSecrets.Should().Throw<ArgumentNullException>();
     }
-
-    /// <summary>A script for a change that is done the first time and then answers not found, which breaks the idempotency promise.</summary>
-    /// <param name="call">The call number, starting at 1.</param>
-    /// <returns>The answer of that call.</returns>
-    private static OperationResult<RegistrarRefusalReason> DoneThenNotFound(int call)
-    {
-        return call == 1 ? OperationResult<RegistrarRefusalReason>.Done() : OperationResult<RegistrarRefusalReason>.NotFound();
-    }
-
-    /// <summary>An object whose printed form leaks the value it was given, to show the secret check catches it.</summary>
-    /// <param name="Value">The value the printed form shows.</param>
-    private sealed record LeakyResult(string Value);
 }

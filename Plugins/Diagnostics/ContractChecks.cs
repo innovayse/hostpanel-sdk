@@ -157,13 +157,13 @@ internal sealed class ContractChecks
             if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
             {
                 throw new PluginContractViolationException(
-                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a call the {_words.Other} accepts, and a repeat must answer AlreadyApplied.");
+                    $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a create the {_words.Other} accepts, and a repeat must answer AlreadyApplied.");
             }
 
             var reference = referenceOf(result);
             if (string.IsNullOrWhiteSpace(reference))
             {
-                throw new PluginContractViolationException($"{operation} answered {result.Outcome} without a reference on call {call}.");
+                throw new PluginContractViolationException($"{operation} answered {result.Outcome} without a {_words.Reference} on call {call}.");
             }
 
             if (first is null)
@@ -176,13 +176,13 @@ internal sealed class ContractChecks
             if (result.Outcome != PanelOperationOutcome.AlreadyApplied)
             {
                 throw new PluginContractViolationException(
-                    $"{operation} answered {result.Outcome} on call {call}: the work was done again. A repeat of the same call must answer AlreadyApplied.");
+                    $"{operation} answered {result.Outcome} on call {call}: {_words.CreatedAgain}");
             }
 
             if (!string.Equals(reference, firstReference, StringComparison.Ordinal))
             {
                 throw new PluginContractViolationException(
-                    $"{operation} answered a different reference on call {call} than on call 1. The reference must be stable across retries.");
+                    $"{operation} answered a different {_words.Reference} on call {call} than on call 1. The reference must be stable across retries.");
             }
         }
 
@@ -220,9 +220,9 @@ internal sealed class ContractChecks
     /// <param name="operation">The operation's name, for the message.</param>
     /// <param name="invoke">The call.</param>
     /// <param name="mayBeUnsupported"><see langword="true"/> when the other side may lack the operation.</param>
-    /// <returns>A task that completes when the check passed.</returns>
+    /// <returns>The result the plugin answered, so the caller can read its value; a not supported answer has none.</returns>
     /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, answered an outcome that does not fit, or succeeded without a value.</exception>
-    internal async Task AssertReadAnswersValueAsync<TResult, TReason>(string operation, Func<Task<TResult>> invoke, bool mayBeUnsupported)
+    internal async Task<TResult> AssertReadAnswersValueAsync<TResult, TReason>(string operation, Func<Task<TResult>> invoke, bool mayBeUnsupported)
         where TResult : class, IOperationAnswer<TReason>, IValueAnswer
         where TReason : struct, Enum
     {
@@ -231,7 +231,7 @@ internal sealed class ContractChecks
 
         if (result.Outcome == PanelOperationOutcome.NotSupported && mayBeUnsupported)
         {
-            return;
+            return result;
         }
 
         if (result.Outcome != PanelOperationOutcome.Succeeded)
@@ -244,6 +244,8 @@ internal sealed class ContractChecks
         {
             throw new PluginContractViolationException($"{operation} answered Succeeded without a value; a read that succeeded must answer what it read, and an empty list is an empty list.");
         }
+
+        return result;
     }
 
     /// <summary>

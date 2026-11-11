@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Enums;
 
 namespace Hostpanel.Sdk.Plugins.Provisioning;
@@ -10,6 +11,7 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// <param name="Usage">The figures; set exactly when <paramref name="Outcome"/> is <see cref="PanelOperationOutcome.Succeeded"/>.</param>
 /// <param name="Reason">Why the panel refused; set exactly when <paramref name="Outcome"/> is <see cref="PanelOperationOutcome.Refused"/>.</param>
 public sealed record PanelUsageResult(PanelOperationOutcome Outcome, PanelUsage? Usage, PanelRefusalReason? Reason)
+    : IOperationAnswer<PanelRefusalReason>
 {
     /// <summary>Builds the answer for figures the plugin read.</summary>
     /// <param name="usage">The figures.</param>

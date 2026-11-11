@@ -17,7 +17,7 @@ namespace Hostpanel.Sdk.Plugins.Registrar;
 public static class RegistrarContract
 {
     /// <summary>The checks this contract shares with the other contracts, worded for a registrar.</summary>
-    private static readonly ContractChecks Checks = new(new ContractWords("domain", "a domain", "registrar"));
+    private static readonly ContractChecks Checks = new(new ContractWords("domain", "a domain", "registrar", "RegistrarRef", "the work was done again. A repeat of the same call must answer AlreadyApplied."));
 
     /// <summary>A contact for the checks that need one; a registrar that does not hold the domain never reads it.</summary>
     private static readonly RegistrarContact ContractContact = new(
@@ -486,9 +486,9 @@ public static class RegistrarContract
 
     /// <summary>
     /// Asserts that every read and list of a domain the registrar holds answers a value: the availability of the domain
-    /// name, the nameservers, the contact, the DNS records, the authorization code, the check on a pending order and the
+    /// name, the contact, the DNS records, the authorization code, the check on a pending order and the
     /// price list. A read that succeeds without a value is a broken promise, and so is any outcome but <c>Succeeded</c>,
-    /// except that the authorization code and the DNS records may be <c>NotSupported</c>. The caller arranges a registrar
+    /// except that the availability, the price list, the authorization code and the DNS records may be <c>NotSupported</c>, as the interface allows. The caller arranges a registrar
     /// that holds the domain.
     /// </summary>
     /// <param name="plugin">The plugin under test.</param>
@@ -505,11 +505,10 @@ public static class RegistrarContract
         ArgumentNullException.ThrowIfNull(plugin);
         ArgumentNullException.ThrowIfNull(knownDomain);
 
-        await ReadAsync(nameof(IRegistrarOperationsPlugin.CheckAvailabilityAsync), () => plugin.CheckAvailabilityAsync(new RegistrarAvailabilityContext(knownDomain.Connection, knownDomain.Domain.Name), ct), false);
-        await ReadAsync(nameof(IRegistrarOperationsPlugin.GetNameserversAsync), () => plugin.GetNameserversAsync(knownDomain, ct), false);
+        await ReadAsync(nameof(IRegistrarOperationsPlugin.CheckAvailabilityAsync), () => plugin.CheckAvailabilityAsync(new RegistrarAvailabilityContext(knownDomain.Connection, knownDomain.Domain.Name), ct), true);
         await ReadAsync(nameof(IRegistrarOperationsPlugin.GetContactAsync), () => plugin.GetContactAsync(knownDomain, ct), false);
         await ReadAsync(nameof(IRegistrarOperationsPlugin.CheckDomainActiveAsync), () => plugin.CheckDomainActiveAsync(knownDomain, ct), false);
-        await ReadAsync(nameof(IRegistrarOperationsPlugin.GetTldPricingAsync), () => plugin.GetTldPricingAsync(new RegistrarPricingContext(knownDomain.Connection), ct), false);
+        await ReadAsync(nameof(IRegistrarOperationsPlugin.GetTldPricingAsync), () => plugin.GetTldPricingAsync(new RegistrarPricingContext(knownDomain.Connection), ct), true);
         await ReadAsync(nameof(IRegistrarOperationsPlugin.GetEppCodeAsync), () => plugin.GetEppCodeAsync(knownDomain, ct), true);
         await ReadAsync(nameof(IRegistrarOperationsPlugin.GetDnsRecordsAsync), () => plugin.GetDnsRecordsAsync(knownDomain, ct), true);
     }
@@ -557,7 +556,6 @@ public static class RegistrarContract
         var connection = unknownDomain.Connection;
         var domain = unknownDomain.Domain;
 
-        await ExpectDataAsync(nameof(IRegistrarOperationsPlugin.GetNameserversAsync), () => plugin.GetNameserversAsync(unknownDomain, ct), PanelOperationOutcome.NotFound);
         await ExpectDataAsync(nameof(IRegistrarOperationsPlugin.GetContactAsync), () => plugin.GetContactAsync(unknownDomain, ct), PanelOperationOutcome.NotFound);
         await ExpectDataAsync(nameof(IRegistrarOperationsPlugin.CheckDomainActiveAsync), () => plugin.CheckDomainActiveAsync(unknownDomain, ct), PanelOperationOutcome.NotFound);
         await ExpectDataAsync(
