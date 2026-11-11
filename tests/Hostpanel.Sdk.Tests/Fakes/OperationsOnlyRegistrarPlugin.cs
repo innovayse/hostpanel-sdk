@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
 using Hostpanel.Sdk.Plugins.Registrar;
 using Hostpanel.Sdk.Plugins.Results;
