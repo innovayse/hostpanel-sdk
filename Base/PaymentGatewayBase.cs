@@ -7,6 +7,12 @@ namespace Hostpanel.Sdk.Base;
 /// Base class for all payment gateway plugins.
 /// Provides <see cref="GetConfig"/> and a structured <see cref="Logger"/>.
 /// </summary>
+/// <remarks>
+/// A payment plugin that takes an <see cref="System.Net.Http.HttpClient"/> from the host gets one that does not follow
+/// redirects, like the client of <see cref="Plugins.Provisioning.IPanelTransport"/>: a 3xx answer reaches the plugin as it
+/// is. A plugin sends its credentials only to the host it built the address for, and decides itself whether the address a
+/// redirect names is acceptable before it sends a new request.
+/// </remarks>
 public abstract class PaymentGatewayBase
 {
     /// <summary>The plugin's id, the middle segment of every configuration key it reads.</summary>

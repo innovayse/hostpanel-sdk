@@ -10,6 +10,8 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `PaymentInstruction.CustomerRef` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#36): the gateway-side customer the saved method belongs to. The host fills it with the reference it got from `IStoredCredentialPlugin.EnsureCustomerAsync` whenever `SavePaymentMethod` is `true`, so a plugin can attach the stored method to that customer and a later stored charge for the same reference finds it. A plugin that does not save methods ignores it.
+- The redirect rule of the plugin HTTP clients is now a documented promise (innovayse/hostpanel-sdk#50): the host does not follow redirects for any client it gives to a plugin (the client of `IPanelTransport` and the client payment plugins take), so a 3xx answer reaches the plugin as it is and the plugin decides whether the address it names is acceptable and sends a new request itself. The remarks of `IPanelTransport` and `PaymentGatewayBase` state it, with the advice to send credentials only to the host the plugin built the address for. No signature changes, and no option is added because the rule holds for every client.
+  - `PluginHttpContract.AssertRedirectIsNotFollowedAsync(createClient)` (for a plugin's own tests): sends a request to a local listener that answers a redirect and asserts that the client returns the 3xx answer and makes no second request. It throws `PluginContractViolationException`.
 
 ### Compatibility
 

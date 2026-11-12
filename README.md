@@ -167,6 +167,18 @@ plugin that grants credits on a paid invoice can also give the client a screen, 
 `ClientRef`. Without the capability a plugin that is not an app plugin has its `api` and `ui` blocks refused, and a
 declared capability whose class does not implement `IPluginEndpoints` is refused when the plugin is activated.
 
+### Credentials and redirects
+
+The host does not follow redirects for any HTTP client it gives to a plugin: not the client of `IPanelTransport`, and not
+the client a payment plugin takes. A 3xx answer reaches your code as it is. That is deliberate: a client that followed a
+redirect would send your authorization header, and for some handlers your request body, to whatever address the answer
+names, which may be another host or an unintended path. So decide for yourself. Send an API key or token only to the host
+you built the address for, and when a 3xx answer names a new address, check its host (and that it is `https`) before you
+send a new request to it, with the credential again only if the host is the same. In the plugin's own tests, run
+`PluginHttpContract.AssertRedirectIsNotFollowedAsync(() => transport.CreateClient())` against the transport double you
+test with: it starts a local listener that answers a redirect and checks that the client returns the 3xx answer and makes
+no second request.
+
 ### Callbacks
 
 A plugin can receive requests from outside the panels, for example a gateway telling it a payment changed. Declare
