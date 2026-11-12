@@ -44,4 +44,12 @@ public static class PluginCapabilities
     /// (<c>api.callbacks</c>); its client and admin routes, pages and slots are not served yet.
     /// </summary>
     public const string Endpoints = "endpoints";
+
+    /// <summary>
+    /// Any plugin type may declare it. It means the plugin class also implements
+    /// <see cref="Hostpanel.Sdk.Plugins.Tax.ITaxPlugin"/>, so the host can ask it to calculate the tax of an invoice. A plugin
+    /// of type <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.Tax"/> is a tax plugin without declaring it; the capability is
+    /// for a plugin of another type that also offers tax, for example a payment gateway whose provider calculates tax.
+    /// </summary>
+    public const string Tax = "tax";
 }

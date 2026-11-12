@@ -332,7 +332,7 @@ public static class VirtualServerContract
 
         const string operation = nameof(IVirtualServerPlugin.StartServerAsync);
         var result = await Checks.CallAsync(operation, 1, () => plugin.StartServerAsync(suspendedServer, ct));
-        Checks.CheckShape(operation, 1, result.Outcome, result.Reason);
+        Checks.CheckShape(operation, 1, result.Outcome, result.Reason, PanelOperationOutcome.Refused);
 
         if (result.Outcome != PanelOperationOutcome.Refused || result.Reason != PanelRefusalReason.AccessDenied)
         {
