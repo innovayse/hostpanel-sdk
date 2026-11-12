@@ -10,6 +10,7 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `PaymentInstruction.CustomerRef` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#36): the gateway-side customer the saved method belongs to. The host fills it with the reference it got from `IStoredCredentialPlugin.EnsureCustomerAsync` whenever `SavePaymentMethod` is `true`, so a plugin can attach the stored method to that customer and a later stored charge for the same reference finds it. A plugin that does not save methods ignores it.
+- `PaymentFormPost` and `PaymentSession.FormPost` (`PaymentFormPost?`, optional, `null` by default) (innovayse/hostpanel-sdk#42): a second kind of payment session for gateways whose hosted page is opened with a form POST. `PaymentFormPost` holds the `Action` URL and the `Fields` (names and values, in order, a name may repeat). When `FormPost` is set the host ignores `RedirectUrl` and renders the form itself: only an absolute `https` action, no user info or line break, non empty field names, names and values encoded as attribute text, no script from the plugin, and a button for a payer without script. A session built the old way stays a plain redirect and equals what it did before. `FormPost` is a trailing optional record parameter, so callers and plugins recompile unchanged; a plugin built against 3.6.0 binaries keeps working only when it is rebuilt against 3.7.0.
 
 ### Compatibility
 
