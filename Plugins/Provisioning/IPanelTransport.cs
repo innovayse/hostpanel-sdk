@@ -9,7 +9,7 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// <remarks>
 /// <para>
 /// A plugin that takes this transport must never create its own <see cref="HttpClient"/>, handler or socket. The client from
-/// <see cref="CreateClient"/> is already routed through the host's rules, which a plugin could neither see nor keep
+/// <see cref="CreateClient()"/> is already routed through the host's rules, which a plugin could neither see nor keep
 /// if it went around them: the host's outbound address guard (a server address that points into the host's own network
 /// is refused before a request leaves), its private route map for servers reached over a private path, its timeouts,
 /// and its no retry rule. The last one matters to a plugin: a panel call can carry a password or change an account,
