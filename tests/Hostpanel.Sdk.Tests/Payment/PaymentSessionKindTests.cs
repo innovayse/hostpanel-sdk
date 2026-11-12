@@ -67,12 +67,14 @@ public sealed class PaymentSessionKindTests
         step.Should().NotBe(new PaymentSession("gw-1", Address));
     }
 
-    /// <summary>A session with a form post is a form post even when the kind says redirect.</summary>
+    /// <summary>A form post with the redirect kind is a contradiction and is refused, not silently turned into a
+    /// form.</summary>
     [Fact]
-    public void FormPost_WinsOverTheDefaultKind()
+    public void FormPostWithRedirectKind_Throws()
     {
-        new PaymentSession("gw-1", Form.Action, Form, PaymentSessionKind.Redirect)
-            .Kind.Should().Be(PaymentSessionKind.FormPost);
+        var build = () => new PaymentSession("gw-1", Form.Action, Form, PaymentSessionKind.Redirect);
+
+        build.Should().Throw<ArgumentException>();
     }
 
     /// <summary>A kind that contradicts the form post is refused.</summary>
@@ -99,19 +101,81 @@ public sealed class PaymentSessionKindTests
         build.Should().Throw<ArgumentOutOfRangeException>();
     }
 
-    /// <summary>A with expression follows the same rules as the constructor.</summary>
+    /// <summary>A redirect session can become a browser step and back with a with expression.</summary>
     [Fact]
-    public void WithExpression_FollowsTheRules()
+    public void With_Redirect_CanChangeToBrowserStepAndBack()
     {
         var redirect = new PaymentSession("gw-1", Address);
 
-        (redirect with { Kind = PaymentSessionKind.BrowserStep }).Kind.Should().Be(PaymentSessionKind.BrowserStep);
         var step = redirect with { Kind = PaymentSessionKind.BrowserStep };
         var back = step with { Kind = PaymentSessionKind.Redirect };
-        back.Kind.Should().Be(PaymentSessionKind.Redirect);
 
-        var badForm = () => redirect with { Kind = PaymentSessionKind.FormPost };
-        badForm.Should().Throw<ArgumentException>();
+        step.Kind.Should().Be(PaymentSessionKind.BrowserStep);
+        back.Should().Be(redirect);
+    }
+
+    /// <summary>Every with expression that would contradict the pair on a redirect or browser step session is
+    /// refused.</summary>
+    [Fact]
+    public void With_RedirectOrBrowserStep_ContradictionThrows()
+    {
+        var redirect = new PaymentSession("gw-1", Address);
+        var step = new PaymentSession("gw-1", Address, null, PaymentSessionKind.BrowserStep);
+
+        var formKind = () => redirect with { Kind = PaymentSessionKind.FormPost };
+        var formOnRedirect = () => redirect with { FormPost = Form };
+        var formOnStep = () => step with { FormPost = Form };
+        var undefined = () => redirect with { Kind = (PaymentSessionKind)9 };
+
+        formKind.Should().Throw<ArgumentException>();
+        formOnRedirect.Should().Throw<ArgumentException>();
+        formOnStep.Should().Throw<ArgumentException>();
+        undefined.Should().Throw<ArgumentOutOfRangeException>();
+    }
+
+    /// <summary>A form post session can have its form replaced and nothing else changed.</summary>
+    [Fact]
+    public void With_FormPost_CanReplaceTheForm()
+    {
+        var session = new PaymentSession("gw-1", Form.Action, Form);
+        var other = new PaymentFormPost("https://pay.example/other", []);
+
+        var replaced = session with { FormPost = other };
+
+        replaced.FormPost.Should().BeSameAs(other);
+        replaced.Kind.Should().Be(PaymentSessionKind.FormPost);
+    }
+
+    /// <summary>Every with expression that would take a form post session out of its kind is refused, in any
+    /// order.</summary>
+    [Fact]
+    public void With_FormPost_ContradictionThrowsInAnyOrder()
+    {
+        var session = new PaymentSession("gw-1", Form.Action, Form);
+
+        var noForm = () => session with { FormPost = null };
+        var redirectKind = () => session with { Kind = PaymentSessionKind.Redirect };
+        var stepKind = () => session with { Kind = PaymentSessionKind.BrowserStep };
+        var formFirst = () => session with { FormPost = null, Kind = PaymentSessionKind.Redirect };
+        var kindFirst = () => session with { Kind = PaymentSessionKind.Redirect, FormPost = null };
+
+        noForm.Should().Throw<ArgumentException>();
+        redirectKind.Should().Throw<ArgumentException>();
+        stepKind.Should().Throw<ArgumentException>();
+        formFirst.Should().Throw<ArgumentException>();
+        kindFirst.Should().Throw<ArgumentException>();
+    }
+
+    /// <summary>A browser step that had a form added and removed does not come back as a hidden state.</summary>
+    [Fact]
+    public void With_BrowserStep_LeavesNoHiddenState()
+    {
+        var step = new PaymentSession("gw-1", Address, null, PaymentSessionKind.BrowserStep);
+        var addForm = () => step with { FormPost = Form };
+
+        addForm.Should().Throw<ArgumentException>();
+        (step with { }).Kind.Should().Be(PaymentSessionKind.BrowserStep);
+        (step with { Kind = PaymentSessionKind.Redirect }).FormPost.Should().BeNull();
     }
 
     /// <summary>The kind is part of equality: two sessions that differ only in it are not equal.</summary>

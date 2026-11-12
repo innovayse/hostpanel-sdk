@@ -10,17 +10,15 @@ namespace Hostpanel.Sdk.Plugins.Payment;
 /// <see cref="PaymentSessionKind.BrowserStep"/> it is the page where the payer completes the step.
 /// </param>
 /// <param name="FormPost">
-/// Describes a hosted payment page that is opened with a form POST. Optional and <see langword="null"/> by default,
-/// which is the plain redirect to <paramref name="RedirectUrl"/>, so existing plugins are unchanged. See
+/// Describes a hosted payment page that is opened with a form POST. It is required when <paramref name="Kind"/> is
+/// <see cref="PaymentSessionKind.FormPost"/> and must be <see langword="null"/> for every other kind. See
 /// <see cref="PaymentFormPost"/> for the rules the host applies.
 /// </param>
 /// <param name="Kind">
-/// How the payer is taken through the hosted step: <see cref="PaymentSessionKind.Redirect"/> by default. A session is
-/// exactly one kind. A session with <paramref name="FormPost"/> is always of kind
-/// <see cref="PaymentSessionKind.FormPost"/>, so a session built with only a form post keeps that meaning, and the kind
-/// can be given as <see cref="PaymentSessionKind.FormPost"/> only together with a form post. Only
-/// <see cref="PaymentSessionKind.BrowserStep"/> needs to be given, and not together with a form post. An undefined
-/// value is refused.
+/// How the payer is taken through the hosted step: <see cref="PaymentSessionKind.Redirect"/> by default. The kind and
+/// the form post always agree, and a pair that contradicts is refused, whatever the order it is set in: a form post is
+/// required for <see cref="PaymentSessionKind.FormPost"/> and allowed for nothing else, and an undefined value is
+/// refused. The constructors of earlier versions derive the kind from the form.
 /// </param>
 public sealed record PaymentSession(
     string GatewayOrderId,
@@ -31,9 +29,10 @@ public sealed record PaymentSession(
     /// <summary>The address to redirect to, which is never empty.</summary>
     private readonly string _redirectUrl = RequireAddress(RedirectUrl);
 
-    /// <summary>Whether the payer completes a step in the browser; checked against the form post when it is
-    /// set.</summary>
-    private readonly bool _awaitsBrowserStep = ResolveBrowserStep(Kind, FormPost);
+    /// <summary>
+    /// The form post and the kind, kept together in one value so that the pair is checked every time either changes.
+    /// </summary>
+    private readonly (PaymentFormPost? Form, PaymentSessionKind Kind) _step = CheckPair(FormPost, Kind);
 
     /// <summary>
     /// Initializes a session that is a plain redirect. It keeps the two argument constructor of earlier versions, which
@@ -47,15 +46,19 @@ public sealed record PaymentSession(
     }
 
     /// <summary>
-    /// Initializes a session that is a redirect, or a form post when a form is given. It keeps the three argument
-    /// constructor of the form post version, which a plugin built against it calls, so such a plugin loads and runs
-    /// without a rebuild.
+    /// Initializes a session that is a redirect, or a form post when a form is given: the kind is derived from the
+    /// form. It keeps the three argument constructor of the form post version, which a plugin built against it calls,
+    /// so such a plugin loads and runs without a rebuild.
     /// </summary>
     /// <param name="gatewayOrderId">The gateway-side order id.</param>
     /// <param name="redirectUrl">The hosted payment page URL to redirect the payer to.</param>
     /// <param name="formPost">The form to post, or <see langword="null"/> for a plain redirect.</param>
     public PaymentSession(string gatewayOrderId, string redirectUrl, PaymentFormPost? formPost)
-        : this(gatewayOrderId, redirectUrl, formPost, PaymentSessionKind.Redirect)
+        : this(
+            gatewayOrderId,
+            redirectUrl,
+            formPost,
+            formPost is null ? PaymentSessionKind.Redirect : PaymentSessionKind.FormPost)
     {
     }
 
@@ -70,17 +73,26 @@ public sealed record PaymentSession(
     }
 
     /// <summary>
-    /// Gets how the payer is taken through the hosted step. A session with a form post is of kind
-    /// <see cref="PaymentSessionKind.FormPost"/>; otherwise it is <see cref="PaymentSessionKind.BrowserStep"/> when
-    /// that was asked for, and <see cref="PaymentSessionKind.Redirect"/> when not. Setting it with a <c>with</c>
-    /// expression follows the rules of the constructor.
+    /// Gets the form post, which is set exactly when <see cref="Kind"/> is <see cref="PaymentSessionKind.FormPost"/>.
+    /// Setting it with a <c>with</c> expression is checked against the kind as it is at that moment, so a form can be
+    /// replaced on a form post session and cannot be added to another kind.
+    /// </summary>
+    public PaymentFormPost? FormPost
+    {
+        get => _step.Form;
+        init => _step = CheckPair(value, _step.Kind);
+    }
+
+    /// <summary>
+    /// Gets how the payer is taken through the hosted step. Setting it with a <c>with</c> expression is checked against
+    /// the form post as it is at that moment, so a session can change between <see cref="PaymentSessionKind.Redirect"/>
+    /// and <see cref="PaymentSessionKind.BrowserStep"/>, and a change to or from
+    /// <see cref="PaymentSessionKind.FormPost"/> needs a new session.
     /// </summary>
     public PaymentSessionKind Kind
     {
-        get => FormPost is not null
-            ? PaymentSessionKind.FormPost
-            : _awaitsBrowserStep ? PaymentSessionKind.BrowserStep : PaymentSessionKind.Redirect;
-        init => _awaitsBrowserStep = ResolveBrowserStep(value, FormPost);
+        get => _step.Kind;
+        init => _step = CheckPair(_step.Form, value);
     }
 
     /// <summary>Refuses an empty address, because the host has nowhere to send the payer.</summary>
@@ -93,15 +105,17 @@ public sealed record PaymentSession(
         return address;
     }
 
-    /// <summary>Checks a kind against the form post and tells whether it is the browser step.</summary>
-    /// <param name="kind">The kind that was asked for.</param>
-    /// <param name="formPost">The form post of the session, or <see langword="null"/>.</param>
-    /// <returns><see langword="true"/> for <see cref="PaymentSessionKind.BrowserStep"/>.</returns>
+    /// <summary>Checks that a form post and a kind agree.</summary>
+    /// <param name="formPost">The form post, or <see langword="null"/>.</param>
+    /// <param name="kind">The kind.</param>
+    /// <returns>The pair, unchanged.</returns>
     /// <exception cref="ArgumentOutOfRangeException">The kind is not a defined value.</exception>
     /// <exception cref="ArgumentException">
-    /// The form post kind is given without a form post, or the browser step together with one.
+    /// The form post kind has no form post, or another kind has one.
     /// </exception>
-    private static bool ResolveBrowserStep(PaymentSessionKind kind, PaymentFormPost? formPost)
+    private static (PaymentFormPost? Form, PaymentSessionKind Kind) CheckPair(
+        PaymentFormPost? formPost,
+        PaymentSessionKind kind)
     {
         if (!Enum.IsDefined(kind))
         {
@@ -113,11 +127,11 @@ public sealed record PaymentSession(
             throw new ArgumentException("The form post kind needs a form post.", nameof(Kind));
         }
 
-        if (kind == PaymentSessionKind.BrowserStep && formPost is not null)
+        if (kind != PaymentSessionKind.FormPost && formPost is not null)
         {
-            throw new ArgumentException("A session is a form post or a browser step, not both.", nameof(Kind));
+            throw new ArgumentException("Only the form post kind carries a form post.", nameof(FormPost));
         }
 
-        return kind == PaymentSessionKind.BrowserStep;
+        return (formPost, kind);
     }
 }

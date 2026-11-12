@@ -499,27 +499,6 @@ In the plugin's own tests, run the `VirtualServerContract` checks against a stub
 `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
 promise that was broken.
 
-### Completing a payment from the return request
-
-Some gateways finish a payment with a value only the payer's browser has when it comes back. A plugin that needs it
-implements `IPaymentReturnPlugin` beside `IPaymentPlugin` and lists `paymentReturn` (`PluginCapabilities.PaymentReturn`)
-in `capabilities`; the host checks for the interface at run time, so a plugin without it is unchanged. The host calls
-`CompleteAsync(gatewayOrderId, returnParameters, ct)` with the query parameters of the return request (and the posted
-fields of a browser step) before it reads the status, and the plugin answers the status the payment is in. The host picks
-the names that reach the plugin and keeps within `PaymentReturnLimits` (at most 32 parameters, names up to 64 and values
-up to 2048 characters); it never passes credentials, cookies or headers. Names are compared ordinally, and when a name
-arrives more than once the first value wins. The set is read only and comes from the payer's browser, so treat it as
-untrusted input. `CompleteAsync` is idempotent: a payer who returns twice must not be charged twice.
-
-The plugin never serves a page. The browser gets the value from the gateway: from its hosted page, or from the
-gateway's own script on the page that `PaymentSession.RedirectUrl` names. It then comes back to the host's return
-address with the value in the query, and the host passes it on.
-
-- **A nonce style gateway** (the browser obtains a payment method nonce from the gateway): `CompleteAsync` reads the nonce
-  parameter, charges the order at the gateway with it once, and answers `Paid` or `Declined`.
-- **A payer id style gateway** (the return address carries the payer id and a token): `CompleteAsync` reads both, asks
-  the gateway to execute the approved payment, and answers its status. A return without them answers `Pending`.
-
 ### Choosing the session kind
 
 `CreatePaymentAsync` answers a `PaymentSession`, and a session is exactly one `PaymentSessionKind`:
@@ -531,9 +510,11 @@ address with the value in the query, and the host passes it on.
 | `BrowserStep` (3) | the payer completes a step in the browser (a card field that produces a nonce) before the payment can be charged | `RedirectUrl` (the page of the step) and `Kind` |
 
 Choose the redirect whenever the gateway offers one, because it needs no form and no wait. `Kind` is optional and
-`Redirect` by default; a session with a `FormPost` is always of kind `FormPost`, so `Kind` is only given for
-`BrowserStep`, and a kind that contradicts the form (`FormPost` without a form, `BrowserStep` with one, or a value
-that is not defined) is refused. `RedirectUrl` is never empty.
+`Redirect` by default. `Kind` and `FormPost` always agree, and a session whose pair contradicts is refused, in the
+constructor and in a `with` expression, whatever the order: `FormPost` is required with `Kind.FormPost` and allowed
+with nothing else, and a value that is not defined is refused. The constructor without a `Kind` derives it (a form
+gives `FormPost`, none gives `Redirect`). To change a session between `FormPost` and another kind, build a new
+session; a `with` expression cannot, because each change is checked on its own. `RedirectUrl` is never empty.
 
 For a **form post** the plugin only describes the form. The host renders the page and applies its own rules: the
 action must be an absolute `https` URL without user info or line breaks, field names are not empty, names and values
@@ -551,8 +532,9 @@ For a **browser step** the flow is:
    `IPaymentReturnPlugin.CompleteAsync` with its parameters (see the next section), and only then reads the status.
 
 A plugin that answers `BrowserStep` therefore implements `IPaymentReturnPlugin` and lists `paymentReturn` in its
-manifest; a session of this kind from a plugin without it is a failed payment. A host older than 3.7.0 does not know
-the kind and treats the session as a redirect.
+manifest. The SDK cannot see the plugin class from a session, so the host, not the SDK, checks that the plugin
+implements the interface; a session of this kind from a plugin without it is a failed payment. A host older than
+3.7.0 does not know the kind and treats the session as a redirect.
 
 ### Completing a payment from the return request
 
@@ -574,19 +556,6 @@ address with the value in the query, and the host passes it on.
   parameter, charges the order at the gateway with it once, and answers `Paid` or `Declined`.
 - **A payer id style gateway** (the return address carries the payer id and a token): `CompleteAsync` reads both, asks
   the gateway to execute the approved payment, and answers its status. A return without them answers `Pending`.
-
-### Choosing the session kind
-
-`CreatePaymentAsync` answers a `PaymentSession`. Most gateways send the payer to a hosted page with a plain GET:
-fill `RedirectUrl` and leave `FormPost` null. A gateway whose hosted page is opened with a POST that carries a token
-or other fields fills `FormPost` with a `PaymentFormPost` (the `Action` URL and the `Fields`) and passes the same
-address as `RedirectUrl`, which is never empty and which the host then ignores. The plugin only describes the form.
-The host renders the page and applies its own rules: the action must be an absolute `https` URL without user info or
-line breaks, field names are not empty, names and values are encoded as attribute text, no script from the plugin is
-ever included, and the page has a button that submits the form for a payer whose browser runs no script. The form keeps
-within `PaymentFormPostLimits` (at most 64 fields, names up to 128 and values up to 8192 characters, an action up to
-2048). A session that breaks a rule is a failed payment. Choose the redirect whenever the gateway offers one, because it
-needs no form.
 
 ### Saving the method during a payment
 
