@@ -178,6 +178,30 @@ send a new request to it, with the credential again only if the host is the same
 `PluginHttpContract.AssertRedirectIsNotFollowedAsync(() => transport.CreateClient())` against the transport double you
 test with: it starts a local listener that answers a redirect and checks that the client returns the 3xx answer and makes
 no second request.
+### Calling a gateway or a panel
+
+The steps every plugin that talks to a gateway or a panel repeats are in `PluginHttp` (`Hostpanel.Sdk.Plugins.Http`), so
+a mistake does not depend on the author. Build one with a `TimeProvider` (`TimeProvider.System` in production, a fake
+clock in tests), send on the client the host's transport gave you, check where the answer came from, and read the body
+with a limit. Both calls have a deadline, and the deadline of the read covers a body that arrives too slowly:
+
+```csharp
+var http = new PluginHttp(TimeProvider.System);
+var origin = new Uri("https://api.gateway.example/");
+using var response = await http.SendAsync(client, request, TimeSpan.FromSeconds(15), ct);
+PluginHttp.EnsureFinalHost(response, origin);
+var body = await http.ReadBoundedAsync(response, 64 * 1024, TimeSpan.FromSeconds(15), ct);
+```
+
+- `SendAsync` wraps a refused or dropped connection and a TLS error in one `PluginHttpException`
+  (`PluginHttpFault.Transport`) with a fixed message and no inner exception: the inner message can contain the address
+  you called and its query string. A call that does not finish before its deadline is `PluginHttpFault.TimedOut`. A
+  cancellation by the caller's token stays an `OperationCanceledException`.
+- `EnsureFinalHost` takes the `Uri` you built the request for and throws `PluginHttpFault.UnexpectedHost` when the
+  response came from another scheme, host or port. Hosts compare without regard to case, and an IPv6 address is
+  compared with its brackets, as `Uri.Host` writes it, which is why it takes a `Uri` and not a host text.
+- `ReadBoundedAsync` refuses a declared `Content-Length` over the limit before it reads, stops reading at the limit
+  when there is none (`PluginHttpFault.TooLarge`), and gives up at its deadline (`PluginHttpFault.TimedOut`).
 ### Logging and secrets
 
 The SDK records print their secret members as `***`, and that text is public as `SecretMask.Text` in
