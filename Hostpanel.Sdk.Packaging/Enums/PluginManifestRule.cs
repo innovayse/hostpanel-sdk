@@ -69,4 +69,11 @@ public enum PluginManifestRule
 
     /// <summary>The <c>changelog</c> is longer than <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginManifest.MaxChangelogLength"/> characters.</summary>
     ChangelogTooLong = 21,
+
+    /// <summary>
+    /// The <c>serverAccountIdLabel</c> is empty or white space, is longer than
+    /// <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginManifest.MaxServerAccountIdLabelLength"/> characters, or holds a
+    /// control character.
+    /// </summary>
+    AccountIdLabelInvalid = 22,
 }
