@@ -9,9 +9,15 @@ public enum PluginHttpFault
     /// <summary>The response body is larger than the limit the plugin set.</summary>
     TooLarge = 1,
 
-    /// <summary>The response came from another host than the plugin built the request for, for example after a redirect.</summary>
+    /// <summary>
+    /// The response came from another scheme, host or port than the plugin built the request for, for example after a
+    /// redirect.
+    /// </summary>
     UnexpectedHost = 2,
 
-    /// <summary>The request did not complete: a timeout, a refused or dropped connection, or a TLS error.</summary>
+    /// <summary>The request did not complete: a refused or dropped connection, or a TLS error.</summary>
     Transport = 3,
+
+    /// <summary>The deadline of the call passed before the headers or the whole body had arrived.</summary>
+    TimedOut = 4,
 }
