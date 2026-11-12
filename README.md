@@ -25,7 +25,7 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Hostpanel.Sdk --version 3.6.0
+dotnet add package Hostpanel.Sdk --version 3.7.0
 ```
 
 or, in the plugin's `.csproj`:
@@ -34,7 +34,7 @@ or, in the plugin's `.csproj`:
 <ItemGroup>
   <!-- ExcludeAssets="runtime" keeps Hostpanel.Sdk.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Hostpanel.Sdk" Version="3.6.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Hostpanel.Sdk" Version="3.7.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -376,6 +376,10 @@ in `GatewayPaymentStatus.SavedMethod` (a `SavedMethod`: token reference, brand, 
 that does not support it ignores the flag and leaves `SavedMethod` null; the host treats that as "not saved" and the
 payment itself is unaffected. Both members are optional, so a plugin that never saves methods needs no change.
 
+The host also sets `PaymentInstruction.CustomerRef` on a saving payment: the gateway customer it got from
+`IStoredCredentialPlugin.EnsureCustomerAsync`. A plugin attaches the stored method to that customer, so the later stored
+charge for the same reference finds it. It is optional and null when no method is saved.
+
 ### Stored credential plugins
 
 A payment plugin may also implement `IStoredCredentialPlugin` to keep payment methods at the gateway and charge
@@ -537,7 +541,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Hostpanel.Sdk" Version="3.6.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Hostpanel.Sdk" Version="3.7.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

@@ -13,10 +13,18 @@ namespace Hostpanel.Sdk.Plugins.Payment;
 /// <see cref="GatewayPaymentStatus.SavedMethod"/>. A plugin that does not support it ignores the flag and returns no
 /// method; the host treats that as "not saved", never as a failure of the payment.
 /// </param>
+/// <param name="CustomerRef">
+/// The gateway-side customer the saved method belongs to: the reference the host got from
+/// <see cref="StoredCredentials.IStoredCredentialPlugin.EnsureCustomerAsync"/> and keeps for the client. The host fills it
+/// whenever <c>SavePaymentMethod</c> is true, so a plugin attaches the stored method to that customer and a later stored
+/// charge for the same reference finds it. Optional and null by default, so existing callers and plugins are unchanged;
+/// a plugin that does not save methods ignores it.
+/// </param>
 public sealed record PaymentInstruction(
     string OrderNumber,
     long AmountMinor,
     string ReturnUrl,
     string? Description,
     string? Language,
-    bool SavePaymentMethod = false);
+    bool SavePaymentMethod = false,
+    string? CustomerRef = null);
