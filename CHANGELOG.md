@@ -10,6 +10,7 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `PaymentInstruction.CustomerRef` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#36): the gateway-side customer the saved method belongs to. The host fills it with the reference it got from `IStoredCredentialPlugin.EnsureCustomerAsync` whenever `SavePaymentMethod` is `true`, so a plugin can attach the stored method to that customer and a later stored charge for the same reference finds it. A plugin that does not save methods ignores it.
+- `SecretMask` and `SecretMask.Text` (`"***"`) are public (innovayse/hostpanel-sdk#46), in `Hostpanel.Sdk.Plugins.Diagnostics`. It is the text the SDK records print in place of a secret, and now the one text a plugin can print in place of a secret in its own settings object or diagnostic line, so every mask in a log is the same. The value is unchanged and a test pins the name, the namespace and the value; it is a convention for readable logs and not a security boundary. Only the visibility changed, so the change is source and binary compatible.
 
 ### Compatibility
 
