@@ -434,6 +434,8 @@ public static class TaxContract
                 throw new ArgumentException(
                     $"A tax number has at most {TaxLimits.MaxTaxIdLength} characters.", nameof(request));
             }
+
+            ValidateAddress(party.Address);
         }
 
         var ids = new HashSet<string>(StringComparer.Ordinal);
@@ -499,5 +501,27 @@ public static class TaxContract
         }
 
         return first;
+    }
+
+    /// <summary>
+    /// Asserts that an address is one the helper can use: an ISO 3166-1 alpha-2 country in upper case, and the other
+    /// fields within <see cref="TaxLimits.MaxAddressFieldLength"/> characters.
+    /// </summary>
+    /// <param name="address">The address to check.</param>
+    /// <exception cref="ArgumentException">The country is not a code, or a field is too long.</exception>
+    private static void ValidateAddress(TaxAddress address)
+    {
+        if (!IsCountryCode(address.Country))
+        {
+            throw new ArgumentException(
+                "An address country is an ISO 3166-1 alpha-2 code in upper case.", nameof(address));
+        }
+
+        string?[] fields = [address.Region, address.PostalCode, address.City, address.Line1];
+        if (fields.Any(field => field is { Length: > TaxLimits.MaxAddressFieldLength }))
+        {
+            throw new ArgumentException(
+                $"An address field has at most {TaxLimits.MaxAddressFieldLength} characters.", nameof(address));
+        }
     }
 }

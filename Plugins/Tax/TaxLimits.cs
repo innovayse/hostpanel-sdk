@@ -15,6 +15,9 @@ public static class TaxLimits
     /// <summary>The longest tax number of a party, in characters.</summary>
     public const int MaxTaxIdLength = 64;
 
+    /// <summary>The longest region, postal code, city or address line of a <see cref="TaxAddress"/>, in characters.</summary>
+    public const int MaxAddressFieldLength = 128;
+
     /// <summary>The length of a currency code: three letters of ISO 4217.</summary>
     public const int CurrencyLength = 3;
 }
