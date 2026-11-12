@@ -24,4 +24,15 @@ public static partial class TrustedKeyId
     {
         return keyId is not null && keyId.Length <= MaxLength && Pattern().IsMatch(keyId);
     }
+
+    /// <summary>Refuses a text that is not a valid key id, with the one message every caller gives.</summary>
+    /// <param name="keyId">The candidate.</param>
+    /// <exception cref="InvalidDataException"><paramref name="keyId"/> is <see langword="null"/> or not a valid key id.</exception>
+    internal static void EnsureValid(string? keyId)
+    {
+        if (!IsValid(keyId))
+        {
+            throw new InvalidDataException("The key id is not a valid key id.");
+        }
+    }
 }

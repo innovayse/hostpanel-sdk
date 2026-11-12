@@ -10,9 +10,6 @@ namespace Hostpanel.Sdk.Packaging.Archive;
 /// </summary>
 public static class PluginArchiveGuard
 {
-    /// <summary>The buffer size used to copy an entry.</summary>
-    private const int BufferSize = 81_920;
-
     /// <summary>Checks the entry count and the declared uncompressed size, before anything is unpacked.</summary>
     /// <param name="archive">The open archive.</param>
     /// <param name="limits">The limits.</param>
@@ -122,7 +119,7 @@ public static class PluginArchiveGuard
         }
 
         Directory.CreateDirectory(contentDir);
-        var buffer = new byte[BufferSize];
+        var buffer = new byte[FileBuffer.Size];
         long written = 0;
 
         foreach (var entry in archive.Entries)
@@ -143,7 +140,7 @@ public static class PluginArchiveGuard
                 Directory.CreateDirectory(Path.GetDirectoryName(targetPath)!);
 
                 using var source = entry.Open();
-                using var target = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize);
+                using var target = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None, FileBuffer.Size);
                 int read;
                 while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
                 {
