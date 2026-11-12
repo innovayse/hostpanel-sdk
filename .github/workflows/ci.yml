@@ -38,12 +38,14 @@ jobs:
         run: |
           dotnet restore Hostpanel.Sdk.csproj
           dotnet restore Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj
+          dotnet restore tests/Hostpanel.Sdk.Tests/Hostpanel.Sdk.Tests.csproj
+          dotnet restore tests/Hostpanel.Sdk.Packaging.Tests/Hostpanel.Sdk.Packaging.Tests.csproj
       - name: Build (warnings are errors)
         run: |
           dotnet build Hostpanel.Sdk.csproj -c Release --no-restore -warnaserror -p:ContinuousIntegrationBuild=true
           dotnet build Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release --no-restore -warnaserror -p:ContinuousIntegrationBuild=true
-          dotnet build tests/Hostpanel.Sdk.Tests/Hostpanel.Sdk.Tests.csproj -c Release -warnaserror -p:ContinuousIntegrationBuild=true
-          dotnet build tests/Hostpanel.Sdk.Packaging.Tests/Hostpanel.Sdk.Packaging.Tests.csproj -c Release -warnaserror -p:ContinuousIntegrationBuild=true
+          dotnet build tests/Hostpanel.Sdk.Tests/Hostpanel.Sdk.Tests.csproj -c Release --no-restore -warnaserror -p:ContinuousIntegrationBuild=true
+          dotnet build tests/Hostpanel.Sdk.Packaging.Tests/Hostpanel.Sdk.Packaging.Tests.csproj -c Release --no-restore -warnaserror -p:ContinuousIntegrationBuild=true
       - name: Test
         run: |
           dotnet test tests/Hostpanel.Sdk.Tests/Hostpanel.Sdk.Tests.csproj -c Release --no-build

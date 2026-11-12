@@ -10,6 +10,12 @@
     <RootNamespace>Hostpanel.Sdk.Packaging</RootNamespace>
     <AssemblyName>Hostpanel.Sdk.Packaging</AssemblyName>
 
+    <!-- This project builds on its own (this repository) and as a git submodule inside the host's backend, which manages
+         package versions centrally. It opts out and pins its own versions, so both builds restore the same packages. The
+         opt out is in the project file and not in Directory.Build.props: the host's Directory.Packages.props is imported
+         after that file and would win there. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+
     <!-- Package identity. The version is the one in Directory.Build.props, shared with Hostpanel.Sdk: .github/workflows/publish.yml packs both
          projects with the same version, so a plugin author and a host pin one number for the pair. -->
     <PackageId>Hostpanel.Sdk.Packaging</PackageId>

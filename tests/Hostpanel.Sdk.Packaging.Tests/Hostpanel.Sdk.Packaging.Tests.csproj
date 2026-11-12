@@ -1,5 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <PropertyGroup>
+    <!-- This project builds on its own (this repository) and as a git submodule inside the host's backend, which manages
+         package versions centrally. It opts out and pins its own versions, so both builds restore the same packages. The
+         opt out is in the project file and not in Directory.Build.props: the host's Directory.Packages.props is imported
+         after that file and would win there. -->
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Xunit.SkippableFact" Version="1.5.23" />
   </ItemGroup>

@@ -20,10 +20,6 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <!-- Every project here builds on its own (this repository) and as a git submodule inside the host's backend, which
-         manages package versions centrally. They opt out and pin their own versions, so both builds restore the same packages. -->
-    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
-
     <!-- Identity of the two packages, Hostpanel.Sdk and Hostpanel.Sdk.Packaging. MIT, unlike the AGPL-3.0 host: a plugin
          compiled against these contracts is its author's to license, free or paid, open or closed. The expression is what
          NuGet shows; the LICENSE file at the root carries the full text and is packed too. -->

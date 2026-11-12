@@ -19,6 +19,8 @@ contract. Say what you are building and what the current contracts do not let yo
    dotnet pack Hostpanel.Sdk.csproj -c Release -o artifacts
    dotnet build Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release -warnaserror
    dotnet pack Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release -o artifacts
+   dotnet test tests/Hostpanel.Sdk.Tests/Hostpanel.Sdk.Tests.csproj -c Release
+   dotnet test tests/Hostpanel.Sdk.Packaging.Tests/Hostpanel.Sdk.Packaging.Tests.csproj -c Release
    ```
 
 3. Document every type and member with XML doc comments (private ones too), and brace every

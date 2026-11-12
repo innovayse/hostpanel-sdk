@@ -1,0 +1,9 @@
+# Keeps the pinned GitHub Actions current: the workflows and the local action under .github/actions.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule:
+      interval: weekly
