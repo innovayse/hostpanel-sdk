@@ -1,7 +1,7 @@
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
-using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Provisioning;
 
@@ -40,7 +40,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertCreateIsIdempotentAsync(plugin, PanelFixtures.Create);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("call 2");
+        await AssertViolationAsync(run, "call 2");
     }
 
     /// <summary>A plugin that answers another reference on a repeat is rejected.</summary>
@@ -54,7 +54,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertCreateIsIdempotentAsync(plugin, PanelFixtures.Create);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("ProvisioningRef");
+        await AssertViolationAsync(run, "ProvisioningRef");
     }
 
     /// <summary>A plugin that throws on the repeat is rejected, with the exception type and not its text.</summary>
@@ -68,7 +68,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertCreateIsIdempotentAsync(plugin, PanelFixtures.Create);
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("InvalidOperationException").And.NotContain("panel.example.test");
     }
 
@@ -80,7 +80,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertCreateIsIdempotentAsync(plugin, PanelFixtures.Create);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("Refused");
+        await AssertViolationAsync(run, "Refused");
     }
 
     /// <summary>A success without a reference is rejected, because the host could not address the account afterwards.</summary>
@@ -91,7 +91,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertCreateIsIdempotentAsync(plugin, PanelFixtures.Create);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("ProvisioningRef");
+        await AssertViolationAsync(run, "ProvisioningRef");
     }
 
     /// <summary>A refusal without a reason, and a reason on a success, are rejected: the outcome and the reason must agree.</summary>
@@ -104,8 +104,8 @@ public sealed class ProvisioningContractTests
         var first = () => ProvisioningContract.AssertSuspendIsIdempotentAsync(withoutReason, PanelFixtures.Suspend);
         var second = () => ProvisioningContract.AssertSuspendIsIdempotentAsync(withReason, PanelFixtures.Suspend);
 
-        await first.Should().ThrowAsync<PluginContractViolationException>();
-        await second.Should().ThrowAsync<PluginContractViolationException>();
+        await AssertViolationAsync(first);
+        await AssertViolationAsync(second);
     }
 
     /// <summary>A value outside the outcome enum, such as a default-initialised zero, is rejected.</summary>
@@ -116,7 +116,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertSuspendIsIdempotentAsync(plugin, PanelFixtures.Suspend);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("not a PanelOperationOutcome");
+        await AssertViolationAsync(run, "not a PanelOperationOutcome");
     }
 
     /// <summary>Suspend, unsuspend, change package and change password pass when every call succeeds or is already applied.</summary>
@@ -142,7 +142,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertSuspendIsIdempotentAsync(plugin, PanelFixtures.Suspend);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("call 2").And.Contain("NotFound");
+        await AssertViolationAsync(run, "call 2", "NotFound");
     }
 
     /// <summary>A terminate whose repeat answers NotFound is rejected: an account that is gone is already terminated.</summary>
@@ -153,7 +153,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertTerminateIsIdempotentAsync(plugin, PanelFixtures.Terminate);
 
-        await run.Should().ThrowAsync<PluginContractViolationException>();
+        await AssertViolationAsync(run);
     }
 
     /// <summary>A terminate that answers AlreadyApplied for a gone account passes.</summary>
@@ -175,7 +175,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertTerminateIsIdempotentAsync(plugin, PanelFixtures.Terminate);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("HttpRequestException");
+        await AssertViolationAsync(run, "HttpRequestException");
     }
 
     /// <summary>A call count below two, a missing plugin and a missing context are mistakes in the test and are refused.</summary>
@@ -225,7 +225,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertUnknownAccountIsNotFoundAsync(plugin, PanelFixtures.Account, new PanelPackage("pro"));
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("SuspendAccountAsync");
+        await AssertViolationAsync(run, "SuspendAccountAsync");
     }
 
     /// <summary>A plugin that issues a link for an unknown account is rejected.</summary>
@@ -243,7 +243,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertUnknownAccountIsNotFoundAsync(plugin, PanelFixtures.Account, new PanelPackage("pro"));
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("CreateSsoLinkAsync");
+        await AssertViolationAsync(run, "CreateSsoLinkAsync");
     }
 
     /// <summary>A connected test, and each failure outcome without a version or a count, pass.</summary>
@@ -279,7 +279,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertTestConnectionAnswersAsync(plugin, new PanelTestConnectionContext(PanelFixtures.Server));
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("TimeoutException");
+        await AssertViolationAsync(run, "TimeoutException");
     }
 
     /// <summary>A failed test that still carries a version, a negative count or an undefined outcome is rejected.</summary>
@@ -291,9 +291,9 @@ public sealed class ProvisioningContractTests
         var undefined = new ScriptedPanelPlugin { Test = _ => new PanelConnectionTestResult(default, null, null) };
         var context = new PanelTestConnectionContext(PanelFixtures.Server);
 
-        await ((Func<Task>)(() => ProvisioningContract.AssertTestConnectionAnswersAsync(withVersion, context))).Should().ThrowAsync<PluginContractViolationException>();
-        await ((Func<Task>)(() => ProvisioningContract.AssertTestConnectionAnswersAsync(negative, context))).Should().ThrowAsync<PluginContractViolationException>();
-        await ((Func<Task>)(() => ProvisioningContract.AssertTestConnectionAnswersAsync(undefined, context))).Should().ThrowAsync<PluginContractViolationException>();
+        await AssertViolationAsync(() => ProvisioningContract.AssertTestConnectionAnswersAsync(withVersion, context));
+        await AssertViolationAsync(() => ProvisioningContract.AssertTestConnectionAnswersAsync(negative, context));
+        await AssertViolationAsync(() => ProvisioningContract.AssertTestConnectionAnswersAsync(undefined, context));
     }
 
     /// <summary>A listing in three pages returns every account once, in order.</summary>
@@ -316,7 +316,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertListAccountsIsCompleteAsync(plugin, PanelFixtures.Server);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("twice");
+        await AssertViolationAsync(run, "twice");
     }
 
     /// <summary>A page that returns the cursor it was asked for is rejected instead of looping.</summary>
@@ -330,7 +330,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertListAccountsIsCompleteAsync(plugin, PanelFixtures.Server);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("cursor");
+        await AssertViolationAsync(run, "cursor");
     }
 
     /// <summary>A listing that never ends is cut off at the page limit.</summary>
@@ -344,7 +344,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertListAccountsIsCompleteAsync(plugin, PanelFixtures.Server, maxPages: 5);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("5 pages");
+        await AssertViolationAsync(run, "5 pages");
     }
 
     /// <summary>A listing that is refused or not supported is reported, because the caller arranged a panel that lists.</summary>
@@ -355,7 +355,7 @@ public sealed class ProvisioningContractTests
 
         var run = () => ProvisioningContract.AssertListAccountsIsCompleteAsync(plugin, PanelFixtures.Server);
 
-        await run.Should().ThrowAsync<PluginContractViolationException>();
+        await AssertViolationAsync(run);
     }
 
     /// <summary>An account with a blank reference or an undefined status is rejected.</summary>
@@ -365,8 +365,8 @@ public sealed class ProvisioningContractTests
         var blank = new ScriptedPanelPlugin { List = _ => PanelAccountListResult.Page([new PanelAccount(" ", null, PanelAccountStatus.Active, null, null)], null) };
         var status = new ScriptedPanelPlugin { List = _ => PanelAccountListResult.Page([new PanelAccount("a", null, default, null, null)], null) };
 
-        await ((Func<Task>)(() => ProvisioningContract.AssertListAccountsIsCompleteAsync(blank, PanelFixtures.Server))).Should().ThrowAsync<PluginContractViolationException>();
-        await ((Func<Task>)(() => ProvisioningContract.AssertListAccountsIsCompleteAsync(status, PanelFixtures.Server))).Should().ThrowAsync<PluginContractViolationException>();
+        await AssertViolationAsync(() => ProvisioningContract.AssertListAccountsIsCompleteAsync(blank, PanelFixtures.Server));
+        await AssertViolationAsync(() => ProvisioningContract.AssertListAccountsIsCompleteAsync(status, PanelFixtures.Server));
     }
 
     /// <summary>A printed form that holds none of the secrets passes, and one that holds a secret is rejected without repeating it.</summary>
@@ -378,6 +378,6 @@ public sealed class ProvisioningContractTests
         ProvisioningContract.AssertHidesSecrets(PanelFixtures.Create, PanelFixtures.Password, PanelFixtures.AccessHash, PanelFixtures.ApiToken, null, string.Empty);
         var run = () => ProvisioningContract.AssertHidesSecrets(leaking, PanelFixtures.ApiToken);
 
-        run.Should().Throw<PluginContractViolationException>().Which.Message.Should().NotContain(PanelFixtures.ApiToken);
+        ViolationMessage(run).Should().NotContain(PanelFixtures.ApiToken);
     }
 }

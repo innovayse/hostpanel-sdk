@@ -87,30 +87,6 @@ public sealed class PanelTransportAndGapTests
         typeof(ProvisioningContract).IsAbstract.Should().BeTrue("a static class is abstract and sealed");
     }
 
-    /// <summary>A transport that hands out one client and counts the requests for it.</summary>
-    private sealed class FixedTransport : IPanelTransport
-    {
-        /// <summary>The client every call returns.</summary>
-        private readonly HttpClient _client;
-
-        /// <summary>Initializes a new instance of the <see cref="FixedTransport"/> class.</summary>
-        /// <param name="client">The client every call returns.</param>
-        public FixedTransport(HttpClient client)
-        {
-            _client = client;
-        }
-
-        /// <summary>Gets how many clients were requested.</summary>
-        public int Created { get; private set; }
-
-        /// <inheritdoc />
-        public HttpClient CreateClient()
-        {
-            Created++;
-            return _client;
-        }
-    }
-
     /// <summary>A plugin shape that takes the transport in its constructor, as the contract requires.</summary>
     private sealed class TransportUsingPlugin
     {

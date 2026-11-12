@@ -2,8 +2,8 @@ using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
 using Hostpanel.Sdk.Plugins.Registrar;
 using Hostpanel.Sdk.Plugins.Results;
-using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Registrar;
 
@@ -44,7 +44,7 @@ public sealed class RegistrarContractTests
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("call 2");
+        await AssertViolationAsync(run, "call 2");
     }
 
     /// <summary>A plugin that answers another reference on a repeat is rejected.</summary>
@@ -60,7 +60,7 @@ public sealed class RegistrarContractTests
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("reference");
+        await AssertViolationAsync(run, "reference");
     }
 
     /// <summary>A success without a reference is rejected, because the host could not address the domain afterwards.</summary>
@@ -71,7 +71,7 @@ public sealed class RegistrarContractTests
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("without a RegistrarRef");
+        await AssertViolationAsync(run, "without a RegistrarRef");
     }
 
     /// <summary>A plugin that throws on the repeat is rejected, with the exception type and not its text.</summary>
@@ -87,7 +87,7 @@ public sealed class RegistrarContractTests
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("InvalidOperationException").And.NotContain("registrar.example.test");
     }
 
@@ -99,7 +99,7 @@ public sealed class RegistrarContractTests
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("Refused");
+        await AssertViolationAsync(run, "Refused");
     }
 
     /// <summary>A refusal without a reason, and a reason on a success, are rejected as malformed answers.</summary>
@@ -115,8 +115,8 @@ public sealed class RegistrarContractTests
         var missing = () => RegistrarContract.AssertRegisterIsIdempotentAsync(noReason, RegistrarFixtures.Register);
         var stray = () => RegistrarContract.AssertRegisterIsIdempotentAsync(strayReason, RegistrarFixtures.Register);
 
-        (await missing.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("RegistrarRefusalReason");
-        (await stray.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("only a refusal has one");
+        await AssertViolationAsync(missing, "RegistrarRefusalReason");
+        await AssertViolationAsync(stray, "only a refusal has one");
     }
 
     /// <summary>A plugin that answers null is rejected.</summary>
@@ -127,7 +127,7 @@ public sealed class RegistrarContractTests
 
         var run = () => RegistrarContract.AssertRegisterIsIdempotentAsync(plugin, RegistrarFixtures.Register);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("null");
+        await AssertViolationAsync(run, "null");
     }
 
     /// <summary>Asking for fewer than two calls is a mistake of the test, not of the plugin.</summary>
@@ -152,7 +152,7 @@ public sealed class RegistrarContractTests
         var run = () => RegistrarContract.AssertTransferIsIdempotentAsync(twice, RegistrarFixtures.Transfer);
 
         first.Outcome.Should().Be(PanelOperationOutcome.Succeeded);
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("call 2");
+        await AssertViolationAsync(run, "call 2");
     }
 
     /// <summary>A renewal that notices the expiry already moved passes; one that renews twice is rejected.</summary>
@@ -166,7 +166,7 @@ public sealed class RegistrarContractTests
         var run = () => RegistrarContract.AssertRenewIsIdempotentAsync(twice, RegistrarFixtures.Renew);
 
         first.Outcome.Should().Be(PanelOperationOutcome.Succeeded);
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("call 2");
+        await AssertViolationAsync(run, "call 2");
     }
 
     /// <summary>A renewal context without the host's expiry cannot be repeated safely, so the check refuses to run it.</summary>
@@ -236,7 +236,7 @@ public sealed class RegistrarContractTests
 
         foreach (var (method, run) in runs)
         {
-            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("call 2");
+            await AssertViolationAsync(run, method, "call 2");
         }
     }
 
@@ -273,7 +273,7 @@ public sealed class RegistrarContractTests
 
         var run = () => RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("SetNameserversAsync").And.Contain("unknown domain");
+        await AssertViolationAsync(run, "SetNameserversAsync", "unknown domain");
     }
 
     /// <summary>A plugin that refuses instead of answering not found for an unknown domain is rejected.</summary>
@@ -288,7 +288,7 @@ public sealed class RegistrarContractTests
 
         var run = () => RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("RenewAsync");
+        await AssertViolationAsync(run, "RenewAsync");
     }
 
     /// <summary>A connection test passes whatever outcome the plugin answers, as long as the result is well formed.</summary>
@@ -317,9 +317,9 @@ public sealed class RegistrarContractTests
         var withCount = () => RegistrarContract.AssertTestConnectionAnswersAsync(count, RegistrarFixtures.Test);
         var withNegative = () => RegistrarContract.AssertTestConnectionAnswersAsync(negative, RegistrarFixtures.Test);
 
-        (await thrown.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("HttpRequestException").And.NotContain("registrar.example.test");
-        (await withCount.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("TestConnectionAsync").And.Contain("Version or an AccountCount");
-        (await withNegative.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("TestConnectionAsync").And.Contain("negative AccountCount");
+        (await ViolationMessageAsync(thrown)).Should().Contain("HttpRequestException").And.NotContain("registrar.example.test");
+        await AssertViolationAsync(withCount, "TestConnectionAsync", "Version or an AccountCount");
+        await AssertViolationAsync(withNegative, "TestConnectionAsync", "negative AccountCount");
     }
 
     /// <summary>A printed form that holds none of the secrets passes, and one that holds a secret is rejected without repeating it.</summary>
@@ -331,7 +331,7 @@ public sealed class RegistrarContractTests
         RegistrarContract.AssertHidesSecrets(RegistrarFixtures.Transfer, RegistrarFixtures.ApiKey, RegistrarFixtures.EppCode, null, string.Empty);
         var run = () => RegistrarContract.AssertHidesSecrets(leaking, RegistrarFixtures.EppCode);
 
-        run.Should().Throw<PluginContractViolationException>().Which.Message.Should().NotContain(RegistrarFixtures.EppCode);
+        ViolationMessage(run).Should().NotContain(RegistrarFixtures.EppCode);
     }
 
     /// <summary>The helpers refuse a missing plugin or context with an argument error rather than a null reference.</summary>

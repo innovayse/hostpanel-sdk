@@ -33,4 +33,13 @@ internal static class ContractViolationAsserts
             message.Should().Contain(part);
         }
     }
+
+    /// <summary>Asserts that a helper call throws a violation with exactly this message, for the tests that pin the wording.</summary>
+    /// <param name="run">The helper call.</param>
+    /// <param name="expected">The whole message.</param>
+    /// <returns>A task that completes when the check passed.</returns>
+    internal static async Task AssertExactViolationAsync(Func<Task> run, string expected)
+    {
+        (await ViolationMessageAsync(run)).Should().Be(expected);
+    }
 }
