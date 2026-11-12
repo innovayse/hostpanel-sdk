@@ -313,6 +313,22 @@ In the plugin's own tests, run the `ProvisioningContract` checks against a stub 
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
 `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
 
+### Panels with a self signed certificate
+
+Many hosting panels answer on a private port with a self signed certificate. Whether to trust one is the operator's
+decision, made per server with the setting "accept a self signed certificate", never the plugin's: a plugin may not create
+its own handler to accept a certificate. Ask for the client of the server you are talking to with
+`transport.CreateClient(server)` instead of `CreateClient()`. A host that supports the setting returns a client that
+accepts the certificate of that one host name and port and of nothing else, and keeps every other rule of the transport
+(address guard, timeouts, no retry). A 3.7.0 host that does not know the setting returns the plain client, because the default
+body of the method calls `CreateClient()`. A host older than 3.7.0 has no such member and the call throws
+`MissingMethodException`, so a plugin that uses it sets `minHostVersion` to `3.7.0`. In the plugin's own tests, start a
+`SelfSignedListener`, describe it as a `PanelServerConnection` (its `HostName` and `Port`), and run
+`PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync` and `AssertSelfSignedIsAcceptedForTheServerOnlyAsync`
+against the transport you test with. The second check also proves that the allowance stops at the server's own host
+name and port. The host's address guard may refuse a loopback address, so the listener is for the tests of a plugin,
+with a transport double, and not for a transport behind that guard.
+
 ### The account id of a server
 
 A panel that scopes every API call with an organisation, reseller or tenant id next to the credentials reads it from
