@@ -10,7 +10,8 @@ namespace Hostpanel.Sdk.Tests.Store;
 /// </summary>
 public sealed class PluginStoreContractTests
 {
-    /// <summary>The advanced store is a plugin store, so a plugin that has the old one can test for the new one.</summary>
+    /// <summary>The advanced store is a plugin store, so a plugin that has the old one can test for the new
+    /// one.</summary>
     [Fact]
     public void AdvancedStore_ExtendsThePluginStore()
     {
@@ -121,7 +122,8 @@ public sealed class PluginStoreContractTests
         await AssertViolationAsync(run, "more keys than the limit");
     }
 
-    /// <summary>A new key past the quota is refused by both writes, and a key that exists still takes a new value.</summary>
+    /// <summary>A new key past the quota is refused by both writes, and a key that exists still takes a new
+    /// value.</summary>
     [Fact]
     public async Task Quota_NewKeyPastTheQuota_Throws()
     {
@@ -167,6 +169,59 @@ public sealed class PluginStoreContractTests
         await oneCaller.Should().ThrowAsync<ArgumentOutOfRangeException>();
         await noClock.Should().ThrowAsync<ArgumentNullException>();
         await noBounds.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    /// <summary>Keys and prefixes follow the shared rules: allowed characters and at most 200 of them.</summary>
+    /// <param name="key">The key to try.</param>
+    /// <param name="valid">Whether the key is valid.</param>
+    [Theory]
+    [InlineData("event:123", true)]
+    [InlineData("a.b-c_d:E9", true)]
+    [InlineData("", false)]
+    [InlineData("has space", false)]
+    [InlineData("slash/key", false)]
+    [InlineData("caf\u00e9", false)]
+    public void PluginStoreKeys_Rules(string key, bool valid)
+    {
+        PluginStoreKeys.IsValidKey(key).Should().Be(valid);
+        PluginStoreKeys.IsValidPrefix(key).Should().Be(valid || key.Length == 0);
+    }
+
+    /// <summary>The longest key and prefix are 200 characters.</summary>
+    [Fact]
+    public void PluginStoreKeys_LengthLimit()
+    {
+        PluginStoreKeys.IsValidKey(new string('a', PluginStoreKeys.MaxLength)).Should().BeTrue();
+        PluginStoreKeys.IsValidKey(new string('a', PluginStoreKeys.MaxLength + 1)).Should().BeFalse();
+        PluginStoreKeys.IsValidPrefix(new string('a', PluginStoreKeys.MaxLength + 1)).Should().BeFalse();
+        PluginStoreKeys.IsValidKey(null).Should().BeFalse();
+        PluginStoreKeys.IsValidPrefix(null).Should().BeFalse();
+    }
+
+    /// <summary>The in memory store refuses a bad key or prefix on every method, as the host does.</summary>
+    [Fact]
+    public async Task InMemoryStore_RefusesBadKeysAndPrefixes()
+    {
+        var store = new InMemoryPluginStore();
+        var tooLong = new string('a', PluginStoreKeys.MaxLength + 1);
+
+        var calls = new Func<Task>[]
+        {
+            () => store.GetAsync("bad key", CancellationToken.None),
+            () => store.SetAsync("bad key", "v", CancellationToken.None),
+            () => store.SetAsync(tooLong, "v", TimeSpan.FromMinutes(1), CancellationToken.None),
+            () => store.RemoveAsync("", CancellationToken.None),
+            () => store.SetIfAbsentAsync("a/b", "v", null, CancellationToken.None),
+            () => store.ListKeysAsync("bad prefix", 10, CancellationToken.None),
+            () => store.ListKeysAsync(tooLong, 10, CancellationToken.None),
+        };
+
+        foreach (var call in calls)
+        {
+            await call.Should().ThrowAsync<ArgumentException>();
+        }
+
+        (await store.ListKeysAsync(string.Empty, 10, CancellationToken.None)).Should().BeEmpty();
     }
 
     /// <summary>Asserts that a helper call throws a violation whose message contains the given text.</summary>

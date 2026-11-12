@@ -9,6 +9,14 @@ namespace Hostpanel.Sdk.Plugins.Store;
 /// </summary>
 public class InMemoryPluginStore : IPluginStoreAdvanced
 {
+    /// <summary>The sentence that names the rules of a key.</summary>
+    private const string KeyRule =
+        "A key is 1 to 200 characters of ASCII letters, digits, '.', '-', '_' and ':'.";
+
+    /// <summary>The sentence that names the rules of a prefix.</summary>
+    private const string PrefixRule =
+        "A prefix is up to 200 characters of ASCII letters, digits, '.', '-', '_' and ':'.";
+
     /// <summary>Guards the entries so the conditional write is atomic.</summary>
     private readonly object _gate = new();
 
@@ -36,7 +44,8 @@ public class InMemoryPluginStore : IPluginStoreAdvanced
     /// <summary>Gets the time the store believes it is: the real time, moved by <see cref="AdvanceAsync"/>.</summary>
     protected DateTimeOffset Now => DateTimeOffset.UtcNow + _offset;
 
-    /// <summary>Moves the clock of the store forward, so a value with a time to live can expire without waiting.</summary>
+    /// <summary>Moves the clock of the store forward, so a value with a time to live can expire without
+    /// waiting.</summary>
     /// <param name="elapsed">How much time passes.</param>
     /// <returns>A completed task.</returns>
     public Task AdvanceAsync(TimeSpan elapsed)
@@ -52,6 +61,7 @@ public class InMemoryPluginStore : IPluginStoreAdvanced
     /// <inheritdoc />
     public Task<string?> GetAsync(string key, CancellationToken ct)
     {
+        ValidateKey(key);
         lock (_gate)
         {
             return Task.FromResult(IsLive(key) ? _entries[key].Value : null);
@@ -84,6 +94,7 @@ public class InMemoryPluginStore : IPluginStoreAdvanced
     /// <inheritdoc />
     public Task<bool> RemoveAsync(string key, CancellationToken ct)
     {
+        ValidateKey(key);
         lock (_gate)
         {
             return Task.FromResult(IsLive(key) && _entries.Remove(key));
@@ -93,7 +104,11 @@ public class InMemoryPluginStore : IPluginStoreAdvanced
     /// <inheritdoc />
     public virtual Task<IReadOnlyList<string>> ListKeysAsync(string prefix, int limit, CancellationToken ct)
     {
-        ArgumentNullException.ThrowIfNull(prefix);
+        if (!PluginStoreKeys.IsValidPrefix(prefix))
+        {
+            throw new ArgumentException(PrefixRule, nameof(prefix));
+        }
+
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, PluginStoreLimits.MaxListLimit);
         lock (_gate)
@@ -108,8 +123,13 @@ public class InMemoryPluginStore : IPluginStoreAdvanced
     }
 
     /// <inheritdoc />
-    public virtual Task<bool> SetIfAbsentAsync(string key, string value, TimeSpan? timeToLive, CancellationToken ct)
+    public virtual Task<bool> SetIfAbsentAsync(
+        string key,
+        string value,
+        TimeSpan? timeToLive,
+        CancellationToken ct)
     {
+        ValidateKey(key);
         if (timeToLive is { } span)
         {
             ValidateTimeToLive(span);
@@ -124,6 +144,18 @@ public class InMemoryPluginStore : IPluginStoreAdvanced
 
             Put(key, value, timeToLive);
             return Task.FromResult(true);
+        }
+    }
+
+    /// <summary>Checks a key against <see cref="PluginStoreKeys"/>, the rules the host keeps.</summary>
+    /// <param name="key">The key to check.</param>
+    /// <exception cref="ArgumentException">The key is empty, longer than 200 characters or has a character not
+    /// allowed.</exception>
+    protected static void ValidateKey(string key)
+    {
+        if (!PluginStoreKeys.IsValidKey(key))
+        {
+            throw new ArgumentException(KeyRule, nameof(key));
         }
     }
 
@@ -161,7 +193,8 @@ public class InMemoryPluginStore : IPluginStoreAdvanced
 
     /// <summary>Reads the expiry of a key. The caller holds <see cref="Gate"/>.</summary>
     /// <param name="key">The key.</param>
-    /// <returns>The moment the value expires, or <see langword="null"/> when it never does or the key is absent.</returns>
+    /// <returns>The moment the value expires, or <see langword="null"/> when it never does or the key is
+    /// absent.</returns>
     protected DateTimeOffset? ExpiryOf(string key)
     {
         return _entries.TryGetValue(key, out var entry) ? entry.ExpiresAt : null;
@@ -188,6 +221,7 @@ public class InMemoryPluginStore : IPluginStoreAdvanced
     /// <exception cref="PluginStoreQuotaException">The key is new and the store holds the most keys it may.</exception>
     protected void PutUntil(string key, string value, DateTimeOffset? expiresAt)
     {
+        ValidateKey(key);
         if (!IsLive(key) && LiveKeys().Count() >= _maxKeys)
         {
             throw new PluginStoreQuotaException();

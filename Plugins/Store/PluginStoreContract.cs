@@ -47,8 +47,8 @@ public static class PluginStoreContract
             if (winners != 1)
             {
                 throw new PluginContractViolationException(
-                    $"SetIfAbsentAsync let {winners} of {callers} callers write one key at the same time; exactly one " +
-                    "must win.");
+                    $"SetIfAbsentAsync let {winners} of {callers} callers write one key at the same time; " +
+                    "exactly one must win.");
             }
 
             var winner = "caller-" + Array.IndexOf(results, true);
@@ -135,16 +135,19 @@ public static class PluginStoreContract
     }
 
     /// <summary>
-    /// Writes a value with a time to live, then writes the same key with a plain
-    /// <see cref="IPluginStore.SetAsync"/>, lets the time pass and asserts that the key is still there: a plain write
-    /// replaces the value and clears the expiry, so the key lives until it is removed.
+    /// Writes a value with a time to live, then writes the same key with a plain <see cref="IPluginStore.SetAsync"/>,
+    /// lets the time pass and asserts that the key is still there: a plain write replaces the value and clears the
+    /// expiry, so the key lives until it is removed.
     /// </summary>
     /// <param name="store">The store under test.</param>
-    /// <param name="advance">Lets the given time pass for the store, as for <see cref="AssertExpiredKeyReadsAsAbsentAsync"/>.</param>
+    /// <param name="advance">Lets the given time pass for the store, as for
+    /// <see cref="AssertExpiredKeyReadsAsAbsentAsync"/>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A task that completes when the check passed.</returns>
-    /// <exception cref="ArgumentNullException"><paramref name="store"/> or <paramref name="advance"/> is <see langword="null"/>.</exception>
-    /// <exception cref="PluginContractViolationException">The plain write kept the old expiry, so the key expired.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="store"/> or <paramref name="advance"/> is
+    /// <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">The plain write kept the old expiry, so the key
+    /// expired.</exception>
     public static async Task AssertPlainSetClearsTimeToLiveAsync(
         IPluginStoreAdvanced store,
         Func<TimeSpan, Task> advance,
@@ -278,7 +281,8 @@ public static class PluginStoreContract
     /// <param name="operation">The name of the write, for the message.</param>
     /// <param name="write">The write.</param>
     /// <returns>A task that completes when the check passed.</returns>
-    /// <exception cref="PluginContractViolationException">The write did not throw, or threw another exception.</exception>
+    /// <exception cref="PluginContractViolationException">The write did not throw, or threw another
+    /// exception.</exception>
     private static async Task ExpectOutOfRangeAsync(string operation, Func<Task> write)
     {
         try
