@@ -1,6 +1,7 @@
 using Hostpanel.Sdk.Plugins.Fulfilment;
 using Hostpanel.Sdk.Plugins.Hosting;
 using Hostpanel.Sdk.Plugins.Identity;
+using Hostpanel.Sdk.Plugins.Tax;
 
 namespace Hostpanel.Sdk.Plugins.Enums;
 
@@ -38,4 +39,10 @@ public enum PluginType
     /// values are explicit, and this one is appended, so the members above keep theirs.
     /// </summary>
     App = 6,
+
+    /// <summary>
+    /// Calculates the tax due on the lines of an invoice (<see cref="ITaxPlugin"/>), so the rate comes from a tax
+    /// service. The value is appended, so the members above keep theirs.
+    /// </summary>
+    Tax = 7,
 }

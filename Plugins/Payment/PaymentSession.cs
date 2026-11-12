@@ -13,6 +13,19 @@ namespace Hostpanel.Sdk.Plugins.Payment;
 /// </param>
 public sealed record PaymentSession(string GatewayOrderId, string RedirectUrl, PaymentFormPost? FormPost = null)
 {
+    /// <summary>The address to redirect to, which is never empty.</summary>
+    private readonly string _redirectUrl = RequireAddress(RedirectUrl);
+
+    /// <summary>
+    /// Gets the hosted payment page URL to redirect the payer to. It is never empty or white space, also when it is
+    /// set with a <c>with</c> expression.
+    /// </summary>
+    public string RedirectUrl
+    {
+        get => _redirectUrl;
+        init => _redirectUrl = RequireAddress(value);
+    }
+
     /// <summary>
     /// Initializes a session that is a plain redirect. It keeps the two argument constructor of earlier versions, which
     /// a plugin built against them calls, so such a plugin loads and runs without a rebuild.
@@ -22,5 +35,15 @@ public sealed record PaymentSession(string GatewayOrderId, string RedirectUrl, P
     public PaymentSession(string gatewayOrderId, string redirectUrl)
         : this(gatewayOrderId, redirectUrl, null)
     {
+    }
+
+    /// <summary>Refuses an empty address, because the host has nowhere to send the payer.</summary>
+    /// <param name="address">The address to check.</param>
+    /// <returns>The address.</returns>
+    /// <exception cref="ArgumentException">The address is null, empty or white space.</exception>
+    private static string RequireAddress(string address)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(address, nameof(RedirectUrl));
+        return address;
     }
 }

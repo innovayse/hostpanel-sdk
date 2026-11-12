@@ -75,4 +75,40 @@ public sealed class PaymentFormPostTests
 
         form.Fields.Should().BeEmpty();
     }
+
+    /// <summary>An empty address is refused however the session is built, so the host always has a place to send.</summary>
+    /// <param name="address">The address to try.</param>
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void PaymentSession_EmptyRedirectUrl_Throws(string address)
+    {
+        var twoArguments = () => new PaymentSession("gw-1", address);
+        var threeArguments = () => new PaymentSession("gw-1", address, null);
+        var withExpression = () => new PaymentSession("gw-1", "https://pay.example/gw-1") with { RedirectUrl = address };
+
+        twoArguments.Should().Throw<ArgumentException>();
+        threeArguments.Should().Throw<ArgumentException>();
+        withExpression.Should().Throw<ArgumentException>();
+    }
+
+    /// <summary>A null address is refused too.</summary>
+    [Fact]
+    public void PaymentSession_NullRedirectUrl_Throws()
+    {
+        var build = () => new PaymentSession("gw-1", null!);
+
+        build.Should().Throw<ArgumentException>();
+    }
+
+    /// <summary>A session still deconstructs into its three members.</summary>
+    [Fact]
+    public void PaymentSession_Deconstructs_IntoThreeMembers()
+    {
+        var (orderId, address, form) = new PaymentSession("gw-1", "https://pay.example/gw-1");
+
+        orderId.Should().Be("gw-1");
+        address.Should().Be("https://pay.example/gw-1");
+        form.Should().BeNull();
+    }
 }
