@@ -26,6 +26,16 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// because the outcome is then unknown.
 /// </para>
 /// <para>
+/// A host of 3.7.0 or later must not follow redirects for any client it gives to a plugin, this one included: a 3xx
+/// answer reaches the plugin as it is, and the plugin decides whether the address it names is acceptable and sends a
+/// new request itself. A client that followed a redirect would send the authorization header, and for some handlers
+/// the body, to whatever address the answer names, which may be another host or an unintended path. Until the host a
+/// plugin runs on meets this, the plugin sends its credentials only to the host it built the address for, and checks
+/// the address of the response with <see cref="Http.PluginHttp.EnsureFinalHost"/>. When a 3xx answer reaches the
+/// plugin it checks the scheme, host and port of the address the answer names before it follows it by hand.
+/// <see cref="Http.PluginHttpContract"/> lets a plugin author prove the rule for a client in the plugin's own tests.
+/// </para>
+/// <para>
 /// A plugin does not log request addresses that carry arguments in the query string, and does not dispose the
 /// handler: the host owns the connection pool behind the client.
 /// </para>
