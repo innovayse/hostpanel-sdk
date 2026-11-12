@@ -169,21 +169,25 @@ declared capability whose class does not implement `IPluginEndpoints` is refused
 
 ### Credentials and redirects
 
-The host does not follow redirects for any HTTP client it gives to a plugin: not the client of `IPanelTransport`, and not
-the client a payment plugin takes. A 3xx answer reaches your code as it is. That is deliberate: a client that followed a
+SDK 3.7.0 requires a host not to follow redirects for any HTTP client it gives to a plugin, the client of
+`IPanelTransport` included. A 3xx answer then reaches your code as it is. That is deliberate: a client that followed a
 redirect would send your authorization header, and for some handlers your request body, to whatever address the answer
-names, which may be another host or an unintended path. So decide for yourself. Send an API key or token only to the host
-you built the address for, and when a 3xx answer names a new address, check its host (and that it is `https`) before you
-send a new request to it, with the credential again only if the host is the same. In the plugin's own tests, run
+names, which may be another host or an unintended path. So decide for yourself. Send an API key or token only to the
+host you built the address for, and when a 3xx answer names a new address, check its scheme, host and port (and that it
+is `https`) before you send a new request to it, with the credential again only if they are the same. A host older than
+the requirement may still follow redirects, so on such a host also check the final address of every response with
+`PluginHttp.EnsureFinalHost` (see "Calling a gateway or a panel" below). In the plugin's own tests, run
 `PluginHttpContract.AssertRedirectIsNotFollowedAsync(() => transport.CreateClient())` against the transport double you
-test with: it starts a local listener that answers a redirect and checks that the client returns the 3xx answer and makes
-no second request.
+test with: it starts a local listener that answers a redirect and checks that the client returns the 3xx answer and
+makes no second request. The host's address guard may refuse a loopback address, so run it with a transport double and
+not behind that guard.
+
 ### Calling a gateway or a panel
 
 The steps every plugin that talks to a gateway or a panel repeats are in `PluginHttp` (`Hostpanel.Sdk.Plugins.Http`), so
 a mistake does not depend on the author. Build one with a `TimeProvider` (`TimeProvider.System` in production, a fake
 clock in tests), send on the client the host's transport gave you, check where the answer came from, and read the body
-with a limit. Both calls have a deadline, and the deadline of the read covers a body that arrives too slowly:
+with a limit (the redirect rule that goes with it is in "Credentials and redirects" above). Both calls have a deadline, and the deadline of the read covers a body that arrives too slowly:
 
 ```csharp
 var http = new PluginHttp(TimeProvider.System);

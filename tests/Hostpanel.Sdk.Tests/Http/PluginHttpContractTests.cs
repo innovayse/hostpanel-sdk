@@ -27,6 +27,20 @@ public sealed class PluginHttpContractTests
         message.Should().Contain("followed the redirect");
     }
 
+    /// <summary>
+    /// A client that cannot reach the listener is reported as a check that could not run, not as a client that did not
+    /// return the redirect.
+    /// </summary>
+    [Fact]
+    public async Task AssertRedirectIsNotFollowed_ListenerNotReachable_SaysTheCheckCouldNotRun()
+    {
+        var run = () => PluginHttpContract.AssertRedirectIsNotFollowedAsync(
+            () => new HttpClient(new BlockedHandler()));
+
+        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        message.Should().Contain("could not reach the local listener").And.Contain("nothing about redirects");
+    }
+
     /// <summary>A missing client factory is a mistake of the caller, reported when the helper is called.</summary>
     [Fact]
     public async Task AssertRedirectIsNotFollowed_NullFactory_Throws()
@@ -34,5 +48,15 @@ public sealed class PluginHttpContractTests
         var run = () => PluginHttpContract.AssertRedirectIsNotFollowedAsync(null!);
 
         await run.Should().ThrowAsync<ArgumentNullException>();
+    }
+
+    /// <summary>A handler that fails every request the way a blocked address does.</summary>
+    private sealed class BlockedHandler : HttpMessageHandler
+    {
+        /// <inheritdoc />
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            return Task.FromException<HttpResponseMessage>(new HttpRequestException("blocked"));
+        }
     }
 }

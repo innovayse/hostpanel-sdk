@@ -70,7 +70,10 @@ public sealed class PluginHttp
     /// <summary>
     /// Asserts that a response came from the address the plugin built the request for: the same scheme, host and port.
     /// A client that follows redirects ends on the address of the last hop, so this is the check that a credential was
-    /// not sent on to another host, another port or plain HTTP. Hosts compare without regard to case, and an IPv6
+    /// not sent on to another host, another port or plain HTTP. A host of 3.7.0 or later does not follow redirects for
+    /// a client it gives a plugin (see <see cref="PluginHttpContract"/>), so a 3xx answer is the plugin's to judge; this
+    /// check is for a host that still does, for a client the plugin built itself, and for the final address of a
+    /// response the plugin was handed. Hosts compare without regard to case, and an IPv6
     /// address is compared with its brackets, as <see cref="Uri.Host"/> writes it, on both sides, so pass the
     /// <see cref="Uri"/> and not a host text.
     /// </summary>
