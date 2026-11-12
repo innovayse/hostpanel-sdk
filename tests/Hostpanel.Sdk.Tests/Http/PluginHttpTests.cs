@@ -269,9 +269,20 @@ public sealed class PluginHttpTests
         return new PluginHttp(_time);
     }
 
-    /// <summary>Waits, without sleeping, until the operation under test has started its deadline timer.</summary>
+    /// <summary>
+    /// Waits, without sleeping, until the operation under test has started its deadline timer. The wait is bounded, so a
+    /// test whose operation never starts a timer fails instead of hanging.
+    /// </summary>
     /// <returns>A task that completes when a timer is waiting.</returns>
-    private async Task WaitForTimerAsync()
+    /// <exception cref="TimeoutException">No timer was started within the bound.</exception>
+    private Task WaitForTimerAsync()
+    {
+        return SpinUntilTimerAsync().WaitAsync(TimeSpan.FromSeconds(10));
+    }
+
+    /// <summary>Yields until a timer is waiting.</summary>
+    /// <returns>A task that completes when a timer is waiting.</returns>
+    private async Task SpinUntilTimerAsync()
     {
         while (_time.PendingTimers == 0)
         {

@@ -19,6 +19,13 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// <param name="Username">The panel user the credentials belong to, or <see langword="null"/> when the panel has no such notion or none is saved.</param>
 /// <param name="AccessHash">The panel's access key or hash, or <see langword="null"/> when none is saved. Secret.</param>
 /// <param name="ApiToken">The panel's API token, or <see langword="null"/> when none is saved. Secret.</param>
+/// <param name="AccountId">
+/// The organisation, reseller or tenant id that scopes every API call of a panel that needs one next to the credentials,
+/// or <see langword="null"/> when none is saved. The operator enters it in a field of the server form that the host shows
+/// only for a plugin whose manifest sets <see cref="Manifest.PluginManifest.ServerAccountIdLabel"/>, with that label. It is
+/// not a secret and prints in <c>ToString</c>. A plugin reads it from here and never asks the operator to join it to
+/// <see cref="Username"/>. Optional and null by default, so existing callers and plugins are unchanged.
+/// </param>
 public sealed record PanelServerConnection(
     int ServerId,
     string Name,
@@ -28,9 +35,12 @@ public sealed record PanelServerConnection(
     bool UseSsl,
     string? Username,
     string? AccessHash,
-    string? ApiToken)
+    string? ApiToken,
+    string? AccountId = null)
 {
-    /// <summary>Prints the record without its secret members, so the generated <c>ToString</c> never reveals them.</summary>
+    /// <summary>
+    /// Prints the record without its secret members, so the generated <c>ToString</c> never reveals them.
+    /// </summary>
     /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
     /// <returns>Always <see langword="true"/>: members are written.</returns>
     private bool PrintMembers(StringBuilder builder)
@@ -41,9 +51,10 @@ public sealed record PanelServerConnection(
         builder.Append(", IpAddress = ").Append(IpAddress);
         builder.Append(", Port = ").Append(Port);
         builder.Append(", UseSsl = ").Append(UseSsl);
-        builder.Append(", Username = ").Append(Username);
+        builder.Append(", Username = ").Append(Username ?? "null");
         builder.Append(", AccessHash = ").Append(AccessHash is null ? "null" : SecretMask.Text);
         builder.Append(", ApiToken = ").Append(ApiToken is null ? "null" : SecretMask.Text);
+        builder.Append(", AccountId = ").Append(AccountId ?? "null");
         return true;
     }
 }

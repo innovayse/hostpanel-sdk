@@ -43,3 +43,9 @@ a new interface that extends the existing one (for example `IRegistrarWhoisPlugi
 with its own manifest capability in `PluginCapabilities`. The host checks `plugin is INewInterface` at run time and treats
 a plugin that does not implement it as `NotSupported`. The same goes for a new refusal reason: append it to the enum and
 never renumber the values that exist.
+
+A default interface member, a method with a body, is the one exception, and only when the default keeps the old
+behaviour (for example `IPanelTransport.CreateClient(PanelServerConnection)`, whose default calls `CreateClient()`). Hosts and
+plugins built on an earlier version still load, because the member has a body. A plugin that calls the new member needs
+a host that has it, because an older host throws `MissingMethodException`, so the changelog says so and such a plugin
+sets `minHostVersion` in its manifest.
