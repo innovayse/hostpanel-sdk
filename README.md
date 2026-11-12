@@ -60,6 +60,7 @@ Upgrading from 1.x? Version 2.0.0 moves types into one namespace per area and re
 | `Fulfilment` | `IFulfilmentPlugin` | Delivers digital products once an invoice is paid, and is asked before a refund moves money back. Every enabled fulfilment plugin sees every digital invoice. |
 | `Hosted` | `IHostedPlugin` | A background worker the host starts after its own services are up and stops on shutdown. A plugin of another type may implement it too. |
 | `App` | `IPluginEndpoints` | Answers the routes its manifest declares and adds pages and slot content, without web framework types or user tokens. |
+| `Tax` | `ITaxPlugin` | Calculates the tax due on the lines of an invoice (see "Tax plugins"). |
 
 ### Fulfilment plugins
 
@@ -452,13 +453,50 @@ agree with the code.
 - The host stores no methods: it lists them live through `ListMethodsAsync` and keeps only its consent link to a
   `MethodRef`.
 
+### Tax plugins
+
+A tax plugin implements `ITaxPlugin` and tells the host what tax is due on the lines of an invoice, so the rate comes
+from a tax service instead of a number typed by hand. Its manifest type is `Tax`; a plugin of another type that also
+offers tax implements the same interface and lists `tax` (`PluginCapabilities.Tax`) in `capabilities`. The plugin keeps
+its credentials and settings itself, like a payment plugin.
+
+`CalculateTaxAsync` takes a `TaxCalculationRequest` and answers a `TaxCalculationResult`. The request holds the
+currency, whether the line amounts already include tax, the seller and the buyer (`TaxParty`: a `TaxAddress`, whether it
+is a business, the tax number) and the lines (`TaxLine`: an id, the line total with discounts already taken off, the
+quantity, the product's tax category and whether it is a digital service). The result has one of three outcomes
+(`TaxOutcome`):
+
+| Outcome | Meaning | Carries |
+|---|---|---|
+| `Calculated` | every line was calculated | one `TaxLineResult` per requested line (`LineId`, `Rate` as a percentage, `Amount`, `Jurisdiction`) and `Total`, their sum |
+| `Refused` | the service declined, for example for an address it does not cover | a `TaxRefusalReason` |
+| `Unavailable` | the service could not be reached or is rate limited | nothing; the host tries again later |
+
+- **No guessed rate, no zero tax by accident.** A line the service cannot rate makes the whole calculation `Refused`. A
+  failed or unreachable service is `Unavailable`, never a calculation of zero tax. A rate of 0 is a real answer for an
+  exempt or reverse charged supply and comes with an amount of 0.
+- **Amounts follow the rate.** The amount is the line total times the rate when prices exclude tax, and the part of the
+  line total that is tax at that rate when they include it, rounded the way the service rounds. Rates are between 0 and
+  100, amounts are never negative, and every jurisdiction names an ISO 3166-1 alpha-2 country.
+- **Outcomes, not exceptions.** A refusal and an unavailable service are answers, and the plugin does not throw for them;
+  when nothing can be said, answer `Unavailable`. A request keeps within `TaxLimits` (at most 500 lines, line ids and
+  tax numbers up to 64 characters, a three letter currency).
+- **No personal data in a result.** Tax numbers and address details print as `***` on the request; do not undo that in
+  your own logs, and never put the service's own text, an address or a tax number in a result.
+
+In the plugin's own tests, run the `TaxContract` checks against a stub of your service:
+`AssertCalculationIsWellFormedAsync`, `AssertCalculationIsRepeatableAsync`, `AssertUncalculableRequestIsRefusedAsync`,
+`AssertUnreachableServiceIsUnavailableAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException`
+naming the promise that was broken. The amount check allows a tolerance for the service's rounding, one hundredth by
+default; pass the smallest unit of the currency for one with another number of decimals.
+
 ## Manifest
 
 `plugin.json` sits beside the plugin assembly and declares `id`, `name`, `version`, `author`,
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
 `showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
-implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `virtualServer` and `virtualServerList` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement` and `registrarWhois` for a registrar plugin; `endpoints` for any type), `minHostVersion` and
+implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `virtualServer` and `virtualServerList` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement` and `registrarWhois` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
 `maxHostVersion` (the range of host versions the plugin runs on, each a semantic version such as `2.1.0`; a missing
 bound means no limit, and the lower may not be above the upper) and `changelog` (notes for this version, at most 4000
 characters). The `id` is lower-case letters and digits,

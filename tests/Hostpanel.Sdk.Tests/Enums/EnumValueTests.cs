@@ -69,6 +69,6 @@ public sealed class EnumValueTests
     {
         Enum.GetValues<PanelOperationOutcome>().Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5);
         Enum.GetValues<PanelConnectionOutcome>().Select(value => (int)value).Should().Equal(1, 2, 3, 4);
-        Enum.GetValues<PluginType>().Select(value => (int)value).Should().Equal(0, 1, 2, 3, 4, 5, 6);
+        Enum.GetValues<PluginType>().Select(value => (int)value).Should().Equal(0, 1, 2, 3, 4, 5, 6, 7);
     }
 }
