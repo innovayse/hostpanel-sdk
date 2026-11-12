@@ -10,6 +10,9 @@ public sealed class PluginManifest
     /// <summary>The longest <see cref="Changelog"/> a manifest may carry, in characters.</summary>
     public const int MaxChangelogLength = 4000;
 
+    /// <summary>The longest <see cref="ServerAccountIdLabel"/>, in characters.</summary>
+    public const int MaxServerAccountIdLabelLength = 60;
+
     /// <summary>Backing field of <see cref="Fields"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginField> _fields = [];
 
@@ -189,10 +192,12 @@ public sealed class PluginManifest
 
     /// <summary>
     /// Gets the label of the account id field on the server form (the <c>serverAccountIdLabel</c> field, for example
-    /// <c>"Reseller ID"</c>) of a provisioning plugin whose panel needs an organisation, reseller or tenant id next to the
-    /// credentials. Setting it turns the field on: the host shows it for servers that use this plugin, with this label, and
-    /// passes the value as <see cref="Provisioning.PanelServerConnection.AccountId"/>. <see langword="null"/> when the
-    /// manifest sets none, which keeps the field off and <c>AccountId</c> null.
+    /// <c>"Reseller ID"</c>) of a provisioning plugin whose panel needs an organisation, reseller or tenant id next to
+    /// the credentials. Setting it turns the field on: the host shows it for servers that use this plugin, with this
+    /// label, and passes the value as <see cref="Provisioning.PanelServerConnection.AccountId"/>. It is a literal
+    /// shown as it is, or a text key defined in the manifest's locales, like the other labels of a manifest; it is 1 to
+    /// <see cref="MaxServerAccountIdLabelLength"/> characters with no control character. <see langword="null"/> when
+    /// the manifest sets none, which keeps the field off and <c>AccountId</c> null.
     /// </summary>
     public string? ServerAccountIdLabel { get; init; }
 

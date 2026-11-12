@@ -424,4 +424,42 @@ public sealed class PluginManifestCheckerTests
         Check("\"changelog\": \"" + new string('a', PluginManifest.MaxChangelogLength) + "\"").Should().BeNull();
         AssertBreaks("\"changelog\": \"" + new string('a', PluginManifest.MaxChangelogLength + 1) + "\"", PluginManifestRule.ChangelogTooLong);
     }
+
+    /// <summary>The account id label is read from plugin.json, and a manifest without it reads null and passes.</summary>
+    [Fact]
+    public void Validate_AccountIdLabel_IsReadFromTheJson()
+    {
+        var withLabel = ManifestJson.Read("\"serverAccountIdLabel\": \"Reseller ID\"");
+        var without = ManifestJson.Read();
+
+        withLabel.ServerAccountIdLabel.Should().Be("Reseller ID");
+        without.ServerAccountIdLabel.Should().BeNull();
+        PluginManifestChecker.Validate(withLabel, Options).Should().BeNull();
+        PluginManifestChecker.Validate(without, Options).Should().BeNull();
+    }
+
+    /// <summary>A label of one to the longest length passes; an empty, white space, longer or control one breaks it.</summary>
+    [Fact]
+    public void Validate_AccountIdLabel_LengthAndCharacters()
+    {
+        var longest = new string('a', PluginManifest.MaxServerAccountIdLabelLength);
+        var tooLong = new string('a', PluginManifest.MaxServerAccountIdLabelLength + 1);
+
+        Check("\"serverAccountIdLabel\": \"A\"").Should().BeNull();
+        Check("\"serverAccountIdLabel\": \"" + longest + "\"").Should().BeNull();
+        AssertBreaks("\"serverAccountIdLabel\": \"\"", PluginManifestRule.AccountIdLabelInvalid);
+        AssertBreaks("\"serverAccountIdLabel\": \"   \"", PluginManifestRule.AccountIdLabelInvalid);
+        AssertBreaks("\"serverAccountIdLabel\": \"" + tooLong + "\"", PluginManifestRule.AccountIdLabelInvalid);
+        AssertBreaks("\"serverAccountIdLabel\": \"Reseller\\u0007ID\"", PluginManifestRule.AccountIdLabelInvalid);
+    }
+
+    /// <summary>A label that is a text key must be defined in the English texts, like the other labels.</summary>
+    [Fact]
+    public void Validate_AccountIdLabel_TextKeyMustBeDefined()
+    {
+        const string key = "\"serverAccountIdLabel\": \"settings.accountId\"";
+
+        AssertBreaks(key, PluginManifestRule.LabelKeyMissing);
+        Check(key + ",\"locales\":{\"en\":{\"settings.accountId\":\"Reseller ID\"}}").Should().BeNull();
+    }
 }

@@ -38,7 +38,9 @@ public sealed record PanelServerConnection(
     string? ApiToken,
     string? AccountId = null)
 {
-    /// <summary>Prints the record without its secret members, so the generated <c>ToString</c> never reveals them.</summary>
+    /// <summary>
+    /// Prints the record without its secret members, so the generated <c>ToString</c> never reveals them.
+    /// </summary>
     /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
     /// <returns>Always <see langword="true"/>: members are written.</returns>
     private bool PrintMembers(StringBuilder builder)
@@ -49,10 +51,10 @@ public sealed record PanelServerConnection(
         builder.Append(", IpAddress = ").Append(IpAddress);
         builder.Append(", Port = ").Append(Port);
         builder.Append(", UseSsl = ").Append(UseSsl);
-        builder.Append(", Username = ").Append(Username);
+        builder.Append(", Username = ").Append(Username ?? "null");
         builder.Append(", AccessHash = ").Append(AccessHash is null ? "null" : SecretMask.Text);
         builder.Append(", ApiToken = ").Append(ApiToken is null ? "null" : SecretMask.Text);
-        builder.Append(", AccountId = ").Append(AccountId);
+        builder.Append(", AccountId = ").Append(AccountId ?? "null");
         return true;
     }
 }
