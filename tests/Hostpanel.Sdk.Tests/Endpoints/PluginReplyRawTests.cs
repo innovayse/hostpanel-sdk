@@ -56,7 +56,9 @@ public sealed class PluginReplyRawTests
     {
         var build = () => PluginReply.Raw(status, ReadOnlyMemory<byte>.Empty, "text/plain");
 
-        build.Should().Throw<ArgumentOutOfRangeException>();
+        build.Should().ThrowExactly<ArgumentOutOfRangeException>()
+            .WithParameterName("status")
+            .Where(ex => ex.Message.Contains("A raw reply needs a status from 200 to 599 other than 401 and 407; answer 403 to refuse a caller."));
     }
 
     /// <summary>A missing media type is refused.</summary>

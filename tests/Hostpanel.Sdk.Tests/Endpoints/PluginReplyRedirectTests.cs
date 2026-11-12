@@ -47,7 +47,9 @@ public sealed class PluginReplyRedirectTests
     {
         var build = () => PluginReply.Redirect("/done", status);
 
-        build.Should().Throw<ArgumentOutOfRangeException>();
+        build.Should().ThrowExactly<ArgumentOutOfRangeException>()
+            .WithParameterName("status")
+            .Where(ex => ex.Message.Contains("A redirect needs a status of 301, 302, 303, 307 or 308."));
     }
 
     /// <summary>A host relative path and an absolute https address are accepted.</summary>
