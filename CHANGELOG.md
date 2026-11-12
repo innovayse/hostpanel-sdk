@@ -5,6 +5,16 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0]
+
+### Added
+
+- `PaymentInstruction.CustomerRef` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#36): the gateway-side customer the saved method belongs to. The host fills it with the reference it got from `IStoredCredentialPlugin.EnsureCustomerAsync` whenever `SavePaymentMethod` is `true`, so a plugin can attach the stored method to that customer and a later stored charge for the same reference finds it. A plugin that does not save methods ignores it.
+
+### Compatibility
+
+- `CustomerRef` is a trailing optional record parameter, like the 3.5.0 members: callers and plugins recompile unchanged, and the existing constructor call sites keep their meaning. The record constructor and `Deconstruct` gain a parameter, so a plugin built against 3.6.0 binaries keeps working only when it is rebuilt against 3.7.0.
+
 ## [3.6.0]
 
 ### Added
