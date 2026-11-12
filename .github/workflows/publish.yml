@@ -52,8 +52,6 @@ jobs:
       # Lets the job ask GitHub for the identity token nuget.org trusts.
       id-token: write
     env:
-      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
-      DOTNET_NOLOGO: "1"
       NUGET_USER: ${{ vars.NUGET_USER }}
       NUGET_SOURCE: https://api.nuget.org/v3/index.json
       # The branch or tag name the CI run was for.
@@ -98,9 +96,7 @@ jobs:
           echo "Publishing $package from $SOURCE_REF."
           echo "package=$package" >> "$GITHUB_OUTPUT"
       - if: steps.feed.outputs.configured == 'true'
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
-        with:
-          dotnet-version: "9.0.x"
+        uses: ./.github/actions/setup-dotnet
       # Both packages are packed with the one version worked out above, so the pair moves together; the
       # packaging package depends on that version of the SDK package or a later one (a project reference packs as a minimum version).
       - name: Pack
@@ -111,7 +107,7 @@ jobs:
       - name: Get a short lived nuget.org key
         id: login
         if: steps.feed.outputs.configured == 'true'
-        uses: NuGet/login@v1
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
         with:
           user: ${{ vars.NUGET_USER }}
       # Each package is pushed on its own. The short lived key only covers package ids the trusted

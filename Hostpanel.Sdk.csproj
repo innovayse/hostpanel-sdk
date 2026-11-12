@@ -10,9 +10,10 @@
     <RootNamespace>Hostpanel.Sdk</RootNamespace>
     <AssemblyName>Hostpanel.Sdk</AssemblyName>
 
-    <!-- This project builds on its own (this repository) and as a git submodule inside the host's
-         backend, which manages package versions centrally. The SDK opts out of that and pins its
-         own versions below, so both builds restore the same packages. -->
+    <!-- This project builds on its own (this repository) and as a git submodule inside the host's backend, which manages
+         package versions centrally. It opts out and pins its own versions, so both builds restore the same packages. The
+         opt out is in the project file and not in Directory.Build.props: the host's Directory.Packages.props is imported
+         after that file and would win there. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
 
     <!-- Package identity. The version lives in Directory.Build.props, shared with Hostpanel.Sdk.Packaging. It is the contract: bump the minor for an added member,
@@ -20,19 +21,9 @@
          the feed does not have yet and skips one it does, so a change that keeps the version
          publishes nothing. -->
     <PackageId>Hostpanel.Sdk</PackageId>
-    <Authors>Hostpanel contributors</Authors>
-    <Copyright>Copyright (c) 2024-2026 the Hostpanel contributors</Copyright>
     <Description>Plugin contracts for hostpanel: provisioning (hosting panels and virtual servers), payment, registrar (domain operations), identity, fulfilment, hosted and app plugins. MIT licensed, so a plugin may be free or paid, open or closed source.</Description>
     <PackageTags>hostpanel;plugin;sdk;hosting;billing;payment;registrar;domains;provisioning;virtual-server</PackageTags>
 
-    <!-- MIT, unlike the AGPL-3.0 host: a plugin compiled against these contracts is its author's
-         to license, free or paid, open or closed. The expression is what NuGet shows; the LICENSE
-         file beside this project carries the full text and is packed too. SdkPackageTests in the
-         host's Architecture suite pins both. -->
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/innovayse/hostpanel-sdk</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/innovayse/hostpanel-sdk.git</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IsPackable>true</IsPackable>
   </PropertyGroup>
