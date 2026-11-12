@@ -377,6 +377,27 @@ In the plugin's own tests, run the `VirtualServerContract` checks against a stub
 `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
 promise that was broken.
 
+### Completing a payment from the return request
+
+Some gateways finish a payment with a value only the payer's browser has when it comes back. A plugin that needs it
+implements `IPaymentReturnPlugin` beside `IPaymentPlugin` and lists `paymentReturn` (`PluginCapabilities.PaymentReturn`)
+in `capabilities`; the host checks for the interface at run time, so a plugin without it is unchanged. The host calls
+`CompleteAsync(gatewayOrderId, returnParameters, ct)` with the query parameters of the return request (and the posted
+fields of a browser step) before it reads the status, and the plugin answers the status the payment is in. The host picks
+the names that reach the plugin and keeps within `PaymentReturnLimits` (at most 32 parameters, names up to 64 and values
+up to 2048 characters); it never passes credentials, cookies or headers. Names are compared ordinally, and when a name
+arrives more than once the first value wins. The set is read only and comes from the payer's browser, so treat it as
+untrusted input. `CompleteAsync` is idempotent: a payer who returns twice must not be charged twice.
+
+The plugin never serves a page. The browser gets the value from the gateway: from its hosted page, or from the
+gateway's own script on the page that `PaymentSession.RedirectUrl` names. It then comes back to the host's return
+address with the value in the query, and the host passes it on.
+
+- **A nonce style gateway** (the browser obtains a payment method nonce from the gateway): `CompleteAsync` reads the nonce
+  parameter, charges the order at the gateway with it once, and answers `Paid` or `Declined`.
+- **A payer id style gateway** (the return address carries the payer id and a token): `CompleteAsync` reads both, asks
+  the gateway to execute the approved payment, and answers its status. A return without them answers `Pending`.
+
 ### Choosing the session kind
 
 `CreatePaymentAsync` answers a `PaymentSession`. Most gateways send the payer to a hosted page with a plain GET:
@@ -478,7 +499,8 @@ quantity, the product's tax category and whether it is a digital service). The r
   100, amounts are never negative, and every jurisdiction names an ISO 3166-1 alpha-2 country.
 - **Outcomes, not exceptions.** A refusal and an unavailable service are answers, and the plugin does not throw for them;
   when nothing can be said, answer `Unavailable`. A request keeps within `TaxLimits` (at most 500 lines, line ids and
-  tax numbers up to 64 characters, a three letter currency).
+  tax numbers up to 64 characters, address fields up to 128, a three letter upper case currency and a two letter upper
+  case country).
 - **No personal data in a result.** Tax numbers and address details print as `***` on the request; do not undo that in
   your own logs, and never put the service's own text, an address or a tax number in a result.
 

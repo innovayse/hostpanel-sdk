@@ -40,8 +40,8 @@ public static class TaxContract
     /// <paramref name="plugin"/> or <paramref name="request"/> is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
-    /// The request has no currency, a line without an id, with a negative amount or with a quantity below 1, or two
-    /// lines with one id.
+    /// The request has no valid currency or country, an address field or a tax number that is too long, a line without
+    /// an id, with a negative amount or with a quantity below 1, or two lines with one id.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="tolerance"/> is negative.</exception>
     /// <exception cref="PluginContractViolationException">
@@ -407,7 +407,9 @@ public static class TaxContract
     /// The request, one of its parties or its lines is <see langword="null"/>.
     /// </exception>
     /// <exception cref="ArgumentException">
-    /// The currency is empty, a line has no id, a negative amount or a quantity below 1, or two lines share an id.
+    /// The currency is not three upper case letters, a country is not an upper case two letter code, a limit of
+    /// <see cref="TaxLimits"/> is passed, a line has no id, a negative amount or a quantity below 1, or two lines share
+    /// an id.
     /// </exception>
     private static void ValidateRequest(TaxCalculationRequest request)
     {
