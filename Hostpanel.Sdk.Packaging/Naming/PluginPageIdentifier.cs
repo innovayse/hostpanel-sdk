@@ -14,12 +14,8 @@ public static partial class PluginPageIdentifier
     /// <summary>The longest page id accepted, in characters; the same bound as a plugin id.</summary>
     public const int MaxLength = PluginIdentifier.MaxLength;
 
-    /// <summary>
-    /// The accepted shape: a lowercase letter or digit, then lowercase letters, digits, hyphens and underscores.
-    /// Anchored with <c>\A</c> and <c>\z</c>, never <c>^</c> and <c>$</c>, because <c>$</c> also matches before a
-    /// trailing newline.
-    /// </summary>
-    public const string Pattern = @"\A[a-z0-9][a-z0-9_-]*\z";
+    /// <summary>The accepted shape, the one every literal segment of an address has: see <see cref="PluginSegment.Pattern"/>.</summary>
+    public const string Pattern = PluginSegment.Pattern;
 
     /// <summary>
     /// The page ids no plugin may declare, because the host uses them as a literal segment beside the page id:

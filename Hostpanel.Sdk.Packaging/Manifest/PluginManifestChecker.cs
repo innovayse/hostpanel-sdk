@@ -42,9 +42,9 @@ public static partial class PluginManifestChecker
     [GeneratedRegex(@"\A[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex TextKeyPattern();
 
-    /// <summary>Matches a slot widget id: the same safe shape as a page id and a literal route segment, because the id is a key in a setting and a URL-safe reference.</summary>
+    /// <summary>Matches a slot widget id: the shape <see cref="PluginSegment.Pattern"/> gives every literal segment (a page id, a route part), because the id is a key in a setting and a URL-safe reference.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(PluginPageIdentifier.Pattern, RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
+    [GeneratedRegex(PluginSegment.Pattern, RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex WidgetIdPattern();
 
     /// <summary>
@@ -473,7 +473,7 @@ public static partial class PluginManifestChecker
             if (entry.Id is null || !WidgetIdPattern().IsMatch(entry.Id))
             {
                 return new PluginManifestViolation(
-                    PluginManifestRule.SlotWidgetIdInvalid, $"{where}: the widget id is not lowercase letters, digits, hyphens and underscores");
+                    PluginManifestRule.SlotWidgetIdInvalid, $"{where}: a widget id starts with a lowercase letter or digit and holds only lowercase letters, digits, hyphens and underscores");
             }
 
             if (!seen.Add((entry.Slot, entry.Id)))

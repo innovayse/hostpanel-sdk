@@ -83,25 +83,42 @@ public sealed class PluginRoutePathTests
     }
 
     /// <summary>
-    /// A literal route segment and a page id have one shape, because a page id is a segment of its address: whatever one
-    /// accepts the other accepts, so the rule cannot drift between them.
+    /// A literal route segment starts with a lowercase letter or digit and holds lowercase letters, digits, hyphens and
+    /// underscores; anything else, an empty segment and a trailing line feed included, is refused.
     /// </summary>
     /// <param name="segment">The candidate.</param>
+    /// <param name="accepted">Whether a path with this segment is accepted.</param>
     [Theory]
-    [InlineData("orders")]
-    [InlineData("a-b_c0")]
-    [InlineData("0lines")]
-    [InlineData("_orders")]
-    [InlineData("-orders")]
-    [InlineData("Orders")]
-    [InlineData("or ders")]
-    [InlineData("orders\n")]
-    [InlineData("")]
-    public void LiteralSegment_HasTheShapeOfAPageId(string segment)
+    [InlineData("orders", true)]
+    [InlineData("a-b_c0", true)]
+    [InlineData("0lines", true)]
+    [InlineData("_orders", false)]
+    [InlineData("-orders", false)]
+    [InlineData("Orders", false)]
+    [InlineData("or ders", false)]
+    [InlineData("orders\n", false)]
+    [InlineData("", false)]
+    public void LiteralSegment_FollowsTheShape(string segment, bool accepted)
     {
-        var routeAccepts = !string.IsNullOrEmpty(segment) && PluginRoutePath.TryNormalize("/" + segment, out _);
+        PluginRoutePath.TryNormalize("/" + segment, out _).Should().Be(accepted);
+    }
 
-        routeAccepts.Should().Be(PluginPageIdentifier.IsValid(segment));
+    /// <summary>A page id has the same shape as a literal segment, and the same cases give the same answers.</summary>
+    /// <param name="segment">The candidate.</param>
+    /// <param name="accepted">Whether it is a valid page id.</param>
+    [Theory]
+    [InlineData("orders", true)]
+    [InlineData("a-b_c0", true)]
+    [InlineData("0lines", true)]
+    [InlineData("_orders", false)]
+    [InlineData("-orders", false)]
+    [InlineData("Orders", false)]
+    [InlineData("or ders", false)]
+    [InlineData("orders\n", false)]
+    [InlineData("", false)]
+    public void PageId_FollowsTheSameShape(string segment, bool accepted)
+    {
+        PluginPageIdentifier.IsValid(segment).Should().Be(accepted);
     }
 
     /// <summary>A refused path leaves the template empty, so a caller that reads it anyway gets nothing.</summary>

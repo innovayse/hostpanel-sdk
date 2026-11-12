@@ -5,8 +5,8 @@ namespace Hostpanel.Sdk.Packaging.Signing;
 /// <summary>The shape of a signing key id, shared by a host's trusted key configuration, the signature file and the signing tool.</summary>
 public static partial class TrustedKeyId
 {
-    /// <summary>The longest key id, in characters; checked in <see cref="IsValid"/> beside <see cref="Pattern"/>, which holds the shape only.</summary>
-    private const int MaxLength = 64;
+    /// <summary>The longest key id, in characters, as for <see cref="Naming.PluginIdentifier.MaxLength"/>; checked in <see cref="IsValid"/> beside <see cref="Pattern"/>, which holds the shape only.</summary>
+    public const int MaxLength = 64;
 
     /// <summary>
     /// Lower-case letters, digits, dot, hyphen and underscore, starting with a letter or digit (the length is checked in <see cref="IsValid"/>).
