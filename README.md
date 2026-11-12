@@ -167,6 +167,26 @@ plugin that grants credits on a paid invoice can also give the client a screen, 
 `ClientRef`. Without the capability a plugin that is not an app plugin has its `api` and `ui` blocks refused, and a
 declared capability whose class does not implement `IPluginEndpoints` is refused when the plugin is activated.
 
+### Calling a gateway or a panel
+
+The three steps every plugin that talks to a gateway or a panel repeats are in `PluginHttp` (`Hostpanel.Sdk.Plugins.Http`),
+so a mistake does not depend on the author. Send on the client the host's transport gave you, check where the answer came
+from, and read the body with a limit:
+
+```csharp
+using var response = await PluginHttp.SendAsync(client, request, ct);
+PluginHttp.EnsureFinalHost(response, "api.gateway.example");
+var body = await PluginHttp.ReadBoundedAsync(response, 64 * 1024, ct);
+```
+
+- `SendAsync` wraps a timeout, a refused or dropped connection and a TLS error in one `PluginHttpException`
+  (`PluginHttpFault.Transport`) with a fixed message and no inner exception: the inner message can contain the address you
+  called and its query string. Turn the fault into an outcome, or let it propagate when the result is unknown.
+- `EnsureFinalHost` throws `PluginHttpFault.UnexpectedHost` when the response came from another host than you built the
+  request for.
+- `ReadBoundedAsync` refuses a declared `Content-Length` over the limit before it reads, and stops reading at the limit
+  when there is none (`PluginHttpFault.TooLarge`).
+
 ### Callbacks
 
 A plugin can receive requests from outside the panels, for example a gateway telling it a payment changed. Declare
