@@ -440,7 +440,6 @@ public static class TaxContract
             }
         }
     }
-}
 
     /// <summary>
     /// Makes the repeated calls and asserts that every one is a calculation that answers the first one's lines.
@@ -476,4 +475,4 @@ public static class TaxContract
 
         return first;
     }
-
+}
