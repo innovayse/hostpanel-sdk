@@ -258,8 +258,11 @@ its own handler to accept a certificate. Ask for the client of the server you ar
 accepts the certificate of that one host name and port and of nothing else, and keeps every other rule of the transport
 (address guard, timeouts, no retry). A host that does not know the setting returns the plain client, because the default
 body of the method calls `CreateClient()`, so the call works against any host. In the plugin's own tests, start a
-`SelfSignedListener` and run `PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync` and
-`AssertSelfSignedIsAcceptedForTheServerOnlyAsync` against the transport you test with.
+`SelfSignedListener`, describe it as a `PanelServerConnection` (its `HostName` and `Port`), and run
+`PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync` and `AssertSelfSignedIsAcceptedForTheServerOnlyAsync`
+against the transport you test with. The second check also proves that the allowance stops at the server's own host
+name and port. The host's address guard may refuse a loopback address, so the listener is for the tests of a plugin,
+with a transport double, and not for a transport behind that guard.
 
 ### Registrar plugins
 

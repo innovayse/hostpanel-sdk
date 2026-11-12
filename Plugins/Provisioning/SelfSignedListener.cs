@@ -18,6 +18,12 @@ public sealed class SelfSignedListener : IAsyncDisposable
     /// <summary>The name the certificate is issued to, and the host name a test connects to.</summary>
     public const string HostName = "localhost";
 
+    /// <summary>The loopback address the listener answers on, a second name for the same endpoint.</summary>
+    public const string LoopbackAddress = "127.0.0.1";
+
+    /// <summary>The most bytes of request headers the listener reads before it gives up on a connection.</summary>
+    private const int MaxHeaderBytes = 16 * 1024;
+
     /// <summary>The certificate the listener presents.</summary>
     private readonly X509Certificate2 _certificate;
 
@@ -126,6 +132,10 @@ public sealed class SelfSignedListener : IAsyncDisposable
                     }
 
                     seen.Append(Encoding.ASCII.GetString(buffer, 0, read));
+                    if (seen.Length > MaxHeaderBytes)
+                    {
+                        return;
+                    }
                 }
 
                 var response = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok"u8.ToArray();

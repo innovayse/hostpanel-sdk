@@ -30,10 +30,9 @@ public sealed class PanelTransportSelfSignedTests
         await using var listener = SelfSignedListener.Start();
         var transport = new SelfSignedTransport(AllowedId);
 
-        await PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync(
-            transport, listener, Server(1, listener.Port));
+        await PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync(transport, Server(1, listener.Port));
         await PanelTransportContract.AssertSelfSignedIsAcceptedForTheServerOnlyAsync(
-            transport, listener, Server(AllowedId, listener.Port));
+            transport, Server(AllowedId, listener.Port));
     }
 
     /// <summary>A transport that trusts every request is rejected by the refusal check.</summary>
@@ -44,7 +43,7 @@ public sealed class PanelTransportSelfSignedTests
         var transport = new SelfSignedTransport(AllowedId) { TrustEveryRequest = true };
 
         var run = () => PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync(
-            transport, listener, Server(1, listener.Port));
+            transport, Server(1, listener.Port));
 
         var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
         message.Should().Contain("never be on for every request");
@@ -58,10 +57,55 @@ public sealed class PanelTransportSelfSignedTests
         var transport = new SelfSignedTransport();
 
         var run = () => PanelTransportContract.AssertSelfSignedIsAcceptedForTheServerOnlyAsync(
-            transport, listener, Server(AllowedId, listener.Port));
+            transport, Server(AllowedId, listener.Port));
 
         var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
         message.Should().Contain("refused the self signed certificate");
+    }
+
+    /// <summary>A transport that trusts the server on every port is rejected.</summary>
+    [Fact]
+    public async Task Contract_TrustForEveryPort_Throws()
+    {
+        await using var listener = SelfSignedListener.Start();
+        var transport = new SelfSignedTransport(AllowedId) { TrustAnyPort = true };
+
+        var run = () => PanelTransportContract.AssertSelfSignedIsAcceptedForTheServerOnlyAsync(
+            transport, Server(AllowedId, listener.Port));
+
+        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        message.Should().Contain("another port");
+    }
+
+    /// <summary>A transport that trusts the server under every name is rejected.</summary>
+    [Fact]
+    public async Task Contract_TrustForEveryName_Throws()
+    {
+        await using var listener = SelfSignedListener.Start();
+        var transport = new SelfSignedTransport(AllowedId) { TrustAnyName = true };
+
+        var run = () => PanelTransportContract.AssertSelfSignedIsAcceptedForTheServerOnlyAsync(
+            transport, Server(AllowedId, listener.Port));
+
+        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        message.Should().Contain("another host name");
+    }
+
+    /// <summary>A failure that is not a refusal of the certificate is reported as a broken check, not as trust.</summary>
+    [Fact]
+    public async Task Contract_ListenerNotReachable_Throws()
+    {
+        int closedPort;
+        await using (var listener = SelfSignedListener.Start())
+        {
+            closedPort = listener.Port;
+        }
+
+        var run = () => PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync(
+            new SelfSignedTransport(), Server(1, closedPort));
+
+        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        message.Should().Contain("other than the certificate");
     }
 
     /// <summary>The checks refuse a missing argument when they are called.</summary>
@@ -71,12 +115,16 @@ public sealed class PanelTransportSelfSignedTests
         await using var listener = SelfSignedListener.Start();
 
         var noTransport = () => PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync(
-            null!, listener, Server(1, listener.Port));
-        var noListener = () => PanelTransportContract.AssertSelfSignedIsAcceptedForTheServerOnlyAsync(
-            new SelfSignedTransport(), null!, Server(1, 1));
+            null!, Server(1, listener.Port));
+        var noServer = () => PanelTransportContract.AssertSelfSignedIsAcceptedForTheServerOnlyAsync(
+            new SelfSignedTransport(), null!);
+        var noPort = () => PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync(
+            new SelfSignedTransport(),
+            new PanelServerConnection(1, "local", SelfSignedListener.HostName, null, null, true, null, null, null));
 
         await noTransport.Should().ThrowAsync<ArgumentNullException>();
-        await noListener.Should().ThrowAsync<ArgumentNullException>();
+        await noServer.Should().ThrowAsync<ArgumentNullException>();
+        await noPort.Should().ThrowAsync<ArgumentException>();
     }
 
     /// <summary>Builds a server on the listener's host name.</summary>

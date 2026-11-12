@@ -23,6 +23,12 @@ internal sealed class SelfSignedTransport : IPanelTransport
     /// <summary>Gets a value indicating whether every client trusts every certificate, which the contract forbids.</summary>
     public bool TrustEveryRequest { get; init; }
 
+    /// <summary>Gets a value indicating whether a trusted server is trusted on every port, which the contract forbids.</summary>
+    public bool TrustAnyPort { get; init; }
+
+    /// <summary>Gets a value indicating whether a trusted server is trusted under every name, which the contract forbids.</summary>
+    public bool TrustAnyName { get; init; }
+
     /// <inheritdoc />
     public HttpClient CreateClient()
     {
@@ -34,7 +40,7 @@ internal sealed class SelfSignedTransport : IPanelTransport
     {
         // Trust one host name and port only: the certificate of any other address is still refused.
         return _allowed.Contains(server.ServerId)
-            ? Trusting(uri => uri.Host == server.Hostname && uri.Port == server.Port)
+            ? Trusting(uri => (TrustAnyName || uri.Host == server.Hostname) && (TrustAnyPort || uri.Port == server.Port))
             : CreateClient();
     }
 
