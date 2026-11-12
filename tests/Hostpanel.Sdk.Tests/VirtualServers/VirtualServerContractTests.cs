@@ -4,6 +4,7 @@ using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Plugins.VirtualServers;
 using Hostpanel.Sdk.Tests.Fakes;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.VirtualServers;
 
@@ -34,7 +35,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertCreateIsIdempotentAsync(plugin, VirtualServerFixtures.Create);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("call 2");
+        await AssertViolationAsync(run, "call 2");
     }
 
     /// <summary>A plugin that answers another reference on a repeat is rejected.</summary>
@@ -50,7 +51,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertCreateIsIdempotentAsync(plugin, VirtualServerFixtures.Create);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("reference");
+        await AssertViolationAsync(run, "reference");
     }
 
     /// <summary>A refusal while the caller arranged a create the platform accepts is reported, not passed.</summary>
@@ -64,7 +65,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertCreateIsIdempotentAsync(plugin, VirtualServerFixtures.Create);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("Refused");
+        await AssertViolationAsync(run, "Refused");
     }
 
     /// <summary>A plugin that throws on the repeat is rejected, with the exception type and not its text.</summary>
@@ -80,7 +81,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertCreateIsIdempotentAsync(plugin, VirtualServerFixtures.Create);
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("InvalidOperationException").And.NotContain("cloud.example.test");
     }
 
@@ -128,7 +129,7 @@ public sealed class VirtualServerContractTests
 
         foreach (var (method, run) in runs)
         {
-            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("call 2");
+            await AssertViolationAsync(run, method, "call 2");
         }
     }
 
@@ -177,7 +178,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertUnknownServerIsNotFoundAsync(plugin, PanelFixtures.Account, new PanelPackage("small"), "img-1");
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("StartServerAsync").And.Contain("unknown server");
+        await AssertViolationAsync(run, "StartServerAsync", "unknown server");
     }
 
     /// <summary>A plugin that answers a success for the termination of a server it does not hold is rejected: only already applied fits.</summary>
@@ -188,7 +189,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertUnknownServerIsNotFoundAsync(plugin, PanelFixtures.Account, new PanelPackage("small"), "img-1");
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("TerminateServerAsync").And.Contain("AlreadyApplied");
+        await AssertViolationAsync(run, "TerminateServerAsync", "AlreadyApplied");
     }
 
     /// <summary>A start of a suspended server is refused with access denied, and a plugin that starts it anyway is rejected.</summary>
@@ -203,8 +204,8 @@ public sealed class VirtualServerContractTests
         var startsRun = () => VirtualServerContract.AssertSuspendedServerIsNotStartedAsync(starts, PanelFixtures.Account);
         var otherRun = () => VirtualServerContract.AssertSuspendedServerIsNotStartedAsync(other, PanelFixtures.Account);
 
-        (await startsRun.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("StartServerAsync").And.Contain("Succeeded").And.Contain("AccessDenied");
-        (await otherRun.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("StartServerAsync").And.Contain("Refused").And.Contain("AccessDenied");
+        await AssertViolationAsync(startsRun, "StartServerAsync", "Succeeded", "AccessDenied");
+        await AssertViolationAsync(otherRun, "StartServerAsync", "Refused", "AccessDenied");
     }
 
     /// <summary>The reads of a held server answer values, the usage and the console may be not supported, and a success without a value is rejected.</summary>
@@ -226,7 +227,7 @@ public sealed class VirtualServerContractTests
         await VirtualServerContract.AssertReadsAnswerValuesAsync(notSupported, PanelFixtures.Account);
         var run = () => VirtualServerContract.AssertReadsAnswerValuesAsync(empty, PanelFixtures.Account);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("CreateConsoleSessionAsync").And.Contain("without a value");
+        await AssertViolationAsync(run, "CreateConsoleSessionAsync", "without a value");
     }
 
     /// <summary>The server listing follows the cursors to the end, and a duplicate or a cursor that does not move is rejected.</summary>
@@ -245,8 +246,8 @@ public sealed class VirtualServerContractTests
         var stuckRun = () => VirtualServerContract.AssertListServersIsCompleteAsync(stuck, PanelFixtures.Server);
 
         servers.Select(server => server.ProvisioningRef).Should().Equal("a", "b", "c");
-        (await twiceRun.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("ListServersAsync").And.Contain("twice");
-        (await stuckRun.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("cursor");
+        await AssertViolationAsync(twiceRun, "ListServersAsync", "twice");
+        await AssertViolationAsync(stuckRun, "cursor");
     }
 
     /// <summary>A plugin that issues a console address for a server it does not hold is rejected.</summary>
@@ -261,7 +262,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertUnknownServerIsNotFoundAsync(plugin, PanelFixtures.Account, new PanelPackage("small"), "img-1");
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("CreateConsoleSessionAsync");
+        await AssertViolationAsync(run, "CreateConsoleSessionAsync");
     }
 
     /// <summary>Two well formed catalogues pass, and both lists are read once.</summary>
@@ -302,7 +303,7 @@ public sealed class VirtualServerContractTests
 
         foreach (var (method, text, run) in runs)
         {
-            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain(text);
+            await AssertViolationAsync(run, method, text);
         }
     }
 
@@ -329,7 +330,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertCatalogIsWellFormedAsync(plugin, VirtualServerFixtures.Catalog);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("ListPlansAsync").And.Contain("Refused");
+        await AssertViolationAsync(run, "ListPlansAsync", "Refused");
     }
 
     /// <summary>A catalogue that succeeds without a list is rejected: an empty catalogue is an empty list.</summary>
@@ -343,7 +344,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertCatalogIsWellFormedAsync(plugin, VirtualServerFixtures.Catalog);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("ListImagesAsync").And.Contain("without a value");
+        await AssertViolationAsync(run, "ListImagesAsync", "without a value");
     }
 
     /// <summary>A connection test passes whatever outcome the plugin answers, as long as the result is well formed.</summary>
@@ -368,7 +369,7 @@ public sealed class VirtualServerContractTests
 
         var run = () => VirtualServerContract.AssertTestConnectionAnswersAsync(plugin, new PanelTestConnectionContext(PanelFixtures.Server));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("HttpRequestException").And.NotContain("cloud.example.test");
     }
 
@@ -381,7 +382,7 @@ public sealed class VirtualServerContractTests
         VirtualServerContract.AssertHidesSecrets(VirtualServerFixtures.Create, VirtualServerFixtures.RootPassword, PanelFixtures.ApiToken, null, string.Empty);
         var run = () => VirtualServerContract.AssertHidesSecrets(leaking, VirtualServerFixtures.RootPassword);
 
-        run.Should().Throw<PluginContractViolationException>().Which.Message.Should().NotContain(VirtualServerFixtures.RootPassword);
+        ViolationMessage(run).Should().NotContain(VirtualServerFixtures.RootPassword);
     }
 
     /// <summary>The helpers refuse a missing plugin or context with an argument error rather than a null reference.</summary>
@@ -417,7 +418,7 @@ public sealed class VirtualServerContractTests
         {
             var run = () => VirtualServerContract.AssertUnknownServerIsNotFoundAsync(plugin, PanelFixtures.Account, new PanelPackage("small"), "img-1");
 
-            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("unknown server");
+            await AssertViolationAsync(run, method, "unknown server");
         }
     }
 

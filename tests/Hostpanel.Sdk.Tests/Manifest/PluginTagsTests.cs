@@ -1,5 +1,6 @@
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
+using Hostpanel.Sdk.Tests.Support;
 
 namespace Hostpanel.Sdk.Tests.Manifest;
 
@@ -45,27 +46,7 @@ public sealed class PluginTagsTests
     [Fact]
     public void Manifest_Tags_DefaultsToEmpty()
     {
-        Build(null).Tags.Should().BeEmpty();
-        Build(["backup"]).Tags.Should().Equal("backup");
-    }
-
-    /// <summary>Builds a manifest with the required members and the given tags.</summary>
-    /// <param name="tags">The tags; <see langword="null"/> leaves the default.</param>
-    /// <returns>The manifest.</returns>
-    private static PluginManifest Build(string[]? tags)
-    {
-        return new PluginManifest
-        {
-            Id = "demo",
-            Name = "Demo",
-            Version = "1.0.0",
-            Author = "A",
-            Description = "D",
-            Type = PluginType.App,
-            Category = "Tools",
-            EntryPoint = "Demo.Plugin",
-            SdkVersion = "3.3.0",
-            Tags = tags!,
-        };
+        PluginManifestFixtures.Minimal(tags: null).Tags.Should().BeEmpty();
+        PluginManifestFixtures.Minimal(tags: ["backup"]).Tags.Should().Equal("backup");
     }
 }

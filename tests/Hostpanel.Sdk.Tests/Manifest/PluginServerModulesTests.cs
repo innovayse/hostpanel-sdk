@@ -1,5 +1,6 @@
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
+using Hostpanel.Sdk.Tests.Support;
 
 namespace Hostpanel.Sdk.Tests.Manifest;
 
@@ -71,30 +72,10 @@ public sealed class PluginServerModulesTests
     [Fact]
     public void Manifest_ServerModules_DefaultsToEmpty()
     {
-        var plain = Build(null);
-        var listed = Build(["panel"]);
+        var plain = PluginManifestFixtures.Minimal(serverModules: null);
+        var listed = PluginManifestFixtures.Minimal(serverModules: ["panel"]);
 
         plain.ServerModules.Should().BeEmpty();
         listed.ServerModules.Should().Equal("panel");
-    }
-
-    /// <summary>Builds a minimal provisioning manifest.</summary>
-    /// <param name="serverModules">The <c>serverModules</c> list, or <see langword="null"/> to leave it unset.</param>
-    /// <returns>The manifest.</returns>
-    private static PluginManifest Build(string[]? serverModules)
-    {
-        return new PluginManifest
-        {
-            Id = "demo",
-            Name = "Demo",
-            Version = "1.0.0",
-            Author = "A",
-            Description = "D",
-            Type = PluginType.Provisioning,
-            Category = "Hosting",
-            EntryPoint = "Demo.Plugin",
-            SdkVersion = "3.1.0",
-            ServerModules = serverModules!,
-        };
     }
 }

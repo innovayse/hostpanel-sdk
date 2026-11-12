@@ -7,9 +7,6 @@ namespace Hostpanel.Sdk.Packaging.Tests.Signing;
 /// <summary>Tests of <see cref="PluginSigner"/> and <see cref="PluginSignatureValidator"/>: what is signed verifies, anything else does not.</summary>
 public sealed class PluginSignerTests
 {
-    /// <summary>The key id used by most tests.</summary>
-    private const string KeyId = "demo-key";
-
     /// <summary>Makes the trusted-key map a validator is given.</summary>
     /// <param name="keyId">The key id.</param>
     /// <param name="publicKey">The raw public key.</param>
@@ -61,9 +58,9 @@ public sealed class PluginSignerTests
         GoldenPackage.Write(folder);
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
 
-        var file = PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        var file = PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
-        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey)).Should().BeNull();
+        PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey)).Should().BeNull();
         PluginSignatureFile.Parse(File.ReadAllText(Path.Combine(folder.Path, PluginSignatureFile.FileName)))
             .Should().BeEquivalentTo(file);
     }
@@ -75,12 +72,12 @@ public sealed class PluginSignerTests
         using var folder = new TempFolder();
         GoldenPackage.Write(folder);
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
         folder.Write("lib/Demo.dll", "changed");
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
-        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey)).Should().BeNull();
+        PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey)).Should().BeNull();
     }
 
     /// <summary>A file changed after signing makes the signature invalid.</summary>
@@ -90,11 +87,11 @@ public sealed class PluginSignerTests
         using var folder = new TempFolder();
         GoldenPackage.Write(folder);
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
         folder.Write("lib/Demo.dll", "tampered");
 
-        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey))!.Rule.Should().Be(PluginSignatureRule.Invalid);
+        PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey))!.Rule.Should().Be(PluginSignatureRule.Invalid);
     }
 
     /// <summary>A file added after signing makes the signature invalid.</summary>
@@ -104,11 +101,11 @@ public sealed class PluginSignerTests
         using var folder = new TempFolder();
         GoldenPackage.Write(folder);
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
         folder.Write("extra/payload.dll", "x");
 
-        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey))!.Rule.Should().Be(PluginSignatureRule.Invalid);
+        PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey))!.Rule.Should().Be(PluginSignatureRule.Invalid);
     }
 
     /// <summary>A file removed after signing makes the signature invalid.</summary>
@@ -118,11 +115,11 @@ public sealed class PluginSignerTests
         using var folder = new TempFolder();
         GoldenPackage.Write(folder);
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
         File.Delete(Path.Combine(folder.Path, "Zed.txt"));
 
-        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey))!.Rule.Should().Be(PluginSignatureRule.Invalid);
+        PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey))!.Rule.Should().Be(PluginSignatureRule.Invalid);
     }
 
     /// <summary>A package signed by a key the validator was not told about is an unknown key, not an invalid signature.</summary>
@@ -133,7 +130,7 @@ public sealed class PluginSignerTests
         GoldenPackage.Write(folder);
         var (privateKey, _) = PluginSigner.GenerateKeyPair();
         var (_, otherPublicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
         PluginSignatureValidator.Verify(folder.Path, Trust("another-key", otherPublicKey))!.Rule.Should().Be(PluginSignatureRule.UnknownKey);
     }
@@ -145,7 +142,7 @@ public sealed class PluginSignerTests
         using var folder = new TempFolder();
         GoldenPackage.Write(folder);
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        var file = PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        var file = PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
         File.WriteAllText(
             Path.Combine(folder.Path, PluginSignatureFile.FileName), new PluginSignatureFile("renamed-key", file.Signature).ToJson());
@@ -222,9 +219,9 @@ public sealed class PluginSignerTests
         using var folder = new TempFolder();
         GoldenPackage.Write(folder);
         var (privateKey, _) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
-        var violation = PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, new byte[length]));
+        var violation = PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, new byte[length]));
 
         violation!.Rule.Should().Be(PluginSignatureRule.UnknownKey);
     }
@@ -237,7 +234,7 @@ public sealed class PluginSignerTests
         using var outside = new TempFolder();
         GoldenPackage.Write(folder);
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
         var real = Path.Combine(outside.Path, "real.sig");
         File.Move(Path.Combine(folder.Path, PluginSignatureFile.FileName), real);
         if (!SymbolicLinks.TryCreateFileLink(Path.Combine(folder.Path, PluginSignatureFile.FileName), real))
@@ -246,7 +243,7 @@ public sealed class PluginSignerTests
             return;
         }
 
-        var violation = PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey));
+        var violation = PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey));
 
         violation!.Rule.Should().Be(PluginSignatureRule.Malformed);
     }
@@ -259,7 +256,7 @@ public sealed class PluginSignerTests
         using var outside = new TempFolder();
         GoldenPackage.Write(folder);
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
         var secret = outside.Write("secret.txt", "outside the package");
         if (!SymbolicLinks.TryCreateFileLink(Path.Combine(folder.Path, "lib", "link.txt"), secret))
         {
@@ -267,7 +264,7 @@ public sealed class PluginSignerTests
             return;
         }
 
-        var violation = PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey));
+        var violation = PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey));
 
         violation!.Rule.Should().Be(PluginSignatureRule.Malformed);
     }
@@ -287,7 +284,7 @@ public sealed class PluginSignerTests
         }
         var (privateKey, _) = PluginSigner.GenerateKeyPair();
 
-        var act = () => PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        var act = () => PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
         act.Should().Throw<InvalidDataException>();
     }
@@ -299,7 +296,7 @@ public sealed class PluginSignerTests
         using var folder = new TempFolder();
         GoldenPackage.Write(folder);
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
         var before = File.ReadAllText(Path.Combine(folder.Path, PluginSignatureFile.FileName));
 
         var act = () => PluginSigner.Sign(folder.Path, "Not A Valid Key", privateKey);
@@ -307,7 +304,7 @@ public sealed class PluginSignerTests
         act.Should().Throw<InvalidDataException>();
         File.ReadAllText(Path.Combine(folder.Path, PluginSignatureFile.FileName)).Should().Be(before);
         Directory.GetFiles(folder.Path, "*.tmp", SearchOption.AllDirectories).Should().BeEmpty();
-        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey)).Should().BeNull();
+        PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey)).Should().BeNull();
     }
 
     /// <summary>A temporary file left by an earlier run that died is removed first, so it is not listed in the signed payload.</summary>
@@ -319,10 +316,10 @@ public sealed class PluginSignerTests
         var leftover = folder.Write(PluginSignatureFile.FileName + ".tmp", "half written");
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
 
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
         File.Exists(leftover).Should().BeFalse();
-        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey)).Should().BeNull();
+        PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey)).Should().BeNull();
     }
 
     /// <summary>A call that is refused for its arguments leaves a file named like the temporary one untouched.</summary>
@@ -351,7 +348,7 @@ public sealed class PluginSignerTests
         GoldenPackage.Write(folder);
         var temporary = folder.Write("plugin.sig.tmp", "keep");
 
-        var act = () => PluginSigner.Sign(folder.Path, KeyId, new byte[16]);
+        var act = () => PluginSigner.Sign(folder.Path, DemoKey.Id, new byte[16]);
 
         act.Should().Throw<ArgumentException>();
         File.Exists(temporary).Should().BeTrue();
@@ -364,8 +361,8 @@ public sealed class PluginSignerTests
         using var folder = new TempFolder();
         var (privateKey, _) = PluginSigner.GenerateKeyPair();
 
-        var empty = () => PluginSigner.Sign(string.Empty, KeyId, privateKey);
-        var missing = () => PluginSigner.Sign(Path.Combine(folder.Path, "nope"), KeyId, privateKey);
+        var empty = () => PluginSigner.Sign(string.Empty, DemoKey.Id, privateKey);
+        var missing = () => PluginSigner.Sign(Path.Combine(folder.Path, "nope"), DemoKey.Id, privateKey);
 
         empty.Should().Throw<ArgumentException>();
         missing.Should().Throw<DirectoryNotFoundException>();
@@ -380,9 +377,9 @@ public sealed class PluginSignerTests
         var temporary = folder.Write("plugin.sig.tmp", "stale");
         var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
 
-        PluginSigner.Sign(folder.Path, KeyId, privateKey);
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
 
         File.Exists(temporary).Should().BeFalse();
-        PluginSignatureValidator.Verify(folder.Path, Trust(KeyId, publicKey)).Should().BeNull();
+        PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey)).Should().BeNull();
     }
 }

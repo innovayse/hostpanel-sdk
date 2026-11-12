@@ -1,5 +1,6 @@
 using Hostpanel.Sdk.Plugins.Http;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Http;
 
@@ -23,7 +24,7 @@ public sealed class PluginHttpContractTests
         var run = () => PluginHttpContract.AssertRedirectIsNotFollowedAsync(
             () => new HttpClient(new HttpClientHandler { AllowAutoRedirect = true }));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("followed the redirect");
     }
 
@@ -37,7 +38,7 @@ public sealed class PluginHttpContractTests
         var run = () => PluginHttpContract.AssertRedirectIsNotFollowedAsync(
             () => new HttpClient(new BlockedHandler()));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("could not reach the local listener").And.Contain("nothing about redirects");
     }
 
@@ -48,7 +49,7 @@ public sealed class PluginHttpContractTests
         var run = () => PluginHttpContract.AssertRedirectIsNotFollowedAsync(
             () => new HttpClient(new FailingAfterHandler(requestsBeforeFailing: 3)));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("kept following");
     }
 
@@ -61,7 +62,7 @@ public sealed class PluginHttpContractTests
         var run = () => PluginHttpContract.AssertRedirectIsNotFollowedAsync(
             () => new HttpClient(new FailingAfterHandler(requestsBeforeFailing: 1)));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("reached the listener but failed");
     }
 

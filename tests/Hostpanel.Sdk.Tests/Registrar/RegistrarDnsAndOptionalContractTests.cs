@@ -3,6 +3,7 @@ using Hostpanel.Sdk.Plugins.Registrar;
 using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Registrar;
 
@@ -29,7 +30,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
 
         var run = () => RegistrarContract.AssertDeleteDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.Removal);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("Refused").And.Contain("call 1");
+        await AssertViolationAsync(run, "Refused", "call 1");
     }
 
     /// <summary>A delete that throws on the repeat is rejected with the exception type and not its text.</summary>
@@ -43,7 +44,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
 
         var run = () => RegistrarContract.AssertDeleteDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.Removal);
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("InvalidOperationException").And.NotContain("www.example.test");
     }
 
@@ -55,7 +56,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
 
         var run = () => RegistrarContract.AssertDeleteDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.Removal);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("RegistrarRefusalReason");
+        await AssertViolationAsync(run, "RegistrarRefusalReason");
     }
 
     /// <summary>A plugin that adds the same DNS record twice is rejected, because the repeat must find it.</summary>
@@ -66,7 +67,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
 
         var run = () => RegistrarContract.AssertAddDnsRecordIsIdempotentAsync(plugin, RegistrarFixtures.AddRecord);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("AddDnsRecordAsync").And.Contain("call 2");
+        await AssertViolationAsync(run, "AddDnsRecordAsync", "call 2");
     }
 
     /// <summary>The optional operations pass for a plugin that keeps their promises, and each counts its calls.</summary>
@@ -109,7 +110,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
 
         foreach (var (method, run) in runs)
         {
-            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("call 2");
+            await AssertViolationAsync(run, method, "call 2");
         }
     }
 
@@ -151,7 +152,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
 
         var run = () => RegistrarContract.AssertReadsAnswerValuesAsync(plugin, RegistrarFixtures.DomainContext);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("GetContactAsync").And.Contain("without a value");
+        await AssertViolationAsync(run, "GetContactAsync", "without a value");
     }
 
     /// <summary>A read that is not supported where the registrar must support it is rejected.</summary>
@@ -165,7 +166,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
 
         var run = () => RegistrarContract.AssertReadsAnswerValuesAsync(plugin, RegistrarFixtures.DomainContext);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("GetContactAsync").And.Contain("NotSupported");
+        await AssertViolationAsync(run, "GetContactAsync", "NotSupported");
     }
 
     /// <summary>A WHOIS lookup that answers a record passes, and one that succeeds without a value is rejected.</summary>
@@ -178,7 +179,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
         await RegistrarContract.AssertWhoisAnswersAsync(good, RegistrarFixtures.Whois);
         var run = () => RegistrarContract.AssertWhoisAnswersAsync(empty, RegistrarFixtures.Whois);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("GetWhoisAsync");
+        await AssertViolationAsync(run, "GetWhoisAsync");
     }
 
     /// <summary>The unknown domain check covers the DNS record changes: a plugin that adds, updates or deletes on a domain it does not hold is rejected.</summary>
@@ -200,7 +201,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
         {
             var run = () => RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
 
-            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method);
+            await AssertViolationAsync(run, method);
         }
     }
 
@@ -227,7 +228,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
         {
             var run = () => RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
 
-            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method);
+            await AssertViolationAsync(run, method);
         }
 
         await RegistrarContract.AssertUnknownDomainIsNotFoundAsync(new ScriptedRegistrarPlugin { HoldsDomain = false }, RegistrarFixtures.DomainContext);
@@ -244,7 +245,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
 
         var run = () => RegistrarContract.AssertReadsAnswerValuesAsync(plugin, RegistrarFixtures.DomainContext);
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("GetContactAsync").And.Contain("Refused");
+        await AssertViolationAsync(run, "GetContactAsync", "Refused");
     }
 
     /// <summary>A plugin that implements only the operations interface is checked without the optional operations, which it does not have.</summary>
@@ -288,7 +289,7 @@ public sealed class RegistrarDnsAndOptionalContractTests
         {
             var run = () => RegistrarContract.AssertUnknownDomainIsNotFoundAsync(plugin, RegistrarFixtures.DomainContext);
 
-            (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain(method).And.Contain("unknown domain");
+            await AssertViolationAsync(run, method, "unknown domain");
         }
     }
 

@@ -1,6 +1,7 @@
 using Hostpanel.Sdk.Plugins.Provisioning;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Provisioning;
 
@@ -17,7 +18,7 @@ public sealed class PanelTransportSelfSignedTests
     public void CreateClient_ForServer_DefaultsToThePlainClient()
     {
         using var client = new HttpClient();
-        IPanelTransport transport = new PlainTransport(client);
+        IPanelTransport transport = new FixedTransport(client);
 
         transport.CreateClient(Server(1, 443)).Should().BeSameAs(client);
         transport.CreateClient().Should().BeSameAs(client);
@@ -45,7 +46,7 @@ public sealed class PanelTransportSelfSignedTests
         var run = () => PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync(
             transport, Server(1, listener.Port));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("never be on for every request");
     }
 
@@ -59,7 +60,7 @@ public sealed class PanelTransportSelfSignedTests
         var run = () => PanelTransportContract.AssertSelfSignedIsAcceptedForTheServerOnlyAsync(
             transport, Server(AllowedId, listener.Port));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("refused the self signed certificate");
     }
 
@@ -73,7 +74,7 @@ public sealed class PanelTransportSelfSignedTests
         var run = () => PanelTransportContract.AssertSelfSignedIsAcceptedForTheServerOnlyAsync(
             transport, Server(AllowedId, listener.Port));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("another port");
     }
 
@@ -87,7 +88,7 @@ public sealed class PanelTransportSelfSignedTests
         var run = () => PanelTransportContract.AssertSelfSignedIsAcceptedForTheServerOnlyAsync(
             transport, Server(AllowedId, listener.Port));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("another host name");
     }
 
@@ -104,7 +105,7 @@ public sealed class PanelTransportSelfSignedTests
         var run = () => PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync(
             new SelfSignedTransport(), Server(1, closedPort));
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
         message.Should().Contain("other than the certificate");
     }
 
@@ -134,25 +135,5 @@ public sealed class PanelTransportSelfSignedTests
     private static PanelServerConnection Server(int id, int port)
     {
         return new PanelServerConnection(id, "local", SelfSignedListener.HostName, null, port, true, null, null, null);
-    }
-
-    /// <summary>A transport written before the per server client existed: it implements only <c>CreateClient()</c>.</summary>
-    private sealed class PlainTransport : IPanelTransport
-    {
-        /// <summary>The client every call returns.</summary>
-        private readonly HttpClient _client;
-
-        /// <summary>Initializes a new instance of the <see cref="PlainTransport"/> class.</summary>
-        /// <param name="client">The client every call returns.</param>
-        public PlainTransport(HttpClient client)
-        {
-            _client = client;
-        }
-
-        /// <inheritdoc />
-        public HttpClient CreateClient()
-        {
-            return _client;
-        }
     }
 }

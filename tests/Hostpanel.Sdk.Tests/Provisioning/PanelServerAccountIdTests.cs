@@ -1,6 +1,7 @@
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Plugins.Provisioning;
+using Hostpanel.Sdk.Tests.Support;
 
 namespace Hostpanel.Sdk.Tests.Provisioning;
 
@@ -57,30 +58,10 @@ public sealed class PanelServerAccountIdTests
     [Fact]
     public void Manifest_ServerAccountIdLabel_IsOptional()
     {
-        var plain = Build(null);
-        var labelled = Build("Reseller ID");
+        var plain = PluginManifestFixtures.Minimal(serverAccountIdLabel: null);
+        var labelled = PluginManifestFixtures.Minimal(serverAccountIdLabel: "Reseller ID");
 
         plain.ServerAccountIdLabel.Should().BeNull();
         labelled.ServerAccountIdLabel.Should().Be("Reseller ID");
-    }
-
-    /// <summary>Builds a minimal provisioning manifest.</summary>
-    /// <param name="label">The account id label, or <see langword="null"/> for none.</param>
-    /// <returns>The manifest.</returns>
-    private static PluginManifest Build(string? label)
-    {
-        return new PluginManifest
-        {
-            Id = "demo",
-            Name = "Demo",
-            Version = "1.0.0",
-            Author = "A",
-            Description = "D",
-            Type = PluginType.Provisioning,
-            Category = "Hosting",
-            EntryPoint = "Demo.Plugin",
-            SdkVersion = "3.7.0",
-            ServerAccountIdLabel = label,
-        };
     }
 }
