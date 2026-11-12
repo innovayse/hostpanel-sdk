@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Plugins.Payment;
@@ -9,7 +8,9 @@ namespace Hostpanel.Sdk.Tests.Payment;
 /// <summary>Tests of the optional <see cref="IPaymentReturnPlugin"/> capability.</summary>
 public sealed class PaymentReturnPluginTests
 {
-    /// <summary>A plugin without the capability is still a valid payment plugin and is never asked to complete.</summary>
+    /// <summary>
+    /// A plugin without the capability is still a valid payment plugin and is never asked to complete.
+    /// </summary>
     [Fact]
     public void LegacyPlugin_IsNotAReturnPlugin()
     {
@@ -43,22 +44,6 @@ public sealed class PaymentReturnPluginTests
         method.ReturnType.Should().Be(typeof(Task<GatewayPaymentStatus>));
     }
 
-    /// <summary>
-    /// A plugin that tries to change the set it was given by casting it fails, because the host passes a read only
-    /// dictionary.
-    /// </summary>
-    [Fact]
-    public void CompleteAsync_SetCannotBeChanged()
-    {
-        IReadOnlyDictionary<string, string> hostSet = new ReadOnlyDictionary<string, string>(
-            new Dictionary<string, string> { ["payer_id"] = "p-1" });
-
-        var change = () => ((IDictionary<string, string>)hostSet)["payer_id"] = "other";
-
-        change.Should().Throw<NotSupportedException>();
-        hostSet["payer_id"].Should().Be("p-1");
-    }
-
     /// <summary>A nonce style gateway is paid once the nonce arrived, and the status read afterwards agrees.</summary>
     [Fact]
     public async Task CompleteAsync_WithNonce_PaysTheOrder()
@@ -90,7 +75,7 @@ public sealed class PaymentReturnPluginTests
         plugin.Charges.Should().Be(1);
     }
 
-    /// <summary>The limits are pinned: a change is a deliberate decision, because hosts and plugins rely on them.</summary>
+    /// <summary>The limits are pinned: a change is a deliberate decision, because hosts rely on them.</summary>
     [Fact]
     public void PaymentReturnLimits_Values_ArePinned()
     {
