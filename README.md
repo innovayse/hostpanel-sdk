@@ -249,6 +249,18 @@ In the plugin's own tests, run the `ProvisioningContract` checks against a stub 
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
 `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
 
+### Panels with a self signed certificate
+
+Many hosting panels answer on a private port with a self signed certificate. Whether to trust one is the operator's
+decision, made per server with the setting "accept a self signed certificate", never the plugin's: a plugin may not create
+its own handler to accept a certificate. Ask for the client of the server you are talking to with
+`transport.CreateClient(server)` instead of `CreateClient()`. A host that supports the setting returns a client that
+accepts the certificate of that one host name and port and of nothing else, and keeps every other rule of the transport
+(address guard, timeouts, no retry). A host that does not know the setting returns the plain client, because the default
+body of the method calls `CreateClient()`, so the call works against any host. In the plugin's own tests, start a
+`SelfSignedListener` and run `PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync` and
+`AssertSelfSignedIsAcceptedForTheServerOnlyAsync` against the transport you test with.
+
 ### Registrar plugins
 
 A domain registrar is a registrar plugin that also implements `IRegistrarOperationsPlugin`, which extends the

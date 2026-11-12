@@ -10,6 +10,8 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `PaymentInstruction.CustomerRef` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#36): the gateway-side customer the saved method belongs to. The host fills it with the reference it got from `IStoredCredentialPlugin.EnsureCustomerAsync` whenever `SavePaymentMethod` is `true`, so a plugin can attach the stored method to that customer and a later stored charge for the same reference finds it. A plugin that does not save methods ignores it.
+- `IPanelTransport.CreateClient(PanelServerConnection server)` (innovayse/hostpanel-sdk#48), a second method with a default body that returns `CreateClient()`, so a host that does not implement it behaves as before and a plugin can call it against any host. A host that supports the operator setting "accept a self signed certificate" returns, for that server, a client that accepts the certificate of that one host name and port and of nothing else; it never accepts a certificate for another host, never disables the check for every request, and keeps every other rule of the transport. The choice belongs to the operator, and the plugin only passes the server on (the host reads the setting by `PanelServerConnection.ServerId`).
+  - `SelfSignedListener` and `PanelTransportContract` (for a plugin's own tests): a local HTTPS listener with a self signed certificate for `localhost` that answers every request with `200 ok`, and the checks `AssertSelfSignedIsRefusedByDefaultAsync` and `AssertSelfSignedIsAcceptedForTheServerOnlyAsync`, which throw `PluginContractViolationException`.
 
 ### Compatibility
 
