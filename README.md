@@ -370,14 +370,16 @@ promise that was broken.
 
 ### Choosing the session kind
 
-`CreatePaymentAsync` answers a `PaymentSession`. Most gateways send the payer to a hosted page with a plain GET: fill
-`RedirectUrl` and leave `FormPost` null. A gateway whose hosted page is opened with a POST that carries a token or other
-fields fills `FormPost` with a `PaymentFormPost` (the `Action` URL and the `Fields`) and passes the same address or an
-empty string as `RedirectUrl`, which the host then ignores. The plugin only describes the form. The host renders the page
-and applies its own rules: the action must be an absolute `https` URL without user info or line breaks, field names are
-not empty, names and values are encoded as attribute text, no script from the plugin is ever included, and the page has a
-button that submits the form for a payer whose browser runs no script. A session that breaks a rule is a failed payment.
-Choose the redirect whenever the gateway offers one, because it needs no form.
+`CreatePaymentAsync` answers a `PaymentSession`. Most gateways send the payer to a hosted page with a plain GET:
+fill `RedirectUrl` and leave `FormPost` null. A gateway whose hosted page is opened with a POST that carries a token
+or other fields fills `FormPost` with a `PaymentFormPost` (the `Action` URL and the `Fields`) and passes the same
+address as `RedirectUrl`, which is never empty and which the host then ignores. The plugin only describes the form.
+The host renders the page and applies its own rules: the action must be an absolute `https` URL without user info or
+line breaks, field names are not empty, names and values are encoded as attribute text, no script from the plugin is
+ever included, and the page has a button that submits the form for a payer whose browser runs no script. The form keeps
+within `PaymentFormPostLimits` (at most 64 fields, names up to 128 and values up to 8192 characters, an action up to
+2048). A session that breaks a rule is a failed payment. Choose the redirect whenever the gateway offers one, because it
+needs no form.
 
 ### Saving the method during a payment
 

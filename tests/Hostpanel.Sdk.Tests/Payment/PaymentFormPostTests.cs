@@ -25,11 +25,46 @@ public sealed class PaymentFormPostTests
             "https://pay.example/hosted",
             [new KeyValuePair<string, string>("token", "t-1"), new KeyValuePair<string, string>("token", "t-2")]);
 
-        var session = new PaymentSession("gw-1", string.Empty, form);
+        var session = new PaymentSession("gw-1", form.Action, form);
 
         session.FormPost!.Action.Should().Be("https://pay.example/hosted");
         session.FormPost.Fields.Select(field => field.Value).Should().Equal("t-1", "t-2");
-        session.Should().NotBe(new PaymentSession("gw-1", string.Empty));
+        session.Should().NotBe(new PaymentSession("gw-1", form.Action));
+    }
+
+    /// <summary>
+    /// The two argument constructor of earlier versions is still there, so a plugin compiled against them binds to it.
+    /// </summary>
+    [Fact]
+    public void PaymentSession_KeepsTheTwoArgumentConstructor()
+    {
+        var old = typeof(PaymentSession).GetConstructor([typeof(string), typeof(string)]);
+
+        old.Should().NotBeNull();
+        old!.IsPublic.Should().BeTrue();
+        old.Invoke(["gw-1", "https://pay.example/gw-1"])
+            .Should().Be(new PaymentSession("gw-1", "https://pay.example/gw-1"));
+    }
+
+    /// <summary>The limits of a form are pinned: a change is a deliberate decision.</summary>
+    [Fact]
+    public void PaymentFormPostLimits_Values_ArePinned()
+    {
+        PaymentFormPostLimits.MaxFields.Should().Be(64);
+        PaymentFormPostLimits.MaxNameLength.Should().Be(128);
+        PaymentFormPostLimits.MaxValueLength.Should().Be(8192);
+        PaymentFormPostLimits.MaxActionLength.Should().Be(2048);
+    }
+
+    /// <summary>Forms are compared by the list object, so equal fields in two lists are not equal forms.</summary>
+    [Fact]
+    public void PaymentFormPost_FieldsAreComparedByReference()
+    {
+        var first = new PaymentFormPost("https://pay.example/hosted", [new KeyValuePair<string, string>("a", "1")]);
+        var second = new PaymentFormPost("https://pay.example/hosted", [new KeyValuePair<string, string>("a", "1")]);
+
+        first.Should().NotBe(second);
+        first.Should().Be(first with { });
     }
 
     /// <summary>A form with no fields is a valid shape; the host decides what to do with it.</summary>
