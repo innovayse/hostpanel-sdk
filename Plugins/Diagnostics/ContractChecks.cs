@@ -11,7 +11,7 @@ namespace Hostpanel.Sdk.Plugins.Diagnostics;
 /// broken, and never repeats a value the plugin was given. Each contract owns one instance, built with its own
 /// <see cref="ContractWords"/>, so the messages of a contract keep their own nouns.
 /// </summary>
-internal sealed class ContractChecks
+internal sealed class ContractChecks : ContractCalls
 {
     /// <summary>The nouns the messages of this instance use.</summary>
     private readonly ContractWords _words;
@@ -19,73 +19,9 @@ internal sealed class ContractChecks
     /// <summary>Initializes a new instance of the <see cref="ContractChecks"/> class.</summary>
     /// <param name="words">The nouns the messages use.</param>
     internal ContractChecks(ContractWords words)
+        : base(words.Target)
     {
         _words = words;
-    }
-
-    /// <summary>
-    /// Calls the plugin once. An exception other than a cancellation is a broken promise (the caller arranged a server that
-    /// answers), and so is a <see langword="null"/> answer.
-    /// </summary>
-    /// <typeparam name="T">The result type of the operation.</typeparam>
-    /// <param name="operation">The operation's name, for the message.</param>
-    /// <param name="call">The call number, starting at 1, for the message.</param>
-    /// <param name="invoke">The call.</param>
-    /// <returns>The plugin's answer.</returns>
-    /// <exception cref="PluginContractViolationException">The call threw or answered <see langword="null"/>.</exception>
-    internal async Task<T> CallAsync<T>(string operation, int call, Func<Task<T>> invoke)
-        where T : class
-    {
-        T? result;
-        try
-        {
-            result = await invoke();
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // Only the type is named: the message may carry an address or a user name.
-            throw new PluginContractViolationException(
-                $"{operation} threw on call {call}: {ex.GetType().Name}. A refusal, a missing {_words.Target} and an unsupported operation are outcomes, and a repeat must answer the same as the first call.");
-        }
-
-        if (result is null)
-        {
-            throw new PluginContractViolationException($"{operation} answered null on call {call}.");
-        }
-
-        return result;
-    }
-
-    /// <summary>Asserts that an outcome is defined and that a reason is present exactly when the other side refused.</summary>
-    /// <typeparam name="TReason">The refusal reason enum of the contract.</typeparam>
-    /// <param name="operation">The operation's name, for the message.</param>
-    /// <param name="call">The call number, starting at 1, for the message.</param>
-    /// <param name="outcome">The outcome the plugin answered.</param>
-    /// <param name="reason">The reason the plugin answered.</param>
-    /// <exception cref="PluginContractViolationException">The outcome is not defined, a refusal has no reason, or another outcome has one.</exception>
-    internal void CheckShape<TReason>(string operation, int call, PanelOperationOutcome outcome, TReason? reason)
-        where TReason : struct, Enum
-    {
-        var reasonName = typeof(TReason).Name;
-        if (!Enum.IsDefined(outcome))
-        {
-            throw new PluginContractViolationException($"{operation} answered {(int)outcome} on call {call}, which is not a {nameof(PanelOperationOutcome)}.");
-        }
-
-        if (reason is { } given && !Enum.IsDefined(given))
-        {
-            throw new PluginContractViolationException($"{operation} answered {Convert.ToInt32(given)} as the reason on call {call}, which is not a {reasonName}.");
-        }
-
-        if (outcome == PanelOperationOutcome.Refused && reason is null)
-        {
-            throw new PluginContractViolationException($"{operation} refused on call {call} without a {reasonName}.");
-        }
-
-        if (outcome != PanelOperationOutcome.Refused && reason is not null)
-        {
-            throw new PluginContractViolationException($"{operation} answered {outcome} with a {reasonName} on call {call}; only a refusal has one.");
-        }
     }
 
     /// <summary>
@@ -130,7 +66,7 @@ internal sealed class ContractChecks
         where TReason : struct, Enum
     {
         var result = await CallAsync(operation, call, invoke);
-        CheckShape(operation, call, result.Outcome, result.Reason);
+        CheckShape(operation, call, result.Outcome, result.Reason, PanelOperationOutcome.Refused);
 
         if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
         {
@@ -207,7 +143,7 @@ internal sealed class ContractChecks
         where TReason : struct, Enum
     {
         var result = await CallAsync(operation, call, invoke);
-        CheckShape(operation, call, result.Outcome, result.Reason);
+        CheckShape(operation, call, result.Outcome, result.Reason, PanelOperationOutcome.Refused);
 
         if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
         {
@@ -237,7 +173,7 @@ internal sealed class ContractChecks
         where TReason : struct, Enum
     {
         var result = await CallAsync(operation, 1, invoke);
-        CheckShape(operation, 1, result.Outcome, result.Reason);
+        CheckShape(operation, 1, result.Outcome, result.Reason, PanelOperationOutcome.Refused);
 
         if (!allowed.Contains(result.Outcome))
         {
@@ -262,7 +198,7 @@ internal sealed class ContractChecks
         where TReason : struct, Enum
     {
         var result = await CallAsync(operation, 1, invoke);
-        CheckShape(operation, 1, result.Outcome, result.Reason);
+        CheckShape(operation, 1, result.Outcome, result.Reason, PanelOperationOutcome.Refused);
 
         if (result.Outcome == PanelOperationOutcome.NotSupported && mayBeUnsupported)
         {
@@ -338,7 +274,7 @@ internal sealed class ContractChecks
         {
             var asked = cursor;
             var result = await CallAsync(operation, page, () => list(asked));
-            CheckShape(operation, page, result.Outcome, result.Reason);
+            CheckShape(operation, page, result.Outcome, result.Reason, PanelOperationOutcome.Refused);
 
             if (result.Outcome != PanelOperationOutcome.Succeeded)
             {
@@ -384,27 +320,5 @@ internal sealed class ContractChecks
         }
 
         throw new PluginContractViolationException($"{operation} was still returning cursors after {maxPages} pages.");
-    }
-
-    /// <summary>Asserts that the printed form of an object contains none of the given secrets.</summary>
-    /// <param name="value">The object to print.</param>
-    /// <param name="secrets">The secret values that must not appear. A <see langword="null"/> or empty value is skipped.</param>
-    /// <exception cref="ArgumentNullException"><paramref name="value"/> or <paramref name="secrets"/> is <see langword="null"/>.</exception>
-    /// <exception cref="PluginContractViolationException">The printed form contains one of the secrets. The message does not repeat it.</exception>
-    internal void AssertHidesSecrets(object value, string?[] secrets)
-    {
-        ArgumentNullException.ThrowIfNull(value);
-        ArgumentNullException.ThrowIfNull(secrets);
-
-        var printed = value.ToString() ?? string.Empty;
-        for (var index = 0; index < secrets.Length; index++)
-        {
-            var secret = secrets[index];
-            if (!string.IsNullOrEmpty(secret) && printed.Contains(secret, StringComparison.Ordinal))
-            {
-                throw new PluginContractViolationException(
-                    $"The printed form of {value.GetType().Name} contains secret number {index + 1}. A result, a context and a log line must print secrets masked.");
-            }
-        }
     }
 }

@@ -5,7 +5,7 @@ using Hostpanel.Sdk.Plugins.StoredCredentials;
 namespace Hostpanel.Sdk.Plugins.Tax;
 
 /// <summary>
-/// Checks a plugin author runs in the plugin's own tests to prove it keeps the promises of <see cref="ITaxPlugin"/>
+/// Calls a plugin author runs in the plugin's own tests to prove it keeps the promises of <see cref="ITaxPlugin"/>
 /// that the compiler cannot see: every line answered once, amounts that follow the rates, a refusal and an unavailable
 /// service as outcomes instead of exceptions or zero tax, no secret in a result. Each check calls the plugin against a
 /// tax service the test has arranged (a stub, or a recorded exchange) and throws
@@ -17,17 +17,8 @@ public static class TaxContract
     /// <summary>The name of the operation, for the messages.</summary>
     private const string Operation = nameof(ITaxPlugin.CalculateTaxAsync);
 
-    /// <summary>
-    /// The shared checks, worded for a tax service. A calculation creates nothing, so the reference and the
-    /// created-again sentence are never used; they are only there because the shared checks always carry the full set
-    /// of words.
-    /// </summary>
-    private static readonly ContractChecks Checks = new(new ContractWords(
-        "address",
-        "an address",
-        "tax service",
-        "reference",
-        "the calculation was repeated."));
+    /// <summary>The checks this contract shares with the other contracts, worded for a tax service.</summary>
+    private static readonly ContractCalls Calls = new("address");
 
     /// <summary>
     /// Calls <see cref="ITaxPlugin.CalculateTaxAsync"/> once and asserts that the answer is a well formed calculation:
@@ -40,7 +31,8 @@ public static class TaxContract
     /// <param name="tolerance">
     /// How far an amount may be from the exact tax of its rate, to allow for the service's rounding; not negative. The
     /// default is one hundredth, which fits a currency with two decimals; pass the smallest unit of the currency for a
-    /// currency with another number of decimals.
+    /// currency with another number of decimals. It applies to each line as a whole: the amount is the tax of the line
+    /// total, rounded once, so the quantity of the line does not widen it.
     /// </param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The calculation, so the test can assert more about it.</returns>
@@ -96,7 +88,7 @@ public static class TaxContract
     /// A call threw, answered <see langword="null"/>, broke a rule of a calculation, or answered other lines than the
     /// first call.
     /// </exception>
-    public static async Task<TaxCalculationResult> AssertCalculationIsRepeatableAsync(
+    public static Task<TaxCalculationResult> AssertCalculationIsRepeatableAsync(
         ITaxPlugin plugin,
         TaxCalculationRequest request,
         int calls = 2,
@@ -108,19 +100,7 @@ public static class TaxContract
         ArgumentOutOfRangeException.ThrowIfLessThan(calls, 2);
         ArgumentOutOfRangeException.ThrowIfNegative(tolerance);
 
-        var first = await CalculateAsync(plugin, request, tolerance, 1, ct);
-        for (var call = 2; call <= calls; call++)
-        {
-            var next = await CalculateAsync(plugin, request, tolerance, call, ct);
-            if (!SameLines(first.Lines!, next.Lines!))
-            {
-                throw new PluginContractViolationException(
-                    $"{Operation} answered other lines on call {call} than on call 1. A calculation changes nothing, " +
-                    $"so a repeat of one request must answer the same.");
-            }
-        }
-
-        return first;
+        return RepeatAsync(plugin, request, calls, tolerance, ct);
     }
 
     /// <summary>
@@ -212,7 +192,7 @@ public static class TaxContract
     /// </exception>
     public static void AssertHidesSecrets(object value, params string?[] secrets)
     {
-        Checks.AssertHidesSecrets(value, secrets);
+        Calls.AssertHidesSecrets(value, secrets);
     }
 
     /// <summary>
@@ -234,7 +214,7 @@ public static class TaxContract
         int call,
         CancellationToken ct)
     {
-        var result = await Checks.CallAsync(Operation, call, () => plugin.CalculateTaxAsync(request, ct));
+        var result = await Calls.CallAsync(Operation, call, () => plugin.CalculateTaxAsync(request, ct));
         CheckShape(call, result);
 
         if (result.Outcome != TaxOutcome.Calculated)
@@ -265,7 +245,7 @@ public static class TaxContract
         string otherwise,
         CancellationToken ct)
     {
-        var result = await Checks.CallAsync(Operation, 1, () => plugin.CalculateTaxAsync(request, ct));
+        var result = await Calls.CallAsync(Operation, 1, () => plugin.CalculateTaxAsync(request, ct));
         CheckShape(1, result);
 
         if (result.Outcome != expected)
@@ -277,8 +257,8 @@ public static class TaxContract
     }
 
     /// <summary>
-    /// Asserts that an outcome is defined, that a calculation has its lines and no reason, that a refusal has a defined
-    /// reason and no lines, and that an unavailable service has neither.
+    /// Asserts the shape of the answer: the outcome and the reason (checked by the shared checks), and that a
+    /// calculation has its lines while a refusal and an unavailable service have none.
     /// </summary>
     /// <param name="call">The call number, starting at 1, for the message.</param>
     /// <param name="result">The answer.</param>
@@ -287,11 +267,7 @@ public static class TaxContract
     /// </exception>
     private static void CheckShape(int call, TaxCalculationResult result)
     {
-        if (!Enum.IsDefined(result.Outcome))
-        {
-            throw new PluginContractViolationException(
-                $"{Operation} answered {(int)result.Outcome} on call {call}, which is not a {nameof(TaxOutcome)}.");
-        }
+        Calls.CheckShape(Operation, call, result.Outcome, result.Reason, TaxOutcome.Refused);
 
         if (result.Outcome == TaxOutcome.Calculated && result.Lines is null)
         {
@@ -303,26 +279,6 @@ public static class TaxContract
         {
             throw new PluginContractViolationException(
                 $"{Operation} answered {result.Outcome} with Lines on call {call}; only a calculation has them.");
-        }
-
-        if (result.Outcome == TaxOutcome.Refused && result.Reason is null)
-        {
-            throw new PluginContractViolationException(
-                $"{Operation} refused on call {call} without a {nameof(TaxRefusalReason)}.");
-        }
-
-        if (result.Reason is { } reason && !Enum.IsDefined(reason))
-        {
-            throw new PluginContractViolationException(
-                $"{Operation} answered {(int)reason} as the reason on call {call}, which is not a " +
-                $"{nameof(TaxRefusalReason)}.");
-        }
-
-        if (result.Outcome != TaxOutcome.Refused && result.Reason is not null)
-        {
-            throw new PluginContractViolationException(
-                $"{Operation} answered {result.Outcome} with a {nameof(TaxRefusalReason)} on call {call}; only a " +
-                $"refusal has one.");
         }
     }
 
@@ -485,3 +441,39 @@ public static class TaxContract
         }
     }
 }
+
+    /// <summary>
+    /// Makes the repeated calls and asserts that every one is a calculation that answers the first one's lines.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="request">The invoice to calculate.</param>
+    /// <param name="calls">How many times to call.</param>
+    /// <param name="tolerance">How far an amount may be from the exact tax of its rate.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The calculation of the first call.</returns>
+    /// <exception cref="PluginContractViolationException">
+    /// A call threw, answered <see langword="null"/>, broke a rule of a calculation, or answered other lines than the
+    /// first call.
+    /// </exception>
+    private static async Task<TaxCalculationResult> RepeatAsync(
+        ITaxPlugin plugin,
+        TaxCalculationRequest request,
+        int calls,
+        decimal tolerance,
+        CancellationToken ct)
+    {
+        var first = await CalculateAsync(plugin, request, tolerance, 1, ct);
+        for (var call = 2; call <= calls; call++)
+        {
+            var next = await CalculateAsync(plugin, request, tolerance, call, ct);
+            if (!SameLines(first.Lines!, next.Lines!))
+            {
+                throw new PluginContractViolationException(
+                    $"{Operation} answered other lines on call {call} than on call 1. A calculation changes nothing, " +
+                    $"so a repeat of one request must answer the same.");
+            }
+        }
+
+        return first;
+    }
+

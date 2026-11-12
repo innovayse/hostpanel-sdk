@@ -22,7 +22,9 @@ public sealed record TaxCalculationResult(
 {
     /// <summary>
     /// Gets the tax of the whole invoice, the sum of the line amounts, or <see langword="null"/> when nothing was
-    /// calculated.
+    /// calculated. The constructor is public and checks nothing, as for the other results, so a result built by hand
+    /// with a <see langword="null"/> entry in <see cref="Lines"/> throws here; <see cref="Calculated"/> refuses such a
+    /// list and the contract helper rejects it.
     /// </summary>
     public decimal? Total => Lines?.Sum(line => line.Amount);
 
@@ -30,9 +32,14 @@ public sealed record TaxCalculationResult(
     /// <param name="lines">One result per requested line, in any order; empty for an invoice without lines.</param>
     /// <returns>A <see cref="TaxOutcome.Calculated"/> result.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="lines"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentException"><paramref name="lines"/> holds a <see langword="null"/> entry.</exception>
     public static TaxCalculationResult Calculated(IReadOnlyList<TaxLineResult> lines)
     {
         ArgumentNullException.ThrowIfNull(lines);
+        if (lines.Any(line => line is null))
+        {
+            throw new ArgumentException("A calculation never holds a null line.", nameof(lines));
+        }
 
         return new TaxCalculationResult(TaxOutcome.Calculated, lines, null);
     }

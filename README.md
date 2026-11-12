@@ -463,7 +463,7 @@ default; pass the smallest unit of the currency for one with another number of d
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
 `showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
-implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `virtualServer` and `virtualServerList` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement` and `registrarWhois` for a registrar plugin; `endpoints` for any type), `minHostVersion` and
+implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `virtualServer` and `virtualServerList` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement` and `registrarWhois` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
 `maxHostVersion` (the range of host versions the plugin runs on, each a semantic version such as `2.1.0`; a missing
 bound means no limit, and the lower may not be above the upper) and `changelog` (notes for this version, at most 4000
 characters). The `id` is lower-case letters and digits,

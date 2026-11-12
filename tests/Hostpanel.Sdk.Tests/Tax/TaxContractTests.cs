@@ -456,6 +456,82 @@ public sealed class TaxContractTests
         plugin.Calls.Should().Be(0);
     }
 
+    /// <summary>A refusal that also carries lines is rejected.</summary>
+    [Fact]
+    public async Task AssertUncalculable_RefusedWithLines_Throws()
+    {
+        var plugin = new ScriptedTaxPlugin((request, _) => new TaxCalculationResult(
+            TaxOutcome.Refused, TaxFixtures.Correct(request).Lines, TaxRefusalReason.Other));
+
+        var run = () => TaxContract.AssertUncalculableRequestIsRefusedAsync(plugin, TaxFixtures.Request);
+
+        await AssertViolationAsync(run, "with Lines");
+    }
+
+    /// <summary>An unavailable answer that carries lines is rejected.</summary>
+    [Fact]
+    public async Task AssertUnreachable_UnavailableWithLines_Throws()
+    {
+        var plugin = new ScriptedTaxPlugin((request, _) => new TaxCalculationResult(
+            TaxOutcome.Unavailable, TaxFixtures.Correct(request).Lines, null));
+
+        var run = () => TaxContract.AssertUnreachableServiceIsUnavailableAsync(plugin, TaxFixtures.Request);
+
+        await AssertViolationAsync(run, "with Lines");
+    }
+
+    /// <summary>A reason that is not a defined value is rejected.</summary>
+    [Fact]
+    public async Task AssertUncalculable_UndefinedReason_Throws()
+    {
+        var plugin = new ScriptedTaxPlugin((_, _) => new TaxCalculationResult(
+            TaxOutcome.Refused, null, (TaxRefusalReason)99));
+
+        var run = () => TaxContract.AssertUncalculableRequestIsRefusedAsync(plugin, TaxFixtures.Request);
+
+        await AssertViolationAsync(run, "not a TaxRefusalReason");
+    }
+
+    /// <summary>A result line without an id is rejected.</summary>
+    [Fact]
+    public async Task AssertCalculation_LineWithoutId_Throws()
+    {
+        var plugin = new ScriptedTaxPlugin((request, _) => Change(request, line => line with { LineId = " " }));
+
+        var run = () => TaxContract.AssertCalculationIsWellFormedAsync(plugin, TaxFixtures.Request);
+
+        await AssertViolationAsync(run, "without a LineId");
+    }
+
+    /// <summary>A null entry among the result lines is rejected.</summary>
+    [Fact]
+    public async Task AssertCalculation_NullLine_Throws()
+    {
+        var plugin = new ScriptedTaxPlugin((_, _) => new TaxCalculationResult(
+            TaxOutcome.Calculated, new TaxLineResult[] { null! }, null));
+
+        var run = () => TaxContract.AssertCalculationIsWellFormedAsync(plugin, TaxFixtures.Request);
+
+        await AssertViolationAsync(run, "without a LineId");
+    }
+
+    /// <summary>Every helper reports a mistake of the caller when it is called, not from the returned task.</summary>
+    [Fact]
+    public void Assert_ArgumentErrors_AreThrownWhenCalled()
+    {
+        var plugin = new ScriptedTaxPlugin((request, _) => TaxFixtures.Correct(request));
+
+        var wellFormed = () => TaxContract.AssertCalculationIsWellFormedAsync(plugin, null!);
+        var repeatable = () => TaxContract.AssertCalculationIsRepeatableAsync(plugin, null!);
+        var refused = () => TaxContract.AssertUncalculableRequestIsRefusedAsync(plugin, null!);
+        var unavailable = () => TaxContract.AssertUnreachableServiceIsUnavailableAsync(plugin, null!);
+
+        wellFormed.Should().Throw<ArgumentNullException>();
+        repeatable.Should().Throw<ArgumentNullException>();
+        refused.Should().Throw<ArgumentNullException>();
+        unavailable.Should().Throw<ArgumentNullException>();
+    }
+
     /// <summary>A printed form that shows a tax number or a street is rejected, without repeating it.</summary>
     [Fact]
     public void AssertHidesSecrets_Leak_Throws()

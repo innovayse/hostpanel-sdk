@@ -73,6 +73,24 @@ public sealed class TaxContractShapeTests
         printed.Should().Contain("TaxId = ***").And.Contain("Country = FR");
     }
 
+    /// <summary>An address prints a missing region, postal code, city and street all as null.</summary>
+    [Fact]
+    public void Address_ToString_PrintsMissingMembersAsNull()
+    {
+        var printed = new TaxAddress("US", null, null, null, null).ToString();
+
+        printed.Should().Be("TaxAddress { Country = US, Region = null, PostalCode = null, City = null, Line1 = null }");
+    }
+
+    /// <summary>A calculation refuses a null entry among its lines when it is built.</summary>
+    [Fact]
+    public void Calculated_NullEntry_Throws()
+    {
+        var build = () => TaxCalculationResult.Calculated(new TaxLineResult[] { null! });
+
+        build.Should().Throw<ArgumentException>();
+    }
+
     /// <summary>A party without a tax number prints it as null and not as a mask.</summary>
     [Fact]
     public void Party_WithoutTaxId_PrintsNull()

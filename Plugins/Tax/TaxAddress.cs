@@ -27,7 +27,7 @@ public sealed record TaxAddress(string Country, string? Region, string? PostalCo
     private bool PrintMembers(StringBuilder builder)
     {
         builder.Append("Country = ").Append(Country);
-        builder.Append(", Region = ").Append(Region);
+        builder.Append(", Region = ").Append(Region ?? "null");
         builder.Append(", PostalCode = ").Append(PostalCode is null ? "null" : SecretMask.Text);
         builder.Append(", City = ").Append(City is null ? "null" : SecretMask.Text);
         builder.Append(", Line1 = ").Append(Line1 is null ? "null" : SecretMask.Text);
