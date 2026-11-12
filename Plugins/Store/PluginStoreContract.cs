@@ -14,6 +14,18 @@ public static class PluginStoreContract
     /// <summary>The prefix of every key the checks write, so they do not touch the keys of a real test.</summary>
     private const string Prefix = "contract:";
 
+    /// <summary>The time to live the checks give a value: short enough to pass in a test with a moved clock.</summary>
+    private static readonly TimeSpan ShortTimeToLive = TimeSpan.FromMinutes(1);
+
+    /// <summary>A moment inside <see cref="ShortTimeToLive"/>, at which the value must still be there.</summary>
+    private static readonly TimeSpan HalfOfShortTimeToLive = ShortTimeToLive / 2;
+
+    /// <summary>A moment past <see cref="ShortTimeToLive"/>, at which the value must be gone.</summary>
+    private static readonly TimeSpan PastShortTimeToLive = ShortTimeToLive * 2;
+
+    /// <summary>The step by which a time to live is put just outside the limits.</summary>
+    private static readonly TimeSpan OneSecond = TimeSpan.FromSeconds(1);
+
     /// <summary>
     /// Calls <see cref="IPluginStoreAdvanced.SetIfAbsentAsync"/> for one key from several callers at the same time and
     /// asserts that exactly one wins, that the stored value is the winner's, and that a later call changes nothing.
@@ -101,18 +113,18 @@ public static class PluginStoreContract
         ArgumentNullException.ThrowIfNull(advance);
 
         var key = Prefix + "expiring";
-        var timeToLive = TimeSpan.FromMinutes(1);
+        var timeToLive = ShortTimeToLive;
         try
         {
             await store.SetAsync(key, "value", timeToLive, ct);
-            await advance(TimeSpan.FromSeconds(30));
+            await advance(HalfOfShortTimeToLive);
             if (await store.GetAsync(key, ct) != "value")
             {
                 throw new PluginContractViolationException(
                     "A value with a time to live was gone before the time to live passed.");
             }
 
-            await advance(TimeSpan.FromMinutes(2));
+            await advance(PastShortTimeToLive);
             if (await store.GetAsync(key, ct) is not null)
             {
                 throw new PluginContractViolationException("An expired key was still readable.");
@@ -159,9 +171,9 @@ public static class PluginStoreContract
         var key = Prefix + "plain";
         try
         {
-            await store.SetAsync(key, "first", TimeSpan.FromMinutes(1), ct);
+            await store.SetAsync(key, "first", ShortTimeToLive, ct);
             await store.SetAsync(key, "second", ct);
-            await advance(TimeSpan.FromMinutes(2));
+            await advance(PastShortTimeToLive);
             if (await store.GetAsync(key, ct) != "second")
             {
                 throw new PluginContractViolationException(
@@ -194,8 +206,8 @@ public static class PluginStoreContract
         TimeSpan[] refused =
         [
             TimeSpan.Zero,
-            TimeSpan.FromSeconds(-1),
-            PluginStoreLimits.MaxTimeToLive.Add(TimeSpan.FromSeconds(1)),
+            -OneSecond,
+            PluginStoreLimits.MaxTimeToLive.Add(OneSecond),
         ];
         try
         {

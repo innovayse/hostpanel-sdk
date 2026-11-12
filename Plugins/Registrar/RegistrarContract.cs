@@ -17,7 +17,7 @@ namespace Hostpanel.Sdk.Plugins.Registrar;
 public static class RegistrarContract
 {
     /// <summary>The checks this contract shares with the other contracts, worded for a registrar.</summary>
-    private static readonly ContractChecks Checks = new(new ContractWords("domain", "a domain", "registrar", "RegistrarRef", "the work was done again. A repeat of the same call must answer AlreadyApplied."));
+    private static readonly ContractChecks Checks = new(new ContractWords("domain", "a domain", "registrar", nameof(RegistrarOrder.RegistrarRef), "the work was done again. A repeat of the same call must answer AlreadyApplied."));
 
     /// <summary>A contact for the checks that need one; a registrar that does not hold the domain never reads it.</summary>
     private static readonly RegistrarContact ContractContact = new(

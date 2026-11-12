@@ -111,6 +111,7 @@ public sealed class TaxContractShapeTests
         TaxLimits.MaxLineIdLength.Should().Be(64);
         TaxLimits.MaxTaxIdLength.Should().Be(64);
         TaxLimits.CurrencyLength.Should().Be(3);
+        TaxLimits.CountryCodeLength.Should().Be(2);
         TaxLimits.MaxAddressFieldLength.Should().Be(128);
     }
 

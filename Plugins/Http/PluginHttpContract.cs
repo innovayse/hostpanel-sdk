@@ -18,6 +18,9 @@ public static class PluginHttpContract
     /// <summary>The path the listener answers with a redirect.</summary>
     private const string FirstPath = "/first";
 
+    /// <summary>The path the redirect names; a client that followed it would make a second request here.</summary>
+    private const string SecondPath = "/second";
+
     /// <summary>
     /// Sends a request to a local listener that answers a redirect and asserts that the client returns the 3xx answer
     /// as it is and makes no second request. A client that follows redirects would send the same headers, and for some
@@ -105,7 +108,7 @@ public static class PluginHttpContract
 
         counted();
         var response = head.StartsWith($"GET {FirstPath} ", StringComparison.Ordinal)
-            ? "HTTP/1.1 302 Found\r\nLocation: /second\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+            ? $"HTTP/1.1 302 Found\r\nLocation: {SecondPath}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
             : "HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: close\r\n\r\n";
         await stream.WriteAsync(Encoding.ASCII.GetBytes(response), ct);
     }

@@ -19,6 +19,9 @@ internal sealed class LoopbackListener : IAsyncDisposable
     /// <summary>The most bytes of request headers read before a connection is given up on.</summary>
     private const int MaxHeaderBytes = 16 * 1024;
 
+    /// <summary>How many bytes of the request are read at a time.</summary>
+    private const int ReadChunkBytes = 1024;
+
     /// <summary>The end of the headers of an HTTP request.</summary>
     private const string HeaderEnd = "\r\n\r\n";
 
@@ -61,7 +64,7 @@ internal sealed class LoopbackListener : IAsyncDisposable
     internal static async Task<string?> ReadHeadAsync(Stream stream, CancellationToken ct)
     {
         var seen = new StringBuilder();
-        var buffer = new byte[1024];
+        var buffer = new byte[ReadChunkBytes];
         while (!seen.ToString().Contains(HeaderEnd, StringComparison.Ordinal))
         {
             var read = await stream.ReadAsync(buffer, ct);
