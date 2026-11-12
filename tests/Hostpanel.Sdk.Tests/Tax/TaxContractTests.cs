@@ -532,15 +532,15 @@ public sealed class TaxContractTests
     {
         var plugin = new ScriptedTaxPlugin((request, _) => TaxFixtures.Correct(request));
 
-        var wellFormed = () => TaxContract.AssertCalculationIsWellFormedAsync(plugin, null!);
-        var repeatable = () => TaxContract.AssertCalculationIsRepeatableAsync(plugin, null!);
-        var refused = () => TaxContract.AssertUncalculableRequestIsRefusedAsync(plugin, null!);
-        var unavailable = () => TaxContract.AssertUnreachableServiceIsUnavailableAsync(plugin, null!);
+        Action wellFormed = () => _ = TaxContract.AssertCalculationIsWellFormedAsync(plugin, null!);
+        Action repeatable = () => _ = TaxContract.AssertCalculationIsRepeatableAsync(plugin, null!);
+        Action refused = () => _ = TaxContract.AssertUncalculableRequestIsRefusedAsync(plugin, null!);
+        Action unavailable = () => _ = TaxContract.AssertUnreachableServiceIsUnavailableAsync(plugin, null!);
 
-        Assert.Throws<ArgumentNullException>(() => wellFormed());
-        Assert.Throws<ArgumentNullException>(() => repeatable());
-        Assert.Throws<ArgumentNullException>(() => refused());
-        Assert.Throws<ArgumentNullException>(() => unavailable());
+        wellFormed.Should().Throw<ArgumentNullException>();
+        repeatable.Should().Throw<ArgumentNullException>();
+        refused.Should().Throw<ArgumentNullException>();
+        unavailable.Should().Throw<ArgumentNullException>();
     }
 
     /// <summary>A printed form that shows a tax number or a street is rejected, without repeating it.</summary>
