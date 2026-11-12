@@ -25,6 +25,30 @@ public sealed class PluginReply
     /// <summary>204, the status of a reply without content.</summary>
     private const int StatusNoContent = (int)HttpStatusCode.NoContent;
 
+    /// <summary>303, the default status of a redirect: the browser follows it with a plain GET.</summary>
+    private const int StatusSeeOther = (int)HttpStatusCode.SeeOther;
+
+    /// <summary>401, an authentication challenge the host answers itself.</summary>
+    private const int StatusUnauthorized = (int)HttpStatusCode.Unauthorized;
+
+    /// <summary>403, the status a plugin answers to refuse a caller.</summary>
+    private const int StatusForbidden = (int)HttpStatusCode.Forbidden;
+
+    /// <summary>407, a proxy authentication challenge the host answers itself.</summary>
+    private const int StatusProxyAuthenticationRequired = (int)HttpStatusCode.ProxyAuthenticationRequired;
+
+    /// <summary>The lowest status of any answer a plugin gives.</summary>
+    private const int FirstAnswerStatus = StatusOk;
+
+    /// <summary>The lowest status of a failure.</summary>
+    private const int FirstFailureStatus = (int)HttpStatusCode.BadRequest;
+
+    /// <summary>
+    /// The highest status of any answer a plugin gives. It stays a literal: <see cref="HttpStatusCode"/> names no member
+    /// for the end of the 5xx class, which is only a limit of the class and not a status.
+    /// </summary>
+    private const int LastAnswerStatus = 599;
+
     /// <summary>The five redirect statuses a reply may use: permanent, found, see other, temporary and permanent keeping the method.</summary>
     private static readonly int[] RedirectStatuses =
     [
@@ -35,20 +59,9 @@ public sealed class PluginReply
         (int)HttpStatusCode.PermanentRedirect,
     ];
 
-    /// <summary>303, the default status of a redirect: the browser follows it with a plain GET.</summary>
-    private const int StatusSeeOther = (int)HttpStatusCode.SeeOther;
-
-    /// <summary>The lowest status of a failure.</summary>
-    private const int FirstFailureStatus = (int)HttpStatusCode.BadRequest;
-
-    /// <summary>The highest status HTTP defines for a plugin to answer.</summary>
-    private const int LastStatus = 599;
-
-    /// <summary>401, an authentication challenge the host answers itself.</summary>
-    private const int StatusUnauthorized = (int)HttpStatusCode.Unauthorized;
-
-    /// <summary>407, a proxy authentication challenge the host answers itself.</summary>
-    private const int StatusProxyAuthenticationRequired = (int)HttpStatusCode.ProxyAuthenticationRequired;
+    /// <summary>The end of the message of a refused status that the host would answer itself, so a problem and a raw reply say it the same way.</summary>
+    private static readonly string HostChallengeAdvice =
+        $"other than {StatusUnauthorized} and {StatusProxyAuthenticationRequired}; answer {StatusForbidden} to refuse a caller.";
 
     /// <summary>Initializes a new instance of the <see cref="PluginReply"/> class.</summary>
     /// <param name="kind">The shape of the reply.</param>
@@ -131,10 +144,10 @@ public sealed class PluginReply
     public static PluginReply Problem(int status, string code, string? detail = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        if (status is < FirstFailureStatus or > LastStatus || AnsweredByTheHost(status))
+        if (status is < FirstFailureStatus or > LastAnswerStatus || IsAnsweredByHost(status))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(status), status, $"A problem needs a 4xx or 5xx status other than {StatusUnauthorized} and {StatusProxyAuthenticationRequired}; answer 403 to refuse a caller.");
+                nameof(status), status, $"A problem needs a 4xx or 5xx status {HostChallengeAdvice}");
         }
 
         return new PluginReply(PluginReplyKind.Problem, status) { Code = code, Detail = detail };
@@ -158,10 +171,10 @@ public sealed class PluginReply
     public static PluginReply Raw(int status, ReadOnlyMemory<byte> body, string contentType)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
-        if (status is < StatusOk or > LastStatus || AnsweredByTheHost(status))
+        if (status is < FirstAnswerStatus or > LastAnswerStatus || IsAnsweredByHost(status))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(status), status, $"A raw reply needs a status from {StatusOk} to {LastStatus} other than {StatusUnauthorized} and {StatusProxyAuthenticationRequired}; answer 403 to refuse a caller.");
+                nameof(status), status, $"A raw reply needs a status from {FirstAnswerStatus} to {LastAnswerStatus} {HostChallengeAdvice}");
         }
 
         if (contentType.Contains('\r') || contentType.Contains('\n'))
@@ -260,7 +273,7 @@ public sealed class PluginReply
     /// <summary>Tells whether the host answers a status itself: the authentication challenges that would sign a client out or ask for proxy credentials.</summary>
     /// <param name="status">The status a plugin asked for.</param>
     /// <returns><see langword="true"/> for 401 and 407.</returns>
-    private static bool AnsweredByTheHost(int status)
+    private static bool IsAnsweredByHost(int status)
     {
         return status is StatusUnauthorized or StatusProxyAuthenticationRequired;
     }

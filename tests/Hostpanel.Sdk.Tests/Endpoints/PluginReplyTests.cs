@@ -3,10 +3,12 @@ using Hostpanel.Sdk.Plugins.Enums;
 
 namespace Hostpanel.Sdk.Tests.Endpoints;
 
-/// <summary>Tests of the statuses the JSON, no content, problem, raw, redirect and stream replies accept.</summary>
+/// <summary>
+/// Tests of the JSON, no content, problem and stream replies. The raw and the redirect replies have their own test classes.
+/// </summary>
 public sealed class PluginReplyTests
 {
-    /// <summary>A JSON reply is 200 unless it says 201, 202 or 203.</summary>
+    /// <summary>A JSON reply is 200 unless it says 201, 202 or 203, and keeps its body.</summary>
     /// <param name="status">The status asked for.</param>
     [Theory]
     [InlineData(200)]
@@ -15,17 +17,13 @@ public sealed class PluginReplyTests
     [InlineData(203)]
     public void Json_AcceptsASuccessStatusWithABody(int status)
     {
-        var reply = PluginReply.Json(new { ok = true }, status);
+        var body = new { ok = true };
+
+        var reply = PluginReply.Json(body, status);
 
         reply.Kind.Should().Be(PluginReplyKind.Json);
         reply.Status.Should().Be(status);
-    }
-
-    /// <summary>A JSON reply without a status is 200.</summary>
-    [Fact]
-    public void Json_DefaultsTo200()
-    {
-        PluginReply.Json(new { ok = true }).Status.Should().Be(200);
+        reply.Body.Should().BeSameAs(body);
     }
 
     /// <summary>A JSON reply refuses 204, which has no body, and every other status, naming the four it accepts.</summary>
@@ -54,62 +52,73 @@ public sealed class PluginReplyTests
         reply.Status.Should().Be(204);
     }
 
-    /// <summary>A problem accepts a failure status from 400 to 599 except the two challenges the host answers itself.</summary>
+    /// <summary>A problem accepts a failure status from 400 to 599 except the two challenges, and keeps its code and detail.</summary>
     /// <param name="status">The status asked for.</param>
-    /// <param name="accepted">Whether it is accepted.</param>
     [Theory]
-    [InlineData(399, false)]
-    [InlineData(400, true)]
-    [InlineData(401, false)]
-    [InlineData(403, true)]
-    [InlineData(407, false)]
-    [InlineData(599, true)]
-    [InlineData(600, false)]
-    public void Problem_AcceptsAFailureStatusButNotAHostChallenge(int status, bool accepted)
+    [InlineData(400)]
+    [InlineData(403)]
+    [InlineData(404)]
+    [InlineData(500)]
+    [InlineData(599)]
+    public void Problem_AcceptsAFailureStatus(int status)
     {
-        var problem = () => PluginReply.Problem(status, "invoice_not_found");
+        var reply = PluginReply.Problem(status, "invoice_not_found", "No such invoice.");
 
-        if (accepted)
-        {
-            problem.Should().NotThrow();
-        }
-        else
-        {
-            problem.Should().ThrowExactly<ArgumentOutOfRangeException>()
-                .Where(ex => ex.Message.Contains("A problem needs a 4xx or 5xx status other than 401 and 407; answer 403 to refuse a caller."));
-        }
+        reply.Kind.Should().Be(PluginReplyKind.Problem);
+        reply.Status.Should().Be(status);
+        reply.Code.Should().Be("invoice_not_found");
+        reply.Detail.Should().Be("No such invoice.");
     }
 
-    /// <summary>A raw reply refuses 401 and 407 as a problem does, and names the range it accepts.</summary>
+    /// <summary>A problem refuses a status below 400, above 599 and the two challenges the host answers itself, naming the way out.</summary>
     /// <param name="status">The status asked for.</param>
     [Theory]
-    [InlineData(199)]
+    [InlineData(399)]
     [InlineData(401)]
     [InlineData(407)]
     [InlineData(600)]
-    public void Raw_RefusesAStatusOutsideItsRange(int status)
+    public void Problem_RefusesAStatusThatIsNotAPluginFailure(int status)
     {
-        var raw = () => PluginReply.Raw(status, default, "text/plain");
+        var problem = () => PluginReply.Problem(status, "invoice_not_found");
 
-        raw.Should().ThrowExactly<ArgumentOutOfRangeException>()
-            .Where(ex => ex.Message.Contains("A raw reply needs a status from 200 to 599 other than 401 and 407; answer 403 to refuse a caller."));
+        problem.Should().ThrowExactly<ArgumentOutOfRangeException>()
+            .WithParameterName("status")
+            .Where(ex => ex.Message.Contains("A problem needs a 4xx or 5xx status other than 401 and 407; answer 403 to refuse a caller."));
     }
 
-    /// <summary>A redirect names the five statuses it accepts, and a stream answers 200.</summary>
+    /// <summary>A stream is 200 and carries the events it was given.</summary>
     [Fact]
-    public void Redirect_NamesItsStatuses_AndStreamIs200()
+    public void Stream_Is200AndCarriesTheEvents()
     {
-        var redirect = () => PluginReply.Redirect("/next", 200);
+        var events = NoEvents();
 
-        redirect.Should().ThrowExactly<ArgumentOutOfRangeException>()
-            .Where(ex => ex.Message.Contains("A redirect needs a status of 301, 302, 303, 307 or 308."));
-        PluginReply.Redirect("/next").Status.Should().Be(303);
-        PluginReply.Stream(AsyncEnumerable()).Status.Should().Be(200);
+        var reply = PluginReply.Stream(events);
+
+        reply.Kind.Should().Be(PluginReplyKind.Stream);
+        reply.Status.Should().Be(200);
+        reply.Events.Should().BeSameAs(events);
+    }
+
+    /// <summary>
+    /// The default statuses are baked into the code of every plugin that leaves the argument out, so the metadata must
+    /// keep saying 200 for a JSON reply and 303 for a redirect.
+    /// </summary>
+    /// <param name="method">The factory.</param>
+    /// <param name="expected">The default status.</param>
+    [Theory]
+    [InlineData(nameof(PluginReply.Json), 200)]
+    [InlineData(nameof(PluginReply.Redirect), 303)]
+    public void StatusParameterDefaults_AreThoseOfTheContract(string method, int expected)
+    {
+        var parameter = typeof(PluginReply).GetMethod(method)!.GetParameters().Single(candidate => candidate.Name == "status");
+
+        parameter.HasDefaultValue.Should().BeTrue();
+        parameter.DefaultValue.Should().Be(expected);
     }
 
     /// <summary>An empty stream of events.</summary>
     /// <returns>The events.</returns>
-    private static async IAsyncEnumerable<PluginEvent> AsyncEnumerable()
+    private static async IAsyncEnumerable<PluginEvent> NoEvents()
     {
         await Task.CompletedTask;
         yield break;
