@@ -20,4 +20,7 @@ public static class TaxLimits
 
     /// <summary>The length of a currency code: three letters of ISO 4217.</summary>
     public const int CurrencyLength = 3;
+
+    /// <summary>The length of a country code: two letters of ISO 3166-1 alpha-2.</summary>
+    public const int CountryCodeLength = 2;
 }

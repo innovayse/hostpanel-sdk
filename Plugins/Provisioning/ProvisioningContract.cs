@@ -191,7 +191,7 @@ public static class ProvisioningContract
 
         await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.SuspendAccountAsync),
-            () => plugin.SuspendAccountAsync(new PanelSuspendContext(server, service, ContractChecks.Reason), ct),
+            () => plugin.SuspendAccountAsync(new PanelSuspendContext(server, service, ContractChecks.UnknownTargetActionReason), ct),
             PanelOperationOutcome.NotFound);
         await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.UnsuspendAccountAsync),
@@ -203,7 +203,7 @@ public static class ProvisioningContract
             PanelOperationOutcome.NotFound);
         await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.TerminateAccountAsync),
-            () => plugin.TerminateAccountAsync(new PanelTerminateContext(server, service, ContractChecks.Reason), ct),
+            () => plugin.TerminateAccountAsync(new PanelTerminateContext(server, service, ContractChecks.UnknownTargetActionReason), ct),
             PanelOperationOutcome.Succeeded,
             PanelOperationOutcome.AlreadyApplied);
 

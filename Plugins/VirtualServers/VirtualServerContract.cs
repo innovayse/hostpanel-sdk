@@ -19,7 +19,7 @@ public static class VirtualServerContract
     private const string CheckPassword = "contract-check-password";
 
     /// <summary>The checks this contract shares with the other contracts, worded for a virtual server platform.</summary>
-    private static readonly ContractChecks Checks = new(new ContractWords("server", "a server", "platform", nameof(PanelCreateResult.ProvisioningRef), "the server was created again. A repeat with the same name must answer AlreadyApplied."));
+    private static readonly ContractChecks Checks = new(new ContractWords("server", "a server", "platform", nameof(VirtualServerInstance.ProvisioningRef), "the server was created again. A repeat with the same name must answer AlreadyApplied."));
 
     /// <summary>
     /// Calls <see cref="IVirtualServerPlugin.CreateServerAsync"/> repeatedly with one context and asserts the promise of that
@@ -232,7 +232,7 @@ public static class VirtualServerContract
         await ExpectActionAsync(nameof(IVirtualServerPlugin.UnsuspendServerAsync), () => plugin.UnsuspendServerAsync(unknownServer, ct), PanelOperationOutcome.NotFound);
         await ExpectActionAsync(
             nameof(IVirtualServerPlugin.SuspendServerAsync),
-            () => plugin.SuspendServerAsync(new PanelSuspendContext(server, service, ContractChecks.Reason), ct),
+            () => plugin.SuspendServerAsync(new PanelSuspendContext(server, service, ContractChecks.UnknownTargetActionReason), ct),
             PanelOperationOutcome.NotFound);
         await ExpectActionAsync(
             nameof(IVirtualServerPlugin.ChangePlanAsync),
@@ -240,7 +240,7 @@ public static class VirtualServerContract
             PanelOperationOutcome.NotFound);
         await ExpectActionAsync(
             nameof(IVirtualServerPlugin.TerminateServerAsync),
-            () => plugin.TerminateServerAsync(new PanelTerminateContext(server, service, ContractChecks.Reason), ct),
+            () => plugin.TerminateServerAsync(new PanelTerminateContext(server, service, ContractChecks.UnknownTargetActionReason), ct),
             PanelOperationOutcome.AlreadyApplied);
         await ExpectDataAsync(
             nameof(IVirtualServerPlugin.RebuildServerAsync),
