@@ -196,7 +196,7 @@ public sealed class PluginHttp
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        using var deadline = _time.CreateCancellationTokenSource(timeout);
+        using var deadline = new CancellationTokenSource(timeout, _time);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, deadline.Token);
         try
         {
