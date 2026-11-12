@@ -44,6 +44,16 @@
     <!-- The packaging project sits below this one for the same reason; it is its own package. -->
     <Compile Remove="Hostpanel.Sdk.Packaging/**" />
     <None Remove="Hostpanel.Sdk.Packaging/**" />
+    <!-- The source generator is its own project, built for the compiler and not part of this assembly. -->
+    <Compile Remove="Hostpanel.Sdk.Generators/**" />
+    <None Remove="Hostpanel.Sdk.Generators/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Runs inside this project's own build (it prints the records marked [SecretMember]) and ships in the package under
+         analyzers, so a plugin that marks a member of its own record gets the same code. It adds no reference to the assembly. -->
+    <ProjectReference Include="Hostpanel.Sdk.Generators/Hostpanel.Sdk.Generators.csproj" ReferenceOutputAssembly="false" OutputItemType="Analyzer" />
+    <None Include="Hostpanel.Sdk.Generators/bin/$(Configuration)/netstandard2.0/Hostpanel.Sdk.Generators.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,4 +1,3 @@
-using System.Text;
 using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Enums;
 
@@ -16,7 +15,7 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// </param>
 /// <param name="Url">The absolute, time limited sign-in address; set exactly when <paramref name="Outcome"/> is <c>Succeeded</c>. Secret.</param>
 /// <param name="Reason">Why the panel refused; set exactly when <paramref name="Outcome"/> is <c>Refused</c>.</param>
-public sealed record PanelSsoResult(PanelOperationOutcome Outcome, string? Url, PanelRefusalReason? Reason)
+public sealed partial record PanelSsoResult(PanelOperationOutcome Outcome, [property: SecretMember] string? Url, PanelRefusalReason? Reason)
     : IOperationAnswer<PanelRefusalReason>
 {
     /// <summary>Builds the answer for a link the panel issued.</summary>
@@ -47,16 +46,5 @@ public sealed record PanelSsoResult(PanelOperationOutcome Outcome, string? Url, 
     public static PanelSsoResult Refused(PanelRefusalReason reason)
     {
         return new PanelSsoResult(PanelOperationOutcome.Refused, null, reason);
-    }
-
-    /// <summary>Prints the record without its secret members, so the generated <c>ToString</c> never reveals them.</summary>
-    /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
-    /// <returns>Always <see langword="true"/>: members are written.</returns>
-    private bool PrintMembers(StringBuilder builder)
-    {
-        builder.Append("Outcome = ").Append(Outcome);
-        builder.Append(", Url = ").Append(Url is null ? "null" : SecretMask.Text);
-        builder.Append(", Reason = ").Append(Reason);
-        return true;
     }
 }

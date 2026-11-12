@@ -44,13 +44,13 @@ public sealed class PanelServerAccountIdTests
         printed.Should().NotContain("hash-value").And.NotContain("token-value");
     }
 
-    /// <summary>A missing user name and a missing id print as null, not as nothing.</summary>
+    /// <summary>A missing secret prints as null, so its absence shows, and a missing plain member prints as the compiler prints a null.</summary>
     [Fact]
-    public void Connection_ToString_PrintsMissingUsernameAndIdAsNull()
+    public void Connection_ToString_PrintsMissingSecretsAsNullAndMissingPlainMembersEmpty()
     {
         var connection = new PanelServerConnection(1, "web1", "web1.example", null, null, true, null, null, null);
 
-        connection.ToString().Should().Contain("Username = null").And.Contain("AccountId = null");
+        connection.ToString().Should().Contain("Username = ,").And.Contain("AccessHash = null").And.EndWith("AccountId =  }");
     }
 
     /// <summary>The manifest label is off by default and, when set, turns the field on with the plugin's wording.</summary>

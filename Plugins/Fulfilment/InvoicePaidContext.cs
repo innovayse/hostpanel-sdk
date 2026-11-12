@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Identity;
 
 namespace Hostpanel.Sdk.Plugins.Fulfilment;
@@ -16,10 +17,10 @@ namespace Hostpanel.Sdk.Plugins.Fulfilment;
 /// <param name="Lines">Every product line on the invoice; a plugin ignores the ones it does not fulfil.</param>
 /// <param name="TransactionReference">The gateway's transaction reference, or null for a manual payment.</param>
 /// <param name="PaidAt">When the payment was recorded (UTC).</param>
-public sealed record InvoicePaidContext(
+public sealed partial record InvoicePaidContext(
     int InvoiceId,
     int ClientId,
-    string ClientRef,
+    [property: SecretMember] string ClientRef,
     ExternalAccount? Account,
     IReadOnlyList<FulfilmentLine> Lines,
     string? TransactionReference,

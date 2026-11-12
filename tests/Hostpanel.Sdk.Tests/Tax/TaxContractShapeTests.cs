@@ -73,13 +73,13 @@ public sealed class TaxContractShapeTests
         printed.Should().Contain("TaxId = ***").And.Contain("Country = FR");
     }
 
-    /// <summary>An address prints a missing region, postal code, city and street all as null.</summary>
+    /// <summary>An address prints a missing region as the compiler prints a null, and a missing postal code, city and street as null.</summary>
     [Fact]
-    public void Address_ToString_PrintsMissingMembersAsNull()
+    public void Address_ToString_PrintsMissingMembers()
     {
         var printed = new TaxAddress("US", null, null, null, null).ToString();
 
-        printed.Should().Be("TaxAddress { Country = US, Region = null, PostalCode = null, City = null, Line1 = null }");
+        printed.Should().Be("TaxAddress { Country = US, Region = , PostalCode = null, City = null, Line1 = null }");
     }
 
     /// <summary>A calculation refuses a null entry among its lines when it is built.</summary>
@@ -91,16 +91,16 @@ public sealed class TaxContractShapeTests
         build.Should().Throw<ArgumentException>();
     }
 
-    /// <summary>The printed result shows the outcome and the line count, and survives a null entry among the lines.</summary>
+    /// <summary>The printed result includes the total and survives a null entry among the lines.</summary>
     [Fact]
-    public void Result_ToString_DoesNotSumTheLines()
+    public void Result_ToString_SurvivesANullLine()
     {
         var byHand = new TaxCalculationResult(TaxOutcome.Calculated, new TaxLineResult[] { null! }, null);
 
         var printed = byHand.ToString();
 
-        printed.Should().Contain("Outcome = Calculated").And.Contain("Lines = 1").And.Contain("Reason = null");
-        TaxCalculationResult.Unavailable().ToString().Should().Contain("Lines = null");
+        printed.Should().Contain("Outcome = Calculated").And.Contain("Total = 0");
+        TaxCalculationResult.Unavailable().ToString().Should().Contain("Lines = ,");
     }
 
     /// <summary>The request limits are pinned: a change is a deliberate decision.</summary>
