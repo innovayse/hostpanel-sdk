@@ -91,6 +91,28 @@ public sealed class TaxContractShapeTests
         build.Should().Throw<ArgumentException>();
     }
 
+    /// <summary>The printed result shows the outcome and the line count, and survives a null entry among the lines.</summary>
+    [Fact]
+    public void Result_ToString_DoesNotSumTheLines()
+    {
+        var byHand = new TaxCalculationResult(TaxOutcome.Calculated, new TaxLineResult[] { null! }, null);
+
+        var printed = byHand.ToString();
+
+        printed.Should().Contain("Outcome = Calculated").And.Contain("Lines = 1").And.Contain("Reason = null");
+        TaxCalculationResult.Unavailable().ToString().Should().Contain("Lines = null");
+    }
+
+    /// <summary>The request limits are pinned: a change is a deliberate decision.</summary>
+    [Fact]
+    public void TaxLimits_Values_ArePinned()
+    {
+        TaxLimits.MaxLines.Should().Be(500);
+        TaxLimits.MaxLineIdLength.Should().Be(64);
+        TaxLimits.MaxTaxIdLength.Should().Be(64);
+        TaxLimits.CurrencyLength.Should().Be(3);
+    }
+
     /// <summary>A party without a tax number prints it as null and not as a mask.</summary>
     [Fact]
     public void Party_WithoutTaxId_PrintsNull()

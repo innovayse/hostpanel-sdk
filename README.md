@@ -447,7 +447,9 @@ quantity, the product's tax category and whether it is a digital service). The r
 - **Amounts follow the rate.** The amount is the line total times the rate when prices exclude tax, and the part of the
   line total that is tax at that rate when they include it, rounded the way the service rounds. Rates are between 0 and
   100, amounts are never negative, and every jurisdiction names an ISO 3166-1 alpha-2 country.
-- **Outcomes, not exceptions.** A refusal and an unavailable service are answers. Throw only when nothing can be said.
+- **Outcomes, not exceptions.** A refusal and an unavailable service are answers, and the plugin does not throw for them;
+  when nothing can be said, answer `Unavailable`. A request keeps within `TaxLimits` (at most 500 lines, line ids and
+  tax numbers up to 64 characters, a three letter currency).
 - **No personal data in a result.** Tax numbers and address details print as `***` on the request; do not undo that in
   your own logs, and never put the service's own text, an address or a tax number in a result.
 

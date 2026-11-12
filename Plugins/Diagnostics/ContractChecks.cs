@@ -178,7 +178,7 @@ internal sealed class ContractChecks : ContractCalls
         if (!allowed.Contains(result.Outcome))
         {
             throw new PluginContractViolationException(
-                $"{operation} answered {result.Outcome} for an unknown {_words.Target}; it must answer {string.Join(" or ", allowed)}.");
+                $"{operation} answered {result.Outcome} for an unknown {Target}; it must answer {string.Join(" or ", allowed)}.");
         }
     }
 

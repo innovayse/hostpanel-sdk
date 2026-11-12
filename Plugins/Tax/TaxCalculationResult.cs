@@ -1,3 +1,4 @@
+using System.Text;
 using Hostpanel.Sdk.Plugins.Enums;
 
 namespace Hostpanel.Sdk.Plugins.Tax;
@@ -27,6 +28,20 @@ public sealed record TaxCalculationResult(
     /// list and the contract helper rejects it.
     /// </summary>
     public decimal? Total => Lines?.Sum(line => line.Amount);
+
+    /// <summary>
+    /// Prints the outcome, the reason and the number of lines, but not <see cref="Total"/>: a result built by hand with a
+    /// null entry among its lines would make the sum throw from a log line.
+    /// </summary>
+    /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
+    /// <returns>Always <see langword="true"/>: members are written.</returns>
+    private bool PrintMembers(StringBuilder builder)
+    {
+        builder.Append("Outcome = ").Append(Outcome);
+        builder.Append(", Lines = ").Append(Lines is null ? "null" : Lines.Count.ToString());
+        builder.Append(", Reason = ").Append(Reason is null ? "null" : Reason.ToString());
+        return true;
+    }
 
     /// <summary>Builds the answer for an invoice whose every line was calculated.</summary>
     /// <param name="lines">One result per requested line, in any order; empty for an invoice without lines.</param>

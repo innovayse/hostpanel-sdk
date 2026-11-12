@@ -413,15 +413,40 @@ public static class TaxContract
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Seller);
+        ArgumentNullException.ThrowIfNull(request.Seller.Address);
         ArgumentNullException.ThrowIfNull(request.Buyer);
+        ArgumentNullException.ThrowIfNull(request.Buyer.Address);
         ArgumentNullException.ThrowIfNull(request.Lines);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.Currency);
+        if (request.Currency is not { Length: TaxLimits.CurrencyLength } currency || !currency.All(char.IsAsciiLetterUpper))
+        {
+            throw new ArgumentException("The currency is three upper case letters of ISO 4217.", nameof(request));
+        }
+
+        if (request.Lines.Count > TaxLimits.MaxLines)
+        {
+            throw new ArgumentException($"A request has at most {TaxLimits.MaxLines} lines.", nameof(request));
+        }
+
+        foreach (var party in new[] { request.Seller, request.Buyer })
+        {
+            if (party.TaxId is { Length: > TaxLimits.MaxTaxIdLength })
+            {
+                throw new ArgumentException(
+                    $"A tax number has at most {TaxLimits.MaxTaxIdLength} characters.", nameof(request));
+            }
+        }
 
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var line in request.Lines)
         {
             ArgumentNullException.ThrowIfNull(line);
             ArgumentException.ThrowIfNullOrWhiteSpace(line.LineId);
+            if (line.LineId.Length > TaxLimits.MaxLineIdLength)
+            {
+                throw new ArgumentException(
+                    $"A line id has at most {TaxLimits.MaxLineIdLength} characters.", nameof(request));
+            }
+
             if (line.Amount < 0m)
             {
                 throw new ArgumentException(

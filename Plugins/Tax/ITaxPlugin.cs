@@ -24,8 +24,9 @@ public interface ITaxPlugin
     /// <item><description>Amounts are never negative, the rate is a percentage between 0 and 100, and the amount
     /// follows the rate and the line total, with <see cref="TaxCalculationRequest.PricesIncludeTax"/> deciding whether
     /// the tax is added or taken out.</description></item>
-    /// <item><description>A refusal and an unavailable service are outcomes, not exceptions. Throw only when the result
-    /// is unknown and nothing can be said about it.</description></item>
+    /// <item><description>A refusal and an unavailable service are outcomes, not exceptions, and the plugin does not
+    /// throw for them: <see cref="TaxContract"/> treats any exception as a broken promise. When nothing can be said
+    /// about the result, answer <see cref="Enums.TaxOutcome.Unavailable"/>.</description></item>
     /// <item><description>The service's own text, an address or a tax number is never put in a result, a log line or an
     /// exception message.</description></item>
     /// </list>

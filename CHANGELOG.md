@@ -19,7 +19,7 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Compatibility
 
 - `CustomerRef` is a trailing optional record parameter, like the 3.5.0 members: callers and plugins recompile unchanged, and the existing constructor call sites keep their meaning. The record constructor and `Deconstruct` gain a parameter, so a plugin built against 3.6.0 binaries keeps working only when it is rebuilt against 3.7.0.
-- The tax contract is additive: `PluginType.Tax` is appended and no existing member changes, so a plugin built on 3.6.0 compiles and loads as it is. A host that does not know the tax type skips the plugin; a host that does reads `plugin is ITaxPlugin`.
+- The tax contract is additive: `PluginType.Tax` is appended and no existing member changes, so a plugin built on 3.6.0 compiles and loads as it is, and the change is source and binary compatible. How a host older than 3.7.0 treats the unknown plugin type is up to that host; a host that knows it reads `plugin is ITaxPlugin`.
 
 ## [3.6.0]
 

@@ -444,6 +444,17 @@ public sealed class TaxContractTests
             TaxFixtures.Request with { Lines = [line with { Amount = -1m }] },
             TaxFixtures.Request with { Lines = [line with { Quantity = 0 }] },
             TaxFixtures.Request with { Lines = [line, line] },
+            TaxFixtures.Request with { Currency = "eur" },
+            TaxFixtures.Request with { Currency = "EURO" },
+            TaxFixtures.Request with { Seller = TaxFixtures.Request.Seller with { Address = null! } },
+            TaxFixtures.Request with { Buyer = TaxFixtures.Request.Buyer with { Address = null! } },
+            TaxFixtures.Request with { Buyer = TaxFixtures.Request.Buyer with { TaxId = new string('1', 65) } },
+            TaxFixtures.Request with { Lines = [line with { LineId = new string('a', 65) }] },
+            TaxFixtures.Request with
+            {
+                Lines = Enumerable.Range(0, TaxLimits.MaxLines + 1)
+                    .Select(index => line with { LineId = "l" + index }).ToList(),
+            },
         };
 
         foreach (var request in requests)

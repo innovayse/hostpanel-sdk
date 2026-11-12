@@ -14,15 +14,18 @@ namespace Hostpanel.Sdk.Plugins.Diagnostics;
 /// </summary>
 internal class ContractCalls
 {
-    /// <summary>The noun the messages use for what the caller arranges to be missing or present (account, domain, address).</summary>
-    private readonly string _target;
-
     /// <summary>Initializes a new instance of the <see cref="ContractCalls"/> class.</summary>
     /// <param name="target">The noun the messages use for the target of the operation.</param>
     internal ContractCalls(string target)
     {
-        _target = target;
+        Target = target;
     }
+
+    /// <summary>
+    /// Gets the noun the messages use for what the caller arranges to be missing or present (account, domain,
+    /// address).
+    /// </summary>
+    protected string Target { get; }
 
     /// <summary>
     /// Calls the plugin once. An exception other than a cancellation is a broken promise (the caller arranged a server that
@@ -46,7 +49,7 @@ internal class ContractCalls
         {
             // Only the type is named: the message may carry an address or a user name.
             throw new PluginContractViolationException(
-                $"{operation} threw on call {call}: {ex.GetType().Name}. A refusal, a missing {_target} and an unsupported operation are outcomes, and a repeat must answer the same as the first call.");
+                $"{operation} threw on call {call}: {ex.GetType().Name}. A refusal, a missing {Target} and an unsupported operation are outcomes, and a repeat must answer the same as the first call.");
         }
 
         if (result is null)
