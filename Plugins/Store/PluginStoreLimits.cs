@@ -1,8 +1,9 @@
 namespace Hostpanel.Sdk.Plugins.Store;
 
 /// <summary>
-/// The limits of <see cref="IPluginStoreAdvanced"/>. They are the host's: a host never allows more, and may allow less
-/// in a deployment, so a plugin that needs a value near a limit reads it from here and handles the refusal.
+/// The limits of <see cref="IPluginStoreAdvanced"/>. They are the host's, and a host must not allow more than these
+/// values; it may allow less in a deployment, so a plugin that needs a value near a limit reads it from here and
+/// handles the refusal.
 /// </summary>
 public static class PluginStoreLimits
 {

@@ -19,7 +19,7 @@ public sealed class PluginStoreContractTests
         new StubPluginStore().Should().NotBeAssignableTo<IPluginStoreAdvanced>();
     }
 
-    /// <summary>The limits are pinned: a host never allows more, so a change is a deliberate decision.</summary>
+    /// <summary>The limits are pinned: a host must not allow more, so a change is a deliberate decision.</summary>
     [Fact]
     public void PluginStoreLimits_Values_ArePinned()
     {
