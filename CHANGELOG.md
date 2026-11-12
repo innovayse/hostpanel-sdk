@@ -10,6 +10,8 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `PaymentInstruction.CustomerRef` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#36): the gateway-side customer the saved method belongs to. The host fills it with the reference it got from `IStoredCredentialPlugin.EnsureCustomerAsync` whenever `SavePaymentMethod` is `true`, so a plugin can attach the stored method to that customer and a later stored charge for the same reference finds it. A plugin that does not save methods ignores it.
+- `IPluginStoreAdvanced : IPluginStore` (innovayse/hostpanel-sdk#45), an optional interface the plugin store also implements when the host supports it: `SetAsync(key, value, timeToLive, ct)` (a value that expires; an expired key reads as absent and the host removes it), `ListKeysAsync(prefix, limit, ct)` (keys under a prefix in ascending ordinal order, never an expired one) and `SetIfAbsentAsync(key, value, timeToLive, ct)` (an atomic conditional write: exactly one of several concurrent callers gets `true`, and an existing value is never changed). `PluginStoreLimits` names the host's limits (`MaxListLimit` 200, `MaxTimeToLive` 30 days). `IPluginStore` is unchanged, so a plugin checks `store is IPluginStoreAdvanced` and falls back to what it does today.
+  - `PluginStoreContract` (for a plugin's own tests, run against an in memory store): `AssertSetIfAbsentIsAtomicAsync`, `AssertExpiredKeyReadsAsAbsentAsync` and `AssertListKeysHonoursPrefixAndLimitAsync`. They throw `PluginContractViolationException`.
 
 ### Compatibility
 

@@ -167,6 +167,30 @@ plugin that grants credits on a paid invoice can also give the client a screen, 
 `ClientRef`. Without the capability a plugin that is not an app plugin has its `api` and `ui` blocks refused, and a
 declared capability whose class does not implement `IPluginEndpoints` is refused when the plugin is activated.
 
+### De-duplicating webhooks with the advanced store
+
+A plugin that handles webhooks must remember which events it handled, expire old markers and keep two processes from
+handling one event. `IPluginStoreAdvanced` extends `IPluginStore` with exactly that, and the store the host gives a
+plugin implements it when the host supports it, so test for it and fall back to what you do today otherwise. The limits
+(`PluginStoreLimits`: at most 200 keys per list, a time to live of at most 30 days) are the host's.
+
+```csharp
+if (call.Store is IPluginStoreAdvanced store)
+{
+    // Exactly one process gets true for an event id; the marker removes itself after a day.
+    var first = await store.SetIfAbsentAsync("event:" + eventId, "handled", TimeSpan.FromDays(1), ct);
+    if (!first)
+    {
+        return PluginReply.NoContent();
+    }
+}
+```
+
+`ListKeysAsync("event:", 100, ct)` lists what is stored under a prefix, and replaces a shared index key that two
+processes can overwrite. In the plugin's own tests, run the `PluginStoreContract` checks against an in memory store
+(`AssertSetIfAbsentIsAtomicAsync`, `AssertExpiredKeyReadsAsAbsentAsync` and `AssertListKeysHonoursPrefixAndLimitAsync`);
+each throws `PluginContractViolationException` naming the promise that was broken.
+
 ### Callbacks
 
 A plugin can receive requests from outside the panels, for example a gateway telling it a payment changed. Declare
