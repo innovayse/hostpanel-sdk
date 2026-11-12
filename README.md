@@ -208,6 +208,48 @@ var body = await http.ReadBoundedAsync(response, 64 * 1024, TimeSpan.FromSeconds
 - `ReadBoundedAsync` refuses a declared `Content-Length` over the limit before it reads, stops reading at the limit
   when there is none (`PluginHttpFault.TooLarge`), and gives up at its deadline (`PluginHttpFault.TimedOut`).
 
+### De-duplicating webhooks with the advanced store
+
+A plugin that handles webhooks must remember which events it handled, expire old markers and keep two processes from
+handling one event. `IPluginStoreAdvanced` extends `IPluginStore` with exactly that, and the store the host gives a
+plugin implements it when the host supports it, so test for it and fall back to what you do today otherwise. The
+interface is new, so the change is source and binary compatible. The limits (`PluginStoreLimits`) are the host's: at
+most 1000 keys in the store, 200 keys per list and a time to live of at most 30 days. A write of a new key past the
+quota throws `PluginStoreQuotaException`, and a write with a time to live out of range throws
+`ArgumentOutOfRangeException`; neither writes anything. A plain `SetAsync` replaces the value and clears its expiry.
+
+```csharp
+// Exactly one process gets true for an event id; the marker removes itself after a day.
+var first = call.Store is IPluginStoreAdvanced advanced
+    ? await advanced.SetIfAbsentAsync("event:" + eventId, "handled", TimeSpan.FromDays(1), ct)
+    : await MarkOnceWithTheOldStoreAsync(call.Store, "event:" + eventId, ct);
+if (!first)
+{
+    return PluginReply.NoContent();
+}
+
+// The fallback keeps what plugins do today: read, then write. Two processes can both pass, so the handler of the
+// event must also be safe to run twice.
+static async Task<bool> MarkOnceWithTheOldStoreAsync(IPluginStore store, string key, CancellationToken ct)
+{
+    if (await store.GetAsync(key, ct) is not null)
+    {
+        return false;
+    }
+
+    await store.SetAsync(key, "handled", ct);
+    return true;
+}
+```
+
+`ListKeysAsync("event:", 100, ct)` lists what is stored under a prefix, in ordinal order. A prefix follows the rules of
+a key, is case sensitive, and there is no paging, which replaces a shared index key that two processes can overwrite.
+In the plugin's own tests, run the `PluginStoreContract` checks against `InMemoryPluginStore`, a store that keeps the
+promises and whose clock you move with `AdvanceAsync`: `AssertSetIfAbsentIsAtomicAsync`,
+`AssertExpiredKeyReadsAsAbsentAsync`, `AssertPlainSetClearsTimeToLiveAsync`, `AssertTimeToLiveBoundsAsync` and
+`AssertListKeysHonoursPrefixAndLimitAsync`; each throws `PluginContractViolationException` naming the promise that
+was broken.
+
 ### Logging and secrets
 
 The SDK records print their secret members as `***`, and that text is public as `SecretMask.Text` in
@@ -226,6 +268,19 @@ the routes under `api.callbacks` in `plugin.json` (a list like `api.client`, `Pl
 `PluginCall.Headers` (empty on other calls), and the plugin must verify the sender itself, for example by a signature
 over `PluginCall.Body`. Answer with `PluginReply.Raw(status, bytes, contentType)` when the sender expects a fixed
 plain answer such as `OK`; the status is 200 to 599 except 401 and 407.
+
+### Redirects on callback routes
+
+A public callback route that a gateway or a browser lands on, such as the return address after a payment, can send the
+payer on to a page of the host with `PluginReply.Redirect(location, status)`. The status is 301, 302, 303, 307 or 308
+and 303 by default. The `location` is either a host relative path (one leading slash, never two, and never under the
+API path) or an absolute `https` URL without user info. It has no control character (a line break, a tab, a null, DEL
+or a C1 control), no leading or trailing white space and no backslash. The factory refuses anything else, and the host
+validates the address again before it answers, treating a bad one as a plugin fault like any other bad reply. The plugin
+never writes the `Location` header itself, and a raw reply cannot fake a redirect: raw replies are limited to media
+types without markup. Never build the location from the request, such as a `next` query parameter: an address the
+caller chose is an open redirect. Use a fixed path, or one assembled from values you looked up yourself. The reply kind
+needs a host of 3.7.0 or later.
 
 ### Refunds, cancelling and idempotency
 
@@ -305,13 +360,25 @@ decision, made per server with the setting "accept a self signed certificate", n
 its own handler to accept a certificate. Ask for the client of the server you are talking to with
 `transport.CreateClient(server)` instead of `CreateClient()`. A host that supports the setting returns a client that
 accepts the certificate of that one host name and port and of nothing else, and keeps every other rule of the transport
-(address guard, timeouts, no retry). A host that does not know the setting returns the plain client, because the default
-body of the method calls `CreateClient()`, so the call works against any host. In the plugin's own tests, start a
+(address guard, timeouts, no retry). A 3.7.0 host that does not know the setting returns the plain client, because the default
+body of the method calls `CreateClient()`. A host older than 3.7.0 has no such member and the call throws
+`MissingMethodException`, so a plugin that uses it sets `minHostVersion` to `3.7.0`. In the plugin's own tests, start a
 `SelfSignedListener`, describe it as a `PanelServerConnection` (its `HostName` and `Port`), and run
 `PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync` and `AssertSelfSignedIsAcceptedForTheServerOnlyAsync`
 against the transport you test with. The second check also proves that the allowance stops at the server's own host
 name and port. The host's address guard may refuse a loopback address, so the listener is for the tests of a plugin,
 with a transport double, and not for a transport behind that guard.
+
+### The account id of a server
+
+A panel that scopes every API call with an organisation, reseller or tenant id next to the credentials reads it from
+`PanelServerConnection.AccountId`. Do not ask the operator to type it into the user name or to join it to the user name
+with a separator. Set `serverAccountIdLabel` in `plugin.json` (for example `"Reseller ID"`) to turn on a field of the
+server form with that label, shown only for servers that use your plugin; without the label the field stays off and
+`AccountId` is null. The label is 1 to 60 characters with no control character, and it is a literal shown as it is or
+a text key defined in the manifest's `locales`, like the other labels; `PluginManifestChecker` reports
+`AccountIdLabelInvalid` for a bad one. The id is not a secret, so it prints in `ToString`; `AccessHash` and `ApiToken`
+stay masked.
 
 ### Registrar plugins
 
@@ -432,6 +499,40 @@ In the plugin's own tests, run the `VirtualServerContract` checks against a stub
 `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
 promise that was broken.
 
+### Completing a payment from the return request
+
+Some gateways finish a payment with a value only the payer's browser has when it comes back. A plugin that needs it
+implements `IPaymentReturnPlugin` beside `IPaymentPlugin` and lists `paymentReturn` (`PluginCapabilities.PaymentReturn`)
+in `capabilities`; the host checks for the interface at run time, so a plugin without it is unchanged. The host calls
+`CompleteAsync(gatewayOrderId, returnParameters, ct)` with the query parameters of the return request (and the posted
+fields of a browser step) before it reads the status, and the plugin answers the status the payment is in. The host picks
+the names that reach the plugin and keeps within `PaymentReturnLimits` (at most 32 parameters, names up to 64 and values
+up to 2048 characters); it never passes credentials, cookies or headers. Names are compared ordinally, and when a name
+arrives more than once the first value wins. The set is read only and comes from the payer's browser, so treat it as
+untrusted input. `CompleteAsync` is idempotent: a payer who returns twice must not be charged twice.
+
+The plugin never serves a page. The browser gets the value from the gateway: from its hosted page, or from the
+gateway's own script on the page that `PaymentSession.RedirectUrl` names. It then comes back to the host's return
+address with the value in the query, and the host passes it on.
+
+- **A nonce style gateway** (the browser obtains a payment method nonce from the gateway): `CompleteAsync` reads the nonce
+  parameter, charges the order at the gateway with it once, and answers `Paid` or `Declined`.
+- **A payer id style gateway** (the return address carries the payer id and a token): `CompleteAsync` reads both, asks
+  the gateway to execute the approved payment, and answers its status. A return without them answers `Pending`.
+
+### Choosing the session kind
+
+`CreatePaymentAsync` answers a `PaymentSession`. Most gateways send the payer to a hosted page with a plain GET:
+fill `RedirectUrl` and leave `FormPost` null. A gateway whose hosted page is opened with a POST that carries a token
+or other fields fills `FormPost` with a `PaymentFormPost` (the `Action` URL and the `Fields`) and passes the same
+address as `RedirectUrl`, which is never empty and which the host then ignores. The plugin only describes the form.
+The host renders the page and applies its own rules: the action must be an absolute `https` URL without user info or
+line breaks, field names are not empty, names and values are encoded as attribute text, no script from the plugin is
+ever included, and the page has a button that submits the form for a payer whose browser runs no script. The form keeps
+within `PaymentFormPostLimits` (at most 64 fields, names up to 128 and values up to 8192 characters, an action up to
+2048). A session that breaks a rule is a failed payment. Choose the redirect whenever the gateway offers one, because it
+needs no form.
+
 ### Saving the method during a payment
 
 To let a payer save the method they pay with, the host sets `PaymentInstruction.SavePaymentMethod` to `true`. A plugin
@@ -520,7 +621,8 @@ quantity, the product's tax category and whether it is a digital service). The r
   100, amounts are never negative, and every jurisdiction names an ISO 3166-1 alpha-2 country.
 - **Outcomes, not exceptions.** A refusal and an unavailable service are answers, and the plugin does not throw for them;
   when nothing can be said, answer `Unavailable`. A request keeps within `TaxLimits` (at most 500 lines, line ids and
-  tax numbers up to 64 characters, a three letter currency).
+  tax numbers up to 64 characters, address fields up to 128, a three letter upper case currency and a two letter upper
+  case country).
 - **No personal data in a result.** Tax numbers and address details print as `***` on the request; do not undo that in
   your own logs, and never put the service's own text, an address or a tax number in a result.
 

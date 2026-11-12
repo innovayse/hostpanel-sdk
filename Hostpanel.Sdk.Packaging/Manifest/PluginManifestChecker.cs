@@ -97,6 +97,7 @@ public static partial class PluginManifestChecker
             ?? CheckTags(manifest.Tags)
             ?? CheckHostVersions(manifest.MinHostVersion, manifest.MaxHostVersion)
             ?? CheckChangelog(manifest.Changelog)
+            ?? CheckAccountIdLabel(manifest.ServerAccountIdLabel)
             ?? CheckTextKeys(manifest);
     }
 
@@ -408,6 +409,28 @@ public static partial class PluginManifestChecker
         return null;
     }
 
+    /// <summary>
+    /// Checks the <c>serverAccountIdLabel</c>: when set, 1 to <see cref="PluginManifest.MaxServerAccountIdLabelLength"/>
+    /// characters, not only white space and with no control character. Whether it is a literal or a text key is
+    /// decided with the other texts, by <c>CheckTextKeys</c>.
+    /// </summary>
+    /// <param name="label">The manifest's account id label, or <see langword="null"/> when it has none.</param>
+    /// <returns>The violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckAccountIdLabel(string? label)
+    {
+        if (label is not null
+            && (string.IsNullOrWhiteSpace(label)
+                || label.Length > PluginManifest.MaxServerAccountIdLabelLength
+                || label.Any(char.IsControl)))
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.AccountIdLabelInvalid,
+                $"serverAccountIdLabel: 1 to {PluginManifest.MaxServerAccountIdLabelLength} characters with no control character are allowed");
+        }
+
+        return null;
+    }
+
     /// <summary>Checks the <c>tags</c> list: at most <see cref="PluginTags.MaxCount"/> tags, each well formed, none twice.</summary>
     /// <param name="tags">The manifest's tags.</param>
     /// <returns>The first violation, or <see langword="null"/>.</returns>
@@ -576,6 +599,8 @@ public static partial class PluginManifestChecker
         {
             yield return ($"ui.slots '{entry.Id}' title", entry.Title, false);
         }
+
+        yield return ("serverAccountIdLabel", manifest.ServerAccountIdLabel, false);
 
         foreach (var setting in manifest.Settings)
         {

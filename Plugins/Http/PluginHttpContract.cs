@@ -49,13 +49,8 @@ public static class PluginHttpContract
         }
         catch (HttpRequestException)
         {
-            // A client that follows a redirect that loops fails with this too, but then it has made more than one
-            // request; with one or none the listener was never reached and nothing was learned about redirects.
-            throw new PluginContractViolationException(
-                Volatile.Read(ref requests) > 1
-                    ? "The client followed the redirect and kept following it; it must return the 3xx answer as it is."
-                    : "The client could not reach the local listener (the address may be blocked), so the check says " +
-                      "nothing about redirects.");
+            // The number of requests the listener saw tells the three ways of failing apart.
+            throw new PluginContractViolationException(FailureMessage(Volatile.Read(ref requests)));
         }
 
         using (response)
@@ -75,6 +70,24 @@ public static class PluginHttpContract
                 $"The client made {made} requests for one redirect answer; it must make exactly one and leave the " +
                 "next request to the plugin.");
         }
+    }
+
+    /// <summary>Words the failure of a request by how many requests reached the listener.</summary>
+    /// <param name="requests">How many requests the listener saw.</param>
+    /// <returns>
+    /// Zero requests mean the listener was never reached, so the check says nothing about redirects; one means it was
+    /// reached and the client failed on the answer without following it; more mean the client followed the redirect.
+    /// </returns>
+    private static string FailureMessage(int requests)
+    {
+        return requests switch
+        {
+            0 => "The client could not reach the local listener (the address may be blocked), so the check says " +
+                "nothing about redirects.",
+            1 => "The client reached the listener but failed on the redirect answer instead of returning it; it " +
+                "must return the 3xx answer as it is.",
+            _ => "The client followed the redirect and kept following it; it must return the 3xx answer as it is.",
+        };
     }
 
     /// <summary>Answers one request: a 302 for the first path, a 200 for any other.</summary>
