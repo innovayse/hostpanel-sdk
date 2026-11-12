@@ -19,6 +19,8 @@
   <ItemGroup>
     <!-- 4.8 is the compiler of the .NET 8 SDK, the lowest one a net8.0 plugin builds with. -->
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" PrivateAssets="all" />
+    <!-- Checks the generator itself: extended analyzer rules and the release tracking files below. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

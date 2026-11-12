@@ -1,3 +1,7 @@
+using Hostpanel.Sdk.Generators;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+
 namespace Hostpanel.Sdk.Tests.Diagnostics;
 
 /// <summary>Tests of the source generator that writes <c>PrintMembers</c> for the records with a <c>[SecretMember]</c>.</summary>
@@ -8,6 +12,16 @@ public sealed class SecretMemberGeneratorTests
         namespace Sample;
         public sealed partial record Login(string User, [property: SecretMember] string? Password, int Attempts);
         """;
+
+    /// <summary>Creates an instance of a type of the sample from its constructor arguments.</summary>
+    /// <param name="result">A run whose output compiles.</param>
+    /// <param name="typeName">The full name of the type in the sample assembly.</param>
+    /// <param name="arguments">The constructor arguments.</param>
+    /// <returns>The instance.</returns>
+    private static object Create(HarnessResult result, string typeName, params object?[] arguments)
+    {
+        return Activator.CreateInstance(SecretMemberGeneratorHarness.Load(result).GetType(typeName)!, arguments)!;
+    }
 
     /// <summary>The generated source is exactly this, so a change of the output is a deliberate change of this text.</summary>
     [Fact]
@@ -23,12 +37,15 @@ public sealed class SecretMemberGeneratorTests
 
             partial record Login
             {
+                /// <summary>Prints the members of the record as the compiler does, with each member marked <c>[SecretMember]</c> masked.</summary>
+                /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
+                /// <returns><see langword="true"/> when a member was written.</returns>
                 [global::System.CodeDom.Compiler.GeneratedCode("Hostpanel.Sdk.Generators", "1.0.0")]
                 private bool PrintMembers(global::System.Text.StringBuilder builder)
                 {
-                    builder.Append("User = ").Append(User);
-                    builder.Append(", Password = ").Append(((object?)Password) is null ? "null" : global::Hostpanel.Sdk.Plugins.Diagnostics.SecretMask.Text);
-                    builder.Append(", Attempts = ").Append((object?)Attempts);
+                    builder.Append("User = ").Append(this.User);
+                    builder.Append(", Password = ").Append(((object?)this.Password) is null ? "null" : global::Hostpanel.Sdk.Plugins.Diagnostics.SecretMask.Text);
+                    builder.Append(", Attempts = ").Append((object?)this.Attempts);
                     return true;
                 }
             }
@@ -41,20 +58,16 @@ public sealed class SecretMemberGeneratorTests
     [Fact]
     public void Generator_MasksTheMarkedMemberAndPrintsTheRest()
     {
-        var assembly = SecretMemberGeneratorHarness.Load(SecretMemberGeneratorHarness.Run(Login));
-        var login = Activator.CreateInstance(assembly.GetType("Sample.Login")!, "ann", "hunter2", 3)!;
-
-        login.ToString().Should().Be("Login { User = ann, Password = ***, Attempts = 3 }");
+        Create(SecretMemberGeneratorHarness.Run(Login), "Sample.Login", "ann", "hunter2", 3).ToString()
+            .Should().Be("Login { User = ann, Password = ***, Attempts = 3 }");
     }
 
     /// <summary>A secret that is not set prints as <c>null</c>, so its absence shows and nothing is revealed.</summary>
     [Fact]
     public void Generator_ShowsAnUnsetSecretAsNull()
     {
-        var assembly = SecretMemberGeneratorHarness.Load(SecretMemberGeneratorHarness.Run(Login));
-        var login = Activator.CreateInstance(assembly.GetType("Sample.Login")!, "ann", null, 3)!;
-
-        login.ToString().Should().Be("Login { User = ann, Password = null, Attempts = 3 }");
+        Create(SecretMemberGeneratorHarness.Run(Login), "Sample.Login", "ann", null, 3).ToString()
+            .Should().Be("Login { User = ann, Password = null, Attempts = 3 }");
     }
 
     /// <summary>A record with no marked member is left to the compiler: nothing is generated for it.</summary>
@@ -91,31 +104,114 @@ public sealed class SecretMemberGeneratorTests
     public void Generator_WritesARecordNestedInPartialTypes()
     {
         var result = SecretMemberGeneratorHarness.Run("namespace Sample; public partial class Holder { public sealed partial record Login([property: SecretMember] string Password); }");
-        var assembly = SecretMemberGeneratorHarness.Load(result);
-        var login = Activator.CreateInstance(assembly.GetType("Sample.Holder+Login")!, "hunter2")!;
 
-        login.ToString().Should().Be("Login { Password = *** }");
+        Create(result, "Sample.Holder+Login", "hunter2").ToString().Should().Be("Login { Password = *** }");
     }
 
-    /// <summary>A record that is not sealed gets the member the compiler expects, <c>protected virtual</c>.</summary>
+    /// <summary>A record that is not sealed gets the member the compiler expects, <c>protected virtual</c>, with its documentation.</summary>
     [Fact]
-    public void Generator_WritesAProtectedVirtualMethodForAnUnsealedRecord()
+    public void Generator_WritesADocumentedProtectedVirtualMethodForAnUnsealedRecord()
     {
         var result = SecretMemberGeneratorHarness.Run("namespace Sample; public partial record Login([property: SecretMember] string Password);");
-        var assembly = SecretMemberGeneratorHarness.Load(result);
-        var login = Activator.CreateInstance(assembly.GetType("Sample.Login")!, "hunter2")!;
 
-        result.Sources.Should().ContainSingle().Which.Should().Contain("protected virtual bool PrintMembers");
-        login.ToString().Should().Be("Login { Password = *** }");
+        result.Sources.Should().ContainSingle().Which.Should().Contain("protected virtual bool PrintMembers").And.Contain("/// <summary>");
+        Create(result, "Sample.Login", "hunter2").ToString().Should().Be("Login { Password = *** }");
     }
 
-    /// <summary>A record that derives from another record would print the base members unmasked, so it is refused.</summary>
+    /// <summary>A generic record gets its part with the same type parameters.</summary>
     [Fact]
-    public void Generator_RefusesARecordThatDerivesFromARecord()
+    public void Generator_WritesAGenericRecord()
+    {
+        var result = SecretMemberGeneratorHarness.Run("namespace Sample; public sealed partial record Box<T>(T Value, [property: SecretMember] string Key);");
+        var closed = SecretMemberGeneratorHarness.Load(result).GetType("Sample.Box`1")!.MakeGenericType(typeof(int));
+
+        Activator.CreateInstance(closed, 5, "hunter2")!.ToString().Should().Be("Box { Value = 5, Key = *** }");
+    }
+
+    /// <summary>A record struct gets a part that is a record struct.</summary>
+    [Fact]
+    public void Generator_WritesARecordStruct()
+    {
+        var result = SecretMemberGeneratorHarness.Run("namespace Sample; public partial record struct Pair(int A, [property: SecretMember] string B);");
+
+        result.Sources.Should().ContainSingle().Which.Should().Contain("partial record struct Pair");
+        Create(result, "Sample.Pair", 1, "hunter2").ToString().Should().Be("Pair { A = 1, B = *** }");
+    }
+
+    /// <summary>A record in the global namespace gets a part without a namespace line.</summary>
+    [Fact]
+    public void Generator_WritesARecordInTheGlobalNamespace()
+    {
+        var result = SecretMemberGeneratorHarness.Run("public sealed partial record Login([property: SecretMember] string Password);");
+
+        result.Sources.Should().ContainSingle().Which.Should().NotContain("namespace");
+        Create(result, "Login", "hunter2").ToString().Should().Be("Login { Password = *** }");
+    }
+
+    /// <summary>A record declared in two files is generated once, and the members of both files are printed.</summary>
+    [Fact]
+    public void Generator_WritesARecordDeclaredInSeveralFilesOnce()
+    {
+        var result = SecretMemberGeneratorHarness.Run(
+            "namespace Sample; public sealed partial record Login(string User, [property: SecretMember] string Password);",
+            "namespace Sample; public sealed partial record Login { public int Extra { get; init; } = 7; }");
+
+        result.Sources.Should().ContainSingle();
+        Create(result, "Sample.Login", "ann", "hunter2").ToString().Should().Be("Login { User = ann, Password = ***, Extra = 7 }");
+    }
+
+    /// <summary>A record that derives from a record calls the base record's method first, as the compiler's own does.</summary>
+    [Fact]
+    public void Generator_WritesADerivedRecordAfterTheMembersOfItsBase()
     {
         var result = SecretMemberGeneratorHarness.Run(
             "namespace Sample; public partial record Base(string Name); public sealed partial record Login(string Name, [property: SecretMember] string Password) : Base(Name);");
 
-        result.Diagnostics.Should().ContainSingle().Which.Id.Should().Be("HPSDK002");
+        result.Sources.Should().ContainSingle().Which.Should().Contain("protected override bool PrintMembers").And.Contain("base.PrintMembers(builder)");
+        Create(result, "Sample.Login", "ann", "hunter2").ToString().Should().Be("Login { Name = ann, Password = *** }");
+    }
+
+    /// <summary>A member named like a keyword is read with <c>@</c>, and printed under its plain name.</summary>
+    [Fact]
+    public void Generator_EscapesAMemberNamedLikeAKeyword()
+    {
+        var result = SecretMemberGeneratorHarness.Run("namespace Sample; public sealed partial record Login([property: SecretMember] string @class, string @event);");
+
+        result.Sources.Should().ContainSingle().Which.Should().Contain("this.@class").And.Contain("this.@event");
+        Create(result, "Sample.Login", "hunter2", "start").ToString().Should().Be("Login { class = ***, event = start }");
+    }
+
+    /// <summary>A member of a ref struct type cannot be boxed, so it is left out, as the compiler leaves it out.</summary>
+    [Fact]
+    public void Generator_SkipsAMemberThatCannotBeBoxed()
+    {
+        var result = SecretMemberGeneratorHarness.Run(
+            "namespace Sample; public sealed partial record Login([property: SecretMember] string Password) { public System.Span<int> Window => default; }");
+
+        result.Sources.Should().ContainSingle().Which.Should().NotContain("Window");
+        Create(result, "Sample.Login", "hunter2").ToString().Should().Be("Login { Password = *** }");
+    }
+
+    /// <summary>
+    /// Running again after an unrelated file was added reuses the decision about the record instead of making it again, so
+    /// the generator does not slow the editor down.
+    /// </summary>
+    [Fact]
+    public void Generator_ReusesItsWorkWhenTheRecordDidNotChange()
+    {
+        var first = SecretMemberGeneratorHarness.Compile(Login);
+        var options = new GeneratorDriverOptions(IncrementalGeneratorOutputKind.None, trackIncrementalGeneratorSteps: true);
+        GeneratorDriver driver = CSharpGeneratorDriver.Create(
+            generators: new[] { new SecretMemberGenerator().AsSourceGenerator() },
+            driverOptions: options);
+
+        driver = driver.RunGenerators(first);
+        driver = driver.RunGenerators(first.AddSyntaxTrees(CSharpSyntaxTree.ParseText("namespace Other; public class Unrelated { }")));
+
+        var reasons = driver.GetRunResult().Results[0].TrackedSteps[SecretMemberGenerator.RecordStepName]
+            .SelectMany(step => step.Outputs)
+            .Select(output => output.Reason)
+            .ToList();
+        reasons.Should().NotBeEmpty().And.OnlyContain(reason => reason == IncrementalStepRunReason.Cached || reason == IncrementalStepRunReason.Unchanged);
     }
 }

@@ -7,11 +7,15 @@ namespace Hostpanel.Sdk.Generators;
 /// For every record with a member marked <c>[SecretMember]</c>, adds the <c>PrintMembers</c> the record's generated
 /// <c>ToString</c> calls, so the marked members print as the mask and all the others print as they would anyway. Nobody
 /// writes <c>PrintMembers</c> by hand, so nothing can list the members of a record twice or fall behind when one is
-/// added. The record, and every type that encloses it, must be <c>partial</c>.
+/// added. The record, and every type that encloses it, must be <c>partial</c>. A record that derives from another
+/// record calls the base record's method first, as the compiler's own does.
 /// </summary>
 [Generator(LanguageNames.CSharp)]
 public sealed class SecretMemberGenerator : IIncrementalGenerator
 {
+    /// <summary>The name of the step that decides about each record, for the tests that check the generator caches its work.</summary>
+    public const string RecordStepName = "SecretRecords";
+
     /// <inheritdoc/>
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
@@ -19,7 +23,8 @@ public sealed class SecretMemberGenerator : IIncrementalGenerator
             .CreateSyntaxProvider(
                 static (node, _) => node is RecordDeclarationSyntax,
                 static (syntaxContext, ct) => SecretRecordModel.Create(syntaxContext, ct))
-            .Where(static model => model is not null);
+            .Where(static model => model is not null)
+            .WithTrackingName(RecordStepName);
 
         context.RegisterSourceOutput(models, static (output, model) => Emit(output, model!));
     }

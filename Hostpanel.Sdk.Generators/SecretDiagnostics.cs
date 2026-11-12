@@ -16,13 +16,4 @@ internal static class SecretDiagnostics
         Category,
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
-
-    /// <summary>A record with a secret member derives from another record, whose members the generator would print without the mask.</summary>
-    internal static readonly DiagnosticDescriptor BaseRecord = new(
-        "HPSDK002",
-        "A record with a secret member cannot derive from a record",
-        "The record '{0}' has a member marked [SecretMember] and derives from the record '{1}': mark the members of the base record too, or do not derive",
-        Category,
-        DiagnosticSeverity.Error,
-        isEnabledByDefault: true);
 }

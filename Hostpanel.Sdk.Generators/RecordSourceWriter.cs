@@ -16,23 +16,9 @@ internal static class RecordSourceWriter
     /// <summary>The expression that reads the mask the SDK's records share.</summary>
     private const string MaskExpression = "global::Hostpanel.Sdk.Plugins.Diagnostics.SecretMask.Text";
 
-    /// <summary>
-    /// Lists the members the compiler's own generated method would print: the public instance properties and fields of the
-    /// record, in the order they are declared.
-    /// </summary>
-    /// <param name="type">The record.</param>
-    /// <returns>The members, in declaration order.</returns>
-    internal static IReadOnlyList<ISymbol> PrintedMembers(INamedTypeSymbol type)
-    {
-        return type.GetMembers()
-            .Where(member => member.DeclaredAccessibility == Accessibility.Public && !member.IsStatic)
-            .Where(member => member is IFieldSymbol { IsConst: false } || member is IPropertySymbol { IsIndexer: false, GetMethod: not null })
-            .ToList();
-    }
-
     /// <summary>Writes the source file of the record's generated part.</summary>
     /// <param name="type">The record.</param>
-    /// <param name="members">The members to print, from <see cref="PrintedMembers"/>.</param>
+    /// <param name="members">The members to print, from <see cref="SecretMemberSymbols.PrintedMembers"/>.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The C# source.</returns>
     internal static string Write(INamedTypeSymbol type, IReadOnlyList<ISymbol> members, CancellationToken ct)
@@ -61,19 +47,7 @@ internal static class RecordSourceWriter
         }
 
         text.Append(indent).AppendLine(Header(type, ct)).Append(indent).AppendLine("{");
-        var inner = indent + "    ";
-        var modifier = type.IsSealed || type.IsValueType ? "private" : "protected virtual";
-        text.Append(inner).AppendLine("[global::System.CodeDom.Compiler.GeneratedCode(\"Hostpanel.Sdk.Generators\", \"1.0.0\")]");
-        text.Append(inner).Append(modifier).AppendLine(" bool PrintMembers(global::System.Text.StringBuilder builder)");
-        text.Append(inner).AppendLine("{");
-        for (var index = 0; index < members.Count; index++)
-        {
-            text.Append(inner).Append("    builder.Append(\"").Append(index == 0 ? string.Empty : ", ").Append(members[index].Name).Append(" = \")")
-                .Append(".Append(").Append(ValueOf(members[index])).AppendLine(");");
-        }
-
-        text.Append(inner).AppendLine("    return true;");
-        text.Append(inner).AppendLine("}");
+        WriteMethod(text, type, members, indent + "    ");
         text.Append(indent).AppendLine("}");
 
         foreach (var _ in enclosing)
@@ -85,19 +59,55 @@ internal static class RecordSourceWriter
         return text.ToString();
     }
 
+    /// <summary>Writes the <c>PrintMembers</c> method the way the compiler would, so the record's <c>ToString</c> calls it.</summary>
+    /// <param name="text">The source being written.</param>
+    /// <param name="type">The record.</param>
+    /// <param name="members">The members to print.</param>
+    /// <param name="indent">The indentation of the method.</param>
+    private static void WriteMethod(StringBuilder text, INamedTypeSymbol type, IReadOnlyList<ISymbol> members, string indent)
+    {
+        var derived = type.BaseType is { IsRecord: true };
+        var modifier = derived ? "protected override" : type.IsSealed || type.IsValueType ? "private" : "protected virtual";
+
+        // The method is a public surface when it is protected, so it carries the documentation the build asks for.
+        text.Append(indent).AppendLine("/// <summary>Prints the members of the record as the compiler does, with each member marked <c>[SecretMember]</c> masked.</summary>");
+        text.Append(indent).AppendLine("/// <param name=\"builder\">The builder the generated <c>ToString</c> is assembling.</param>");
+        text.Append(indent).AppendLine("/// <returns><see langword=\"true\"/> when a member was written.</returns>");
+        text.Append(indent).AppendLine("[global::System.CodeDom.Compiler.GeneratedCode(\"Hostpanel.Sdk.Generators\", \"1.0.0\")]");
+        text.Append(indent).Append(modifier).AppendLine(" bool PrintMembers(global::System.Text.StringBuilder builder)");
+        text.Append(indent).AppendLine("{");
+        if (derived)
+        {
+            // What the compiler writes: the members of the base record come first, joined to these by a comma.
+            text.Append(indent).AppendLine("    if (base.PrintMembers(builder))");
+            text.Append(indent).AppendLine("    {");
+            text.Append(indent).AppendLine("        builder.Append(\", \");");
+            text.Append(indent).AppendLine("    }");
+            text.AppendLine();
+        }
+
+        for (var index = 0; index < members.Count; index++)
+        {
+            text.Append(indent).Append("    builder.Append(\"").Append(index == 0 ? string.Empty : ", ").Append(members[index].Name).Append(" = \")")
+                .Append(".Append(").Append(ValueOf(members[index])).AppendLine(");");
+        }
+
+        text.Append(indent).AppendLine("    return true;");
+        text.Append(indent).AppendLine("}");
+    }
+
     /// <summary>Writes the expression that gives the text of one member.</summary>
     /// <param name="member">The property or field.</param>
     /// <returns>An expression of type <see cref="string"/> or <see cref="object"/>.</returns>
     private static string ValueOf(ISymbol member)
     {
-        var isString = (member as IPropertySymbol)?.Type.SpecialType == SpecialType.System_String
-            || (member as IFieldSymbol)?.Type.SpecialType == SpecialType.System_String;
-        if (SecretRecordModel.IsSecret(member))
+        var read = "this." + SecretMemberSymbols.CodeName(member);
+        if (SecretMemberSymbols.IsSecret(member))
         {
-            return $"((object?){member.Name}) is null ? \"{UnsetText}\" : {MaskExpression}";
+            return $"((object?){read}) is null ? \"{UnsetText}\" : {MaskExpression}";
         }
 
-        return isString ? member.Name : $"(object?){member.Name}";
+        return SecretMemberSymbols.TypeOf(member).SpecialType == SpecialType.System_String ? read : $"(object?){read}";
     }
 
     /// <summary>Writes the declaration line of a partial type, without its braces.</summary>

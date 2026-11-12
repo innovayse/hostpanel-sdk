@@ -12,9 +12,6 @@ namespace Hostpanel.Sdk.Generators;
 /// </summary>
 internal sealed class SecretRecordModel : IEquatable<SecretRecordModel>
 {
-    /// <summary>The full name of the attribute that marks a secret member.</summary>
-    internal const string AttributeName = "Hostpanel.Sdk.Plugins.Diagnostics.SecretMemberAttribute";
-
     /// <summary>Initializes a new instance of the <see cref="SecretRecordModel"/> class.</summary>
     /// <param name="hintName">The file name of the generated source.</param>
     /// <param name="source">The source to add, or <see langword="null"/> when a diagnostic is reported instead.</param>
@@ -61,8 +58,8 @@ internal sealed class SecretRecordModel : IEquatable<SecretRecordModel>
             return null;
         }
 
-        var members = RecordSourceWriter.PrintedMembers(type);
-        if (!members.Any(member => IsSecret(member)))
+        var members = SecretMemberSymbols.PrintedMembers(type);
+        if (!members.Any(SecretMemberSymbols.IsSecret))
         {
             return null;
         }
@@ -72,25 +69,12 @@ internal sealed class SecretRecordModel : IEquatable<SecretRecordModel>
             .Replace('<', '_').Replace('>', '_').Replace(',', '_').Replace(' ', '_') + ".SecretMembers.g.cs";
         var location = LocationInfo.From(declaration.Identifier.GetLocation());
 
-        if (type.BaseType is { IsRecord: true } baseRecord)
-        {
-            return new SecretRecordModel(hintName, null, SecretDiagnostics.BaseRecord, location, new[] { name, baseRecord.Name });
-        }
-
         if (!AllPartial(type, ct))
         {
             return new SecretRecordModel(hintName, null, SecretDiagnostics.NotPartial, location, new[] { name });
         }
 
         return new SecretRecordModel(hintName, RecordSourceWriter.Write(type, members, ct), null, null, Array.Empty<string>());
-    }
-
-    /// <summary>Tells whether a member is marked as secret.</summary>
-    /// <param name="member">A property or field of the record.</param>
-    /// <returns><see langword="true"/> when it carries <c>SecretMemberAttribute</c>.</returns>
-    internal static bool IsSecret(ISymbol member)
-    {
-        return member.GetAttributes().Any(attribute => attribute.AttributeClass?.ToDisplayString() == AttributeName);
     }
 
     /// <inheritdoc/>

@@ -262,8 +262,8 @@ The masking is generated, so no record lists its members by hand. Mark a secret 
 `[property: SecretMember]` on the parameter of a positional record and declare the record `partial`; a source generator
 that ships in this package (under `analyzers/dotnet/cs`, no reference to add) writes the `PrintMembers` that the generated
 `ToString` calls. It prints every member as the compiler would, shows `***` for each marked one and `null` for a marked one
-that is not set. Use the same attribute for your own settings and context records. A record that is not `partial`, or that
-derives from another record, fails the build (`HPSDK001`, `HPSDK002`) instead of printing the secret. A test of this package
+that is not set. Use the same attribute for your own settings and context records. A record that is not `partial`, or
+that is nested in a type that is not, fails the build (`HPSDK001`) instead of printing the secret. A test of this package
 fails when a record has a hand written `PrintMembers` or a string member named after a credential that is not marked.
 Besides credentials, the printed form of `PaymentInstruction.CustomerRef` and
 `PayerEmail`, `CredentialCustomerContext` and `PanelClientRef` (`Email`, `Name`), `StoredChargeInstruction`
