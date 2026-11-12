@@ -368,6 +368,23 @@ In the plugin's own tests, run the `VirtualServerContract` checks against a stub
 `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
 promise that was broken.
 
+### Completing a payment from the return request
+
+Some gateways finish a payment with a value only the payer's browser has when it comes back. A plugin that needs it
+implements `IPaymentReturnPlugin` beside `IPaymentPlugin`; the host checks for the interface at run time, so a plugin
+without it is unchanged. The host calls `CompleteAsync(gatewayOrderId, returnParameters, ct)` with the query parameters of
+the return request (and the posted fields of a browser step) before it reads the status, and then the plugin answers the
+status the payment is in. The host picks the names that reach the plugin and keeps within `PaymentReturnLimits` (at most
+32 parameters, names up to 64 and values up to 2048 characters); it never passes credentials, cookies or headers. The set
+is read only and comes from the payer's browser, so treat it as untrusted input. `CompleteAsync` is idempotent: a payer
+who returns twice must not be charged twice.
+
+- **A nonce style gateway** (the browser holds a payment method nonce): `CreatePaymentAsync` answers a session whose
+  page collects the nonce and sends it back in the return address. `CompleteAsync` reads the nonce parameter, charges the
+  order at the gateway with it once, and answers `Paid` or `Declined`.
+- **A payer id style gateway** (the return address carries the payer id and a token): `CompleteAsync` reads both,
+  asks the gateway to execute the approved payment, and answers its status. A return without them answers `Pending`.
+
 ### Saving the method during a payment
 
 To let a payer save the method they pay with, the host sets `PaymentInstruction.SavePaymentMethod` to `true`. A plugin
