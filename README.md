@@ -181,12 +181,15 @@ plain answer such as `OK`; the status is 200 to 599 except 401 and 407.
 ### Redirects on callback routes
 
 A public callback route that a gateway or a browser lands on, such as the return address after a payment, can send the
-payer on to a page of the host with `PluginReply.Redirect(location, status)`. The status is 301, 302, 303, 307 or 308 and
-303 by default. The `location` is either a host relative path (one leading slash, never two, no backslash, and never under
-the API path) or an absolute `https` URL without user info; neither may contain a line break. The factory refuses anything
-else, and the host validates the address again before it answers, treating a bad one as a plugin fault like any other bad
-reply. The plugin never writes the `Location` header itself, and a raw reply cannot fake a redirect: raw replies are
-limited to media types without markup.
+payer on to a page of the host with `PluginReply.Redirect(location, status)`. The status is 301, 302, 303, 307 or 308
+and 303 by default. The `location` is either a host relative path (one leading slash, never two, and never under the
+API path) or an absolute `https` URL without user info. It has no control character (a line break, a tab, a null, DEL
+or a C1 control), no leading or trailing white space and no backslash. The factory refuses anything else, and the host
+validates the address again before it answers, treating a bad one as a plugin fault like any other bad reply. The plugin
+never writes the `Location` header itself, and a raw reply cannot fake a redirect: raw replies are limited to media
+types without markup. Never build the location from the request, such as a `next` query parameter: an address the
+caller chose is an open redirect. Use a fixed path, or one assembled from values you looked up yourself. The reply kind
+needs a host of 3.7.0 or later.
 
 ### Refunds, cancelling and idempotency
 

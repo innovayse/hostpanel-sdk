@@ -24,9 +24,9 @@ public enum PluginReplyKind
     Raw = 5,
 
     /// <summary>
-    /// A redirect to another address, answered with a <c>Location</c> header the host writes. Meant for a public callback
-    /// route that a gateway or a browser lands on and that sends the payer on to a page of the host. The value is
-    /// appended, so the members above keep theirs.
+    /// A redirect to another address, answered with a <c>Location</c> header the host writes. Meant for a public
+    /// callback route that a gateway or a browser lands on and that sends the payer on to a page of the host. The value
+    /// is appended, so the members above keep theirs, and a host older than 3.7.0 does not know it.
     /// </summary>
     Redirect = 6,
 }

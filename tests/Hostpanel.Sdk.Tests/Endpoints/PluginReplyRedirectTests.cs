@@ -63,8 +63,9 @@ public sealed class PluginReplyRedirectTests
     }
 
     /// <summary>
-    /// A protocol relative address, a backslash, a line break, a non https address, user info and a relative path
-    /// without a leading slash are refused.
+    /// A protocol relative address, a backslash, any control character (a line break, a tab, a null, DEL, a C1
+    /// control), surrounding white space, a non https address, user info and a relative path without a leading slash
+    /// are refused.
     /// </summary>
     /// <param name="location">The location to redirect to.</param>
     [Theory]
@@ -79,6 +80,16 @@ public sealed class PluginReplyRedirectTests
     [InlineData("https://user:pass@host.example/a")]
     [InlineData("https://user@host.example/a")]
     [InlineData("invoices/7")]
+    [InlineData("/\t/evil.example")]
+    [InlineData("/\0x")]
+    [InlineData("/\u007Fx")]
+    [InlineData("/\u0085x")]
+    [InlineData("/done\v")]
+    [InlineData(" /done")]
+    [InlineData("/done ")]
+    [InlineData("\t/done")]
+    [InlineData("https://host.example/a\tb")]
+    [InlineData("https://host.example/a ")]
     public void Redirect_RefusedLocation_Throws(string location)
     {
         var build = () => PluginReply.Redirect(location);

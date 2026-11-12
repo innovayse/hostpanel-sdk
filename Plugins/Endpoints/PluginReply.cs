@@ -4,7 +4,8 @@ namespace Hostpanel.Sdk.Plugins.Endpoints;
 
 /// <summary>
 /// What a plugin answers to a <see cref="PluginCall"/>, without any web framework type: a JSON document, no content,
-/// a problem or a stream of events. Build one with the factory methods; the host turns it into the response.
+/// a problem, a stream of events, a raw body or a redirect. Build one with the factory methods; the host turns it into
+/// the response.
 /// </summary>
 public sealed class PluginReply
 {
@@ -41,7 +42,9 @@ public sealed class PluginReply
     /// <summary>Gets the media type of <see cref="RawBody"/>, for example <c>text/plain</c>; set for <see cref="PluginReplyKind.Raw"/> only.</summary>
     public string? ContentType { get; private init; }
 
-    /// <summary>Gets the address the host sends the caller on to; set for <see cref="PluginReplyKind.Redirect"/> only.</summary>
+    /// <summary>
+    /// Gets the address the host sends the caller on to; set for <see cref="PluginReplyKind.Redirect"/> only.
+    /// </summary>
     public string? Location { get; private init; }
 
     /// <summary>Builds a JSON reply.</summary>
@@ -128,29 +131,37 @@ public sealed class PluginReply
     /// <summary>
     /// Builds a redirect: the host answers with this status and a <c>Location</c> header. A plugin never writes the
     /// header itself. Use it on a public callback route, for example to send the payer from the return address of a
-    /// payment on to the host page that shows the result.
+    /// payment on to the host page that shows the result. Never build the location from data of the request, such as a
+    /// query parameter: an address the caller chose is an open redirect.
     /// </summary>
     /// <param name="location">
-    /// Where to send the caller: either a host relative path (one leading slash, never two, no backslash, and never under
-    /// the API path, which the host checks again) or an absolute <c>https</c> URL without user info. Neither may contain
-    /// a line break. The host validates the address again before it answers, and a plugin that breaks a rule is a plugin
-    /// fault, answered as any other bad reply.
+    /// Where to send the caller: either a host relative path (one leading slash, never two, no backslash, and never
+    /// under the API path, which the host checks again) or an absolute <c>https</c> URL without user info. The address
+    /// has no control character (a line break, a tab, a null, DEL or a C1 control), no leading or trailing white space,
+    /// and no backslash. The host validates the address again before it answers, and a plugin that breaks a rule is a
+    /// plugin fault, answered as any other bad reply. The kind needs a host of 3.7.0 or later.
     /// </param>
     /// <param name="status">One of 301, 302, 303, 307 or 308; 303 (see other) by default.</param>
     /// <returns>The reply.</returns>
-    /// <exception cref="ArgumentException"><paramref name="location"/> is empty, white space or not an accepted address.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="location"/> is empty, white space or not an accepted address.
+    /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="status"/> is not a redirect status.</exception>
     public static PluginReply Redirect(string location, int status = 303)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(location);
         if (status is not (301 or 302 or 303 or 307 or 308))
         {
-            throw new ArgumentOutOfRangeException(nameof(status), status, "A redirect needs a status of 301, 302, 303, 307 or 308.");
+            throw new ArgumentOutOfRangeException(
+                nameof(status), status, "A redirect needs a status of 301, 302, 303, 307 or 308.");
         }
 
         if (!IsAcceptedLocation(location))
         {
-            throw new ArgumentException("A redirect goes to a host relative path or an absolute https URL without user info, and the address has no line break or backslash.", nameof(location));
+            throw new ArgumentException(
+                "A redirect goes to a host relative path or an absolute https URL without user info, with no " +
+                "control character, no surrounding white space and no backslash.",
+                nameof(location));
         }
 
         return new PluginReply(PluginReplyKind.Redirect, status) { Location = location };
@@ -186,7 +197,8 @@ public sealed class PluginReply
     /// <returns><see langword="true"/> for a host relative path or an absolute https URL without user info.</returns>
     private static bool IsAcceptedLocation(string location)
     {
-        if (location.Contains('\r') || location.Contains('\n') || location.Contains('\\'))
+        // A browser strips a tab or a line break inside an address, so "/<tab>/host" would read as "//host".
+        if (location.Any(char.IsControl) || location.Contains('\\') || location.Trim() != location)
         {
             return false;
         }
