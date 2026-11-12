@@ -1,0 +1,17 @@
+name: Set up .NET
+description: >-
+  The .NET SDK both workflows build with, and the two environment variables that keep the dotnet tool quiet. One home for
+  the SDK version, so CI and publishing can never build with different ones. The package itself targets net8.0.
+
+runs:
+  using: composite
+  steps:
+    - name: Install the .NET SDK
+      uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+      with:
+        dotnet-version: "9.0.x"
+    - name: Keep the dotnet tool quiet
+      shell: bash
+      run: |
+        echo "DOTNET_CLI_TELEMETRY_OPTOUT=1" >> "$GITHUB_ENV"
+        echo "DOTNET_NOLOGO=1" >> "$GITHUB_ENV"
