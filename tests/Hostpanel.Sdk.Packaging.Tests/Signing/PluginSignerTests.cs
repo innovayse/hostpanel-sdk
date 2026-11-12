@@ -70,9 +70,7 @@ public sealed class PluginSignerTests
     public void Sign_Twice_ReplacesTheSignature()
     {
         using var folder = new TempFolder();
-        GoldenPackage.Write(folder);
-        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
+        var (privateKey, publicKey) = SignedGolden(folder);
 
         folder.Write("lib/Demo.dll", "changed");
         PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
@@ -85,9 +83,7 @@ public sealed class PluginSignerTests
     public void Verify_ChangedFile_IsInvalid()
     {
         using var folder = new TempFolder();
-        GoldenPackage.Write(folder);
-        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
+        var (_, publicKey) = SignedGolden(folder);
 
         folder.Write("lib/Demo.dll", "tampered");
 
@@ -99,9 +95,7 @@ public sealed class PluginSignerTests
     public void Verify_AddedFile_IsInvalid()
     {
         using var folder = new TempFolder();
-        GoldenPackage.Write(folder);
-        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
+        var (_, publicKey) = SignedGolden(folder);
 
         folder.Write("extra/payload.dll", "x");
 
@@ -113,9 +107,7 @@ public sealed class PluginSignerTests
     public void Verify_RemovedFile_IsInvalid()
     {
         using var folder = new TempFolder();
-        GoldenPackage.Write(folder);
-        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
+        var (_, publicKey) = SignedGolden(folder);
 
         File.Delete(Path.Combine(folder.Path, "Zed.txt"));
 
@@ -232,9 +224,7 @@ public sealed class PluginSignerTests
     {
         using var folder = new TempFolder();
         using var outside = new TempFolder();
-        GoldenPackage.Write(folder);
-        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
+        var (_, publicKey) = SignedGolden(folder);
         var real = Path.Combine(outside.Path, "real.sig");
         File.Move(Path.Combine(folder.Path, PluginSignatureFile.FileName), real);
         if (!SymbolicLinks.TryCreateFileLink(Path.Combine(folder.Path, PluginSignatureFile.FileName), real))
@@ -254,9 +244,7 @@ public sealed class PluginSignerTests
     {
         using var folder = new TempFolder();
         using var outside = new TempFolder();
-        GoldenPackage.Write(folder);
-        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
+        var (_, publicKey) = SignedGolden(folder);
         var secret = outside.Write("secret.txt", "outside the package");
         if (!SymbolicLinks.TryCreateFileLink(Path.Combine(folder.Path, "lib", "link.txt"), secret))
         {
@@ -294,9 +282,7 @@ public sealed class PluginSignerTests
     public void Sign_LeavesNoTemporaryFile_AndKeepsTheEarlierSignatureOnFailure()
     {
         using var folder = new TempFolder();
-        GoldenPackage.Write(folder);
-        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
-        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
+        var (privateKey, publicKey) = SignedGolden(folder);
         var before = File.ReadAllText(Path.Combine(folder.Path, PluginSignatureFile.FileName));
 
         var act = () => PluginSigner.Sign(folder.Path, "Not A Valid Key", privateKey);
@@ -381,5 +367,16 @@ public sealed class PluginSignerTests
 
         File.Exists(temporary).Should().BeFalse();
         PluginSignatureValidator.Verify(folder.Path, Trust(DemoKey.Id, publicKey)).Should().BeNull();
+    }
+
+    /// <summary>Writes the golden package into a folder and signs it with a new key pair under the demo key id.</summary>
+    /// <param name="folder">The empty folder.</param>
+    /// <returns>The key pair, so a test can sign again or trust the public key.</returns>
+    private static (byte[] PrivateKey, byte[] PublicKey) SignedGolden(TempFolder folder)
+    {
+        GoldenPackage.Write(folder);
+        var (privateKey, publicKey) = PluginSigner.GenerateKeyPair();
+        PluginSigner.Sign(folder.Path, DemoKey.Id, privateKey);
+        return (privateKey, publicKey);
     }
 }

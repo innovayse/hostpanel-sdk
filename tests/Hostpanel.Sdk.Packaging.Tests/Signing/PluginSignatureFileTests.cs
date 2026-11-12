@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Hostpanel.Sdk.Packaging.Signing;
+using Hostpanel.Sdk.Packaging.Tests.Support;
 
 namespace Hostpanel.Sdk.Packaging.Tests.Signing;
 
@@ -13,7 +14,7 @@ public sealed class PluginSignatureFileTests
     [Fact]
     public void ToJson_RoundTripsThroughParse()
     {
-        var file = new PluginSignatureFile("demo-key", Signature);
+        var file = new PluginSignatureFile(DemoKey.Id, Signature);
 
         var json = file.ToJson();
 
@@ -29,14 +30,14 @@ public sealed class PluginSignatureFileTests
     {
         var bytes = Enumerable.Repeat((byte)0xFB, 64).ToArray();
 
-        new PluginSignatureFile("demo-key", bytes).ToJson().Should().Contain("+").And.NotContain("\\u002B");
+        new PluginSignatureFile(DemoKey.Id, bytes).ToJson().Should().Contain("+").And.NotContain("\\u002B");
     }
 
     /// <summary>A signature that is not 64 bytes is not a signature file.</summary>
     [Fact]
     public void Parse_ShortSignature_ThrowsFormatException()
     {
-        var json = new PluginSignatureFile("demo-key", Signature).ToJson().Replace(Convert.ToBase64String(Signature), "AAAA");
+        var json = new PluginSignatureFile(DemoKey.Id, Signature).ToJson().Replace(Convert.ToBase64String(Signature), "AAAA");
 
         var act = () => PluginSignatureFile.Parse(json);
 

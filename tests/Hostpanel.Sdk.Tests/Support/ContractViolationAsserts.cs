@@ -34,18 +34,6 @@ internal static class ContractViolationAsserts
         }
     }
 
-    /// <summary>Asserts that a synchronous helper call throws a violation whose message contains every given text.</summary>
-    /// <param name="run">The helper call.</param>
-    /// <param name="expected">The texts the message must contain.</param>
-    internal static void AssertViolation(Action run, params string[] expected)
-    {
-        var message = ViolationMessage(run);
-        foreach (var part in expected)
-        {
-            message.Should().Contain(part);
-        }
-    }
-
     /// <summary>Asserts that a helper call throws a violation with exactly this message, for the tests that pin the wording.</summary>
     /// <param name="run">The helper call.</param>
     /// <param name="expected">The whole message.</param>

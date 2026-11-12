@@ -1,5 +1,4 @@
 using Hostpanel.Sdk.Plugins.Provisioning;
-using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
 using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 

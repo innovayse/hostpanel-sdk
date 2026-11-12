@@ -1,7 +1,6 @@
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Registrar;
 using Hostpanel.Sdk.Plugins.Results;
-using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
 using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 

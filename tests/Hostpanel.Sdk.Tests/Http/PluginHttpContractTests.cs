@@ -1,5 +1,4 @@
 using Hostpanel.Sdk.Plugins.Http;
-using Hostpanel.Sdk.Plugins.StoredCredentials;
 using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Http;

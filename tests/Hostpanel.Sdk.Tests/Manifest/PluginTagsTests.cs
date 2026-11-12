@@ -1,4 +1,3 @@
-using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Tests.Support;
 
