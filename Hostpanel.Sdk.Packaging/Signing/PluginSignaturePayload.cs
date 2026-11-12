@@ -49,9 +49,6 @@ public static class PluginSignaturePayload
         IgnoreInaccessible = false,
     };
 
-    /// <summary>The buffer size used to hash a file.</summary>
-    private const int BufferSize = 81_920;
-
     /// <summary>Builds the payload of the package in a folder.</summary>
     /// <param name="packageDir">The package root: the folder holding <c>plugin.json</c>.</param>
     /// <param name="keyId">The id of the key that signs, or is claimed to have signed.</param>
@@ -60,10 +57,7 @@ public static class PluginSignaturePayload
     public static byte[] Build(string packageDir, string keyId)
     {
         ArgumentException.ThrowIfNullOrEmpty(packageDir);
-        if (!TrustedKeyId.IsValid(keyId))
-        {
-            throw new InvalidDataException("The key id is not a valid key id.");
-        }
+        TrustedKeyId.EnsureValid(keyId);
 
         var root = Path.GetFullPath(packageDir);
         var lines = new List<(string Path, string Hash)>();
@@ -129,7 +123,7 @@ public static class PluginSignaturePayload
                 continue;
             }
 
-            var relative = Path.GetRelativePath(root, entry.FullName).Replace('\\', '/');
+            var relative = PackagePath.Normalize(Path.GetRelativePath(root, entry.FullName));
             if (string.Equals(relative, PluginSignatureFile.FileName, StringComparison.Ordinal))
             {
                 continue;
@@ -155,7 +149,7 @@ public static class PluginSignaturePayload
         // staging folder it extracts the archive into, or an install folder only its own process writes), and a zip
         // entry is written as a regular file, never as a link. (The signing tool runs on the publisher's own folder.) Anyone who could swap a path there could already change
         // the files themselves, so a handle check would add nothing the folder's ownership does not already give.
-        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize);
+        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, FileBuffer.Size);
         return Convert.ToHexStringLower(SHA256.HashData(stream));
     }
 }

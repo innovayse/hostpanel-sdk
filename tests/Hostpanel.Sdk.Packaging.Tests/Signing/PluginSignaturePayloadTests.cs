@@ -97,7 +97,7 @@ public sealed class PluginSignaturePayloadTests
 
         var act = () => PluginSignaturePayload.Build(folder.Path, keyId);
 
-        act.Should().Throw<InvalidDataException>();
+        act.Should().ThrowExactly<InvalidDataException>().WithMessage("The key id is not a valid key id.");
     }
 
     /// <summary>The header names the format version, so a later format is a new header and not a silent clash.</summary>

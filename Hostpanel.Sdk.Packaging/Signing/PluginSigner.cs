@@ -56,10 +56,7 @@ public static class PluginSigner
             throw new DirectoryNotFoundException("The package folder does not exist.");
         }
 
-        if (!TrustedKeyId.IsValid(keyId))
-        {
-            throw new InvalidDataException("The key id is not a valid key id.");
-        }
+        TrustedKeyId.EnsureValid(keyId);
 
         var parameters = PrivateParameters(privateKey);
 

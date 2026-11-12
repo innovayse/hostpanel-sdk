@@ -52,11 +52,7 @@ public static class PluginSignatureValidator
                 ? null
                 : new PluginSignatureViolation(PluginSignatureRule.Invalid, $"the signature of key '{file.KeyId}' does not match the files of the package");
         }
-        catch (FormatException ex)
-        {
-            return new PluginSignatureViolation(PluginSignatureRule.Malformed, ex.Message);
-        }
-        catch (InvalidDataException ex)
+        catch (Exception ex) when (ex is FormatException or InvalidDataException)
         {
             return new PluginSignatureViolation(PluginSignatureRule.Malformed, ex.Message);
         }
