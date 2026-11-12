@@ -207,6 +207,7 @@ var body = await http.ReadBoundedAsync(response, 64 * 1024, TimeSpan.FromSeconds
   compared with its brackets, as `Uri.Host` writes it, which is why it takes a `Uri` and not a host text.
 - `ReadBoundedAsync` refuses a declared `Content-Length` over the limit before it reads, stops reading at the limit
   when there is none (`PluginHttpFault.TooLarge`), and gives up at its deadline (`PluginHttpFault.TimedOut`).
+
 ### Logging and secrets
 
 The SDK records print their secret members as `***`, and that text is public as `SecretMask.Text` in
