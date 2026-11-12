@@ -9,6 +9,12 @@ public static class PluginStoreLimits
     /// <summary>The most keys one <see cref="IPluginStoreAdvanced.ListKeysAsync"/> call returns.</summary>
     public const int MaxListLimit = 200;
 
+    /// <summary>
+    /// The most keys the store holds in its scope. An expired key does not count. A write of a new key past the quota
+    /// throws <see cref="PluginStoreQuotaException"/>.
+    /// </summary>
+    public const int MaxKeys = 1000;
+
     /// <summary>The longest time to live a value may be written with.</summary>
     public static readonly TimeSpan MaxTimeToLive = TimeSpan.FromDays(30);
 }

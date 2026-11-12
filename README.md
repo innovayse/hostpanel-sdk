@@ -171,25 +171,43 @@ declared capability whose class does not implement `IPluginEndpoints` is refused
 
 A plugin that handles webhooks must remember which events it handled, expire old markers and keep two processes from
 handling one event. `IPluginStoreAdvanced` extends `IPluginStore` with exactly that, and the store the host gives a
-plugin implements it when the host supports it, so test for it and fall back to what you do today otherwise. The limits
-(`PluginStoreLimits`: at most 200 keys per list, a time to live of at most 30 days) are the host's.
+plugin implements it when the host supports it, so test for it and fall back to what you do today otherwise. The
+interface is new, so the change is source and binary compatible. The limits (`PluginStoreLimits`) are the host's: at
+most 1000 keys in the store, 200 keys per list and a time to live of at most 30 days. A write of a new key past the
+quota throws `PluginStoreQuotaException`, and a write with a time to live out of range throws
+`ArgumentOutOfRangeException`; neither writes anything. A plain `SetAsync` replaces the value and clears its expiry.
 
 ```csharp
-if (call.Store is IPluginStoreAdvanced store)
+// Exactly one process gets true for an event id; the marker removes itself after a day.
+var first = call.Store is IPluginStoreAdvanced advanced
+    ? await advanced.SetIfAbsentAsync("event:" + eventId, "handled", TimeSpan.FromDays(1), ct)
+    : await MarkOnceWithTheOldStoreAsync(call.Store, "event:" + eventId, ct);
+if (!first)
 {
-    // Exactly one process gets true for an event id; the marker removes itself after a day.
-    var first = await store.SetIfAbsentAsync("event:" + eventId, "handled", TimeSpan.FromDays(1), ct);
-    if (!first)
+    return PluginReply.NoContent();
+}
+
+// The fallback keeps what plugins do today: read, then write. Two processes can both pass, so the handler of the
+// event must also be safe to run twice.
+static async Task<bool> MarkOnceWithTheOldStoreAsync(IPluginStore store, string key, CancellationToken ct)
+{
+    if (await store.GetAsync(key, ct) is not null)
     {
-        return PluginReply.NoContent();
+        return false;
     }
+
+    await store.SetAsync(key, "handled", ct);
+    return true;
 }
 ```
 
-`ListKeysAsync("event:", 100, ct)` lists what is stored under a prefix, and replaces a shared index key that two
-processes can overwrite. In the plugin's own tests, run the `PluginStoreContract` checks against an in memory store
-(`AssertSetIfAbsentIsAtomicAsync`, `AssertExpiredKeyReadsAsAbsentAsync` and `AssertListKeysHonoursPrefixAndLimitAsync`);
-each throws `PluginContractViolationException` naming the promise that was broken.
+`ListKeysAsync("event:", 100, ct)` lists what is stored under a prefix, in ordinal order. A prefix follows the rules of
+a key, is case sensitive, and there is no paging, which replaces a shared index key that two processes can overwrite.
+In the plugin's own tests, run the `PluginStoreContract` checks against `InMemoryPluginStore`, a store that keeps the
+promises and whose clock you move with `AdvanceAsync`: `AssertSetIfAbsentIsAtomicAsync`,
+`AssertExpiredKeyReadsAsAbsentAsync`, `AssertPlainSetClearsTimeToLiveAsync`, `AssertTimeToLiveBoundsAsync` and
+`AssertListKeysHonoursPrefixAndLimitAsync`; each throws `PluginContractViolationException` naming the promise that
+was broken.
 
 ### Callbacks
 

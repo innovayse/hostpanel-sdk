@@ -48,7 +48,7 @@ public static class PluginStoreContract
             {
                 throw new PluginContractViolationException(
                     $"SetIfAbsentAsync let {winners} of {callers} callers write one key at the same time; exactly one " +
-                    $"must win.");
+                    "must win.");
             }
 
             var winner = "caller-" + Array.IndexOf(results, true);
@@ -135,6 +135,90 @@ public static class PluginStoreContract
     }
 
     /// <summary>
+    /// Writes a value with a time to live, then writes the same key with a plain
+    /// <see cref="IPluginStore.SetAsync"/>, lets the time pass and asserts that the key is still there: a plain write
+    /// replaces the value and clears the expiry, so the key lives until it is removed.
+    /// </summary>
+    /// <param name="store">The store under test.</param>
+    /// <param name="advance">Lets the given time pass for the store, as for <see cref="AssertExpiredKeyReadsAsAbsentAsync"/>.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when the check passed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="store"/> or <paramref name="advance"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">The plain write kept the old expiry, so the key expired.</exception>
+    public static async Task AssertPlainSetClearsTimeToLiveAsync(
+        IPluginStoreAdvanced store,
+        Func<TimeSpan, Task> advance,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        ArgumentNullException.ThrowIfNull(advance);
+
+        var key = Prefix + "plain";
+        try
+        {
+            await store.SetAsync(key, "first", TimeSpan.FromMinutes(1), ct);
+            await store.SetAsync(key, "second", ct);
+            await advance(TimeSpan.FromMinutes(2));
+            if (await store.GetAsync(key, ct) != "second")
+            {
+                throw new PluginContractViolationException(
+                    "A plain SetAsync kept the time to live of the value it replaced; it must clear it.");
+            }
+        }
+        finally
+        {
+            await store.RemoveAsync(key, CancellationToken.None);
+        }
+    }
+
+    /// <summary>
+    /// Asserts the bounds of a time to live on both writes that take one: zero, a negative value and a value above
+    /// <see cref="PluginStoreLimits.MaxTimeToLive"/> are refused with <see cref="ArgumentOutOfRangeException"/> and
+    /// write nothing, and <see cref="PluginStoreLimits.MaxTimeToLive"/> itself is accepted.
+    /// </summary>
+    /// <param name="store">The store under test.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when the check passed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="store"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">
+    /// A bad time to live was accepted or written, or the largest one was refused.
+    /// </exception>
+    public static async Task AssertTimeToLiveBoundsAsync(IPluginStoreAdvanced store, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+
+        var key = Prefix + "bounds";
+        TimeSpan[] refused =
+        [
+            TimeSpan.Zero,
+            TimeSpan.FromSeconds(-1),
+            PluginStoreLimits.MaxTimeToLive.Add(TimeSpan.FromSeconds(1)),
+        ];
+        try
+        {
+            foreach (var timeToLive in refused)
+            {
+                await ExpectOutOfRangeAsync("SetAsync", () => store.SetAsync(key, "value", timeToLive, ct));
+                await ExpectOutOfRangeAsync(
+                    "SetIfAbsentAsync", () => store.SetIfAbsentAsync(key, "value", timeToLive, ct));
+                if (await store.GetAsync(key, ct) is not null)
+                {
+                    throw new PluginContractViolationException("A refused time to live still wrote the value.");
+                }
+            }
+
+            if (!await store.SetIfAbsentAsync(key, "value", PluginStoreLimits.MaxTimeToLive, ct))
+            {
+                throw new PluginContractViolationException("The largest time to live, MaxTimeToLive, was refused.");
+            }
+        }
+        finally
+        {
+            await store.RemoveAsync(key, CancellationToken.None);
+        }
+    }
+
+    /// <summary>
     /// Writes keys under two prefixes and asserts that <see cref="IPluginStoreAdvanced.ListKeysAsync"/> returns only
     /// the keys under the asked prefix, in ascending ordinal order, never more than the limit, and not a removed key.
     /// </summary>
@@ -188,5 +272,31 @@ public static class PluginStoreContract
                 await store.RemoveAsync(key, CancellationToken.None);
             }
         }
+    }
+
+    /// <summary>Runs a write and asserts that it throws <see cref="ArgumentOutOfRangeException"/>.</summary>
+    /// <param name="operation">The name of the write, for the message.</param>
+    /// <param name="write">The write.</param>
+    /// <returns>A task that completes when the check passed.</returns>
+    /// <exception cref="PluginContractViolationException">The write did not throw, or threw another exception.</exception>
+    private static async Task ExpectOutOfRangeAsync(string operation, Func<Task> write)
+    {
+        try
+        {
+            await write();
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new PluginContractViolationException(
+                $"{operation} threw {ex.GetType().Name} for a time to live out of range; it must throw " +
+                "ArgumentOutOfRangeException.");
+        }
+
+        throw new PluginContractViolationException(
+            $"{operation} accepted a time to live out of range; zero, negative and above MaxTimeToLive are refused.");
     }
 }

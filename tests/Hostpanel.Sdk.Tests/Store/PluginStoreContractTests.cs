@@ -4,11 +4,13 @@ using Hostpanel.Sdk.Tests.Fakes;
 
 namespace Hostpanel.Sdk.Tests.Store;
 
-/// <summary>Tests of <see cref="IPluginStoreAdvanced"/> and of <see cref="PluginStoreContract"/>.</summary>
+/// <summary>
+/// Tests of <see cref="IPluginStoreAdvanced"/>, of <see cref="InMemoryPluginStore"/> and of
+/// <see cref="PluginStoreContract"/>.
+/// </summary>
 public sealed class PluginStoreContractTests
 {
-    /// <summary>The advanced store is a plugin store, so a plugin that has the old one can test for the new
-    /// one.</summary>
+    /// <summary>The advanced store is a plugin store, so a plugin that has the old one can test for the new one.</summary>
     [Fact]
     public void AdvancedStore_ExtendsThePluginStore()
     {
@@ -21,29 +23,31 @@ public sealed class PluginStoreContractTests
     public void PluginStoreLimits_Values_ArePinned()
     {
         PluginStoreLimits.MaxListLimit.Should().Be(200);
+        PluginStoreLimits.MaxKeys.Should().Be(1000);
         PluginStoreLimits.MaxTimeToLive.Should().Be(TimeSpan.FromDays(30));
     }
 
-    /// <summary>A store that keeps its promises passes every check.</summary>
+    /// <summary>The in memory store keeps its promises and passes every check.</summary>
     [Fact]
-    public async Task WellBehavedStore_PassesEveryCheck()
+    public async Task InMemoryStore_PassesEveryCheck()
     {
-        var store = new InMemoryAdvancedStore();
+        var store = new InMemoryPluginStore();
 
         await PluginStoreContract.AssertSetIfAbsentIsAtomicAsync(store);
         await PluginStoreContract.AssertExpiredKeyReadsAsAbsentAsync(store, store.AdvanceAsync);
+        await PluginStoreContract.AssertPlainSetClearsTimeToLiveAsync(store, store.AdvanceAsync);
+        await PluginStoreContract.AssertTimeToLiveBoundsAsync(store);
         await PluginStoreContract.AssertListKeysHonoursPrefixAndLimitAsync(store);
 
         (await store.ListKeysAsync(string.Empty, PluginStoreLimits.MaxListLimit, CancellationToken.None))
             .Should().BeEmpty("the checks remove what they wrote");
     }
 
-    /// <summary>A conditional write that checks and writes in two steps lets several callers win and is
-    /// rejected.</summary>
+    /// <summary>A conditional write that checks and writes in two steps lets several callers win.</summary>
     [Fact]
     public async Task SetIfAbsent_NotAtomic_Throws()
     {
-        var store = new InMemoryAdvancedStore { NonAtomic = true };
+        var store = new BreakableStore { NonAtomic = true };
 
         var run = () => PluginStoreContract.AssertSetIfAbsentIsAtomicAsync(store);
 
@@ -54,7 +58,7 @@ public sealed class PluginStoreContractTests
     [Fact]
     public async Task Expiry_Ignored_Throws()
     {
-        var store = new InMemoryAdvancedStore { IgnoreExpiry = true };
+        var store = new BreakableStore { IgnoreExpiry = true };
 
         var run = () => PluginStoreContract.AssertExpiredKeyReadsAsAbsentAsync(store, store.AdvanceAsync);
 
@@ -65,7 +69,7 @@ public sealed class PluginStoreContractTests
     [Fact]
     public async Task Expiry_TooEarly_Throws()
     {
-        var store = new InMemoryAdvancedStore();
+        var store = new InMemoryPluginStore();
 
         var run = () => PluginStoreContract.AssertExpiredKeyReadsAsAbsentAsync(
             store, elapsed => store.AdvanceAsync(elapsed + TimeSpan.FromMinutes(5)));
@@ -73,11 +77,33 @@ public sealed class PluginStoreContractTests
         await AssertViolationAsync(run, "gone before");
     }
 
+    /// <summary>A plain write that keeps the expiry of the value it replaces is rejected.</summary>
+    [Fact]
+    public async Task PlainSet_KeepsTimeToLive_Throws()
+    {
+        var store = new BreakableStore { KeepTimeToLive = true };
+
+        var run = () => PluginStoreContract.AssertPlainSetClearsTimeToLiveAsync(store, store.AdvanceAsync);
+
+        await AssertViolationAsync(run, "kept the time to live");
+    }
+
+    /// <summary>A store that accepts a zero, negative or oversized time to live is rejected.</summary>
+    [Fact]
+    public async Task TimeToLive_AnyAccepted_Throws()
+    {
+        var store = new BreakableStore { AcceptAnyTimeToLive = true };
+
+        var run = () => PluginStoreContract.AssertTimeToLiveBoundsAsync(store);
+
+        await AssertViolationAsync(run, "accepted a time to live out of range");
+    }
+
     /// <summary>A listing that ignores the prefix is rejected.</summary>
     [Fact]
     public async Task ListKeys_IgnoresPrefix_Throws()
     {
-        var store = new InMemoryAdvancedStore { ListEverything = true };
+        var store = new BreakableStore { ListEverything = true };
 
         var run = () => PluginStoreContract.AssertListKeysHonoursPrefixAndLimitAsync(store);
 
@@ -88,38 +114,59 @@ public sealed class PluginStoreContractTests
     [Fact]
     public async Task ListKeys_IgnoresLimit_Throws()
     {
-        var store = new InMemoryAdvancedStore { IgnoreLimit = true };
+        var store = new BreakableStore { IgnoreLimit = true };
 
         var run = () => PluginStoreContract.AssertListKeysHonoursPrefixAndLimitAsync(store);
 
         await AssertViolationAsync(run, "more keys than the limit");
     }
 
-    /// <summary>A mistake of the caller is reported when the helper is called with nothing to check or too few
-    /// callers.</summary>
+    /// <summary>A new key past the quota is refused by both writes, and a key that exists still takes a new value.</summary>
+    [Fact]
+    public async Task Quota_NewKeyPastTheQuota_Throws()
+    {
+        var store = new InMemoryPluginStore(maxKeys: 2);
+        await store.SetAsync("a", "1", CancellationToken.None);
+        await store.SetAsync("b", "1", TimeSpan.FromMinutes(1), CancellationToken.None);
+
+        var set = () => store.SetAsync("c", "1", TimeSpan.FromMinutes(1), CancellationToken.None);
+        var setIfAbsent = () => store.SetIfAbsentAsync("c", "1", null, CancellationToken.None);
+
+        await set.Should().ThrowAsync<PluginStoreQuotaException>();
+        await setIfAbsent.Should().ThrowAsync<PluginStoreQuotaException>();
+        (await store.SetIfAbsentAsync("a", "2", null, CancellationToken.None)).Should().BeFalse();
+        await store.SetAsync("a", "3", CancellationToken.None);
+        (await store.GetAsync("a", CancellationToken.None)).Should().Be("3");
+    }
+
+    /// <summary>An expired key does not count against the quota.</summary>
+    [Fact]
+    public async Task Quota_ExpiredKeysDoNotCount()
+    {
+        var store = new InMemoryPluginStore(maxKeys: 1);
+        await store.SetAsync("a", "1", TimeSpan.FromMinutes(1), CancellationToken.None);
+        await store.AdvanceAsync(TimeSpan.FromMinutes(2));
+
+        var write = () => store.SetAsync("b", "1", CancellationToken.None);
+
+        await write.Should().NotThrowAsync();
+    }
+
+    /// <summary>A mistake of the caller is reported when a helper is called with nothing to check.</summary>
     [Fact]
     public async Task Helpers_BadArguments_Throw()
     {
-        var store = new InMemoryAdvancedStore();
+        var store = new InMemoryPluginStore();
 
         var noStore = () => PluginStoreContract.AssertSetIfAbsentIsAtomicAsync(null!);
         var oneCaller = () => PluginStoreContract.AssertSetIfAbsentIsAtomicAsync(store, callers: 1);
         var noClock = () => PluginStoreContract.AssertExpiredKeyReadsAsAbsentAsync(store, null!);
+        var noBounds = () => PluginStoreContract.AssertTimeToLiveBoundsAsync(null!);
 
         await noStore.Should().ThrowAsync<ArgumentNullException>();
         await oneCaller.Should().ThrowAsync<ArgumentOutOfRangeException>();
         await noClock.Should().ThrowAsync<ArgumentNullException>();
-    }
-
-    /// <summary>A time to live of zero is refused by the store, as the interface documents.</summary>
-    [Fact]
-    public async Task Set_ZeroTimeToLive_Throws()
-    {
-        var store = new InMemoryAdvancedStore();
-
-        var write = () => store.SetAsync("k", "v", TimeSpan.Zero, CancellationToken.None);
-
-        await write.Should().ThrowAsync<ArgumentOutOfRangeException>();
+        await noBounds.Should().ThrowAsync<ArgumentNullException>();
     }
 
     /// <summary>Asserts that a helper call throws a violation whose message contains the given text.</summary>
