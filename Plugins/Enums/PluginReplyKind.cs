@@ -22,4 +22,11 @@ public enum PluginReplyKind
     /// callback sender expects, for example <c>OK</c> as <c>text/plain</c>.
     /// </summary>
     Raw = 5,
+
+    /// <summary>
+    /// A redirect to another address, answered with a <c>Location</c> header the host writes. Meant for a public callback
+    /// route that a gateway or a browser lands on and that sends the payer on to a page of the host. The value is
+    /// appended, so the members above keep theirs.
+    /// </summary>
+    Redirect = 6,
 }

@@ -10,6 +10,7 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `PaymentInstruction.CustomerRef` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#36): the gateway-side customer the saved method belongs to. The host fills it with the reference it got from `IStoredCredentialPlugin.EnsureCustomerAsync` whenever `SavePaymentMethod` is `true`, so a plugin can attach the stored method to that customer and a later stored charge for the same reference finds it. A plugin that does not save methods ignores it.
+- `PluginReply.Redirect(location, status = 303)` and `PluginReplyKind.Redirect` (6) (innovayse/hostpanel-sdk#44), with the new `PluginReply.Location`: a reply that sends the caller on to another address, for a public callback route that a gateway or a browser lands on, for example the return address of a payment. The status is one of 301, 302, 303, 307 or 308. The location is a host relative path (one leading slash, never two, no backslash, and never under the API path, which the host checks) or an absolute `https` URL without user info, and has no line break; the factory refuses anything else and the host validates again before it answers. A plugin never writes a header itself. The existing replies and kinds are unchanged.
 
 ### Compatibility
 
