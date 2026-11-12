@@ -444,6 +444,10 @@ public sealed class TaxContractTests
             TaxFixtures.Request with { Lines = [line with { Amount = -1m }] },
             TaxFixtures.Request with { Lines = [line with { Quantity = 0 }] },
             TaxFixtures.Request with { Lines = [line, line] },
+            TaxFixtures.Request with { Buyer = Buyer(address => address with { Country = "fr" }) },
+            TaxFixtures.Request with { Seller = Seller(address => address with { Country = "DEU" }) },
+            TaxFixtures.Request with { Buyer = Buyer(address => address with { City = new string('c', 129) }) },
+            TaxFixtures.Request with { Buyer = Buyer(address => address with { Line1 = new string('l', 129) }) },
             TaxFixtures.Request with { Currency = "eur" },
             TaxFixtures.Request with { Currency = "EURO" },
             TaxFixtures.Request with { Seller = TaxFixtures.Request.Seller with { Address = null! } },
@@ -570,6 +574,22 @@ public sealed class TaxContractTests
     private static TaxCalculationResult Change(TaxCalculationRequest request, Func<TaxLineResult, TaxLineResult> change)
     {
         return TaxCalculationResult.Calculated(TaxFixtures.Correct(request).Lines!.Select(change).ToList());
+    }
+
+    /// <summary>Builds the fixture seller with its address changed.</summary>
+    /// <param name="change">The change to the address.</param>
+    /// <returns>The seller.</returns>
+    private static TaxParty Seller(Func<TaxAddress, TaxAddress> change)
+    {
+        return TaxFixtures.Request.Seller with { Address = change(TaxFixtures.Request.Seller.Address) };
+    }
+
+    /// <summary>Builds the fixture buyer with its address changed.</summary>
+    /// <param name="change">The change to the address.</param>
+    /// <returns>The buyer.</returns>
+    private static TaxParty Buyer(Func<TaxAddress, TaxAddress> change)
+    {
+        return TaxFixtures.Request.Buyer with { Address = change(TaxFixtures.Request.Buyer.Address) };
     }
 
     /// <summary>Asserts that a helper call throws a violation whose message contains each given text.</summary>
