@@ -43,4 +43,22 @@ public interface IPanelTransport
     /// <summary>Creates a client routed through the host's address guard, private route map, timeouts and no retry rule.</summary>
     /// <returns>A client with no base address; use it for the one operation and let it go.</returns>
     HttpClient CreateClient();
+
+    /// <summary>
+    /// Creates a client for one server, routed through the same rules as <see cref="CreateClient()"/>, and the one a plugin
+    /// asks for whenever it talks to a server it has a <see cref="PanelServerConnection"/> for. Many hosting panels answer
+    /// on a private port with a self signed certificate, and only the operator may decide to trust one. The host reads the
+    /// operator's setting "accept a self signed certificate" for <see cref="PanelServerConnection.ServerId"/> and, when it
+    /// is on, returns a client that accepts the certificate of that one host name and port and of nothing else: it never
+    /// accepts a certificate for another host, never disables the check for every request, and keeps every other rule of
+    /// the transport. The plugin only passes the server on; it has no switch of its own and never tries to build one.
+    /// The default body returns <see cref="CreateClient()"/>, so a host that does not know the setting behaves as before and
+    /// a plugin that calls this method works against any host.
+    /// </summary>
+    /// <param name="server">The server the requests of the client are for.</param>
+    /// <returns>A client with no base address; use it for the one operation and let it go.</returns>
+    HttpClient CreateClient(PanelServerConnection server)
+    {
+        return CreateClient();
+    }
 }
