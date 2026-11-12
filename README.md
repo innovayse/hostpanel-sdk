@@ -354,7 +354,7 @@ the list must agree with the code. One plugin serves every server of its panel t
 - **Addresses.** `PanelAccount.ControlPanelUrl` and `PanelCreateResult.ControlPanelUrl` are the account's control panel
   login page when the panel tells it; they are not sign-in links.
 - **The old panel area is obsolete.** `IHostingPanelApiClient`, `IHostingPanelV7ApiClient` and the types beside them
-  (`Hostpanel.Sdk.Plugins.HostingPanel`) are marked `[Obsolete]`; move to `IProvisioningPanelPlugin`.
+  (`Hostpanel.Sdk.Plugins.HostingPanel`) are marked `[Obsolete]`; move to `IProvisioningPanelPlugin`. The area is removed in 4.0.0.
 - **Listing** is for reconciliation: following `NextCursor` to the end returns every account once, and a panel that
   returns everything at once answers `null` as the cursor.
 

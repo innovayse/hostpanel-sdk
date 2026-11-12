@@ -13,7 +13,9 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `GatewayPaymentState` and `PluginHostAccessFailure` have explicit values (innovayse/hostpanel-sdk#67), the ones they always had (0 to 2 and 0 to 4), so a reordering can never renumber them; a test pins them. The retired `Plugins/HostingPanel` types name 4.0.0 as the version that removes them, where they said "the next major version". `PluginSigner` no longer checks that a file exists before deleting it, which `File.Delete` already allows.
+- `GatewayPaymentState` and `PluginHostAccessFailure` have explicit values (innovayse/hostpanel-sdk#67), the ones they always had (0 to 2 and 0 to 4), so a reordering can never renumber them; a test pins each.
+- The eight retired `Plugins/HostingPanel` types now say in their `[Obsolete]` message that 4.0.0 removes them, where they said "the next major version"; the README and the 3.1.0 note say the same.
+- `PluginSigner` no longer checks that the stale temporary file exists before deleting it when signing starts, which `File.Delete` allows. The cleanup after a failed write keeps its check, so a folder that has vanished does not replace the original error.
 - `Hostpanel.Sdk.Packaging` states each identifier rule once (innovayse/hostpanel-sdk#67): a page id, a literal route segment and a slot widget id share the new `PluginSegment.Pattern` (`PluginPageIdentifier.Pattern` has its value), the patterns of a menu icon name and of `TrustedKeyId` describe the shape only, and the length is checked beside them by one constant (`TrustedKeyId.MaxLength` is new and public). What each accepts is unchanged.
 - `PaymentGatewayBase`, `ProvisioningProviderBase` and `RegistrarProviderBase` read their settings through one internal reader (innovayse/hostpanel-sdk#67), so the key `integration:{pluginId}:{key}` and the checks on the arguments are written once. Their constructors, `Logger`, `GetConfig` and the exceptions they throw are as before.
 - The 22 records that listed their members by hand in `PrintMembers`, and `PluginSshAccess.ToString`, now use the generated code. The printed text of the members that were already masked is the same. A member that is not secret and is not set now prints as the compiler prints a null (empty), where some records wrote `null`. The records became `partial`, which changes nothing for a caller. `TaxCalculationResult` prints through the generated `ToString`: its printed form now names the type of `Lines` (as for any list) where it showed the number of lines, and adds `Total`, which no longer throws for a result built by hand with a null line (the entry adds nothing to the sum).
@@ -164,7 +166,7 @@ Nothing is required: `IProvisioningPlugin`, `ProvisioningProviderBase` and every
 
 ### Changed
 
-- Deprecated: the whole `Hostpanel.Sdk.Plugins.HostingPanel` area (`IHostingPanelApiClient`, `IHostingPanelV7ApiClient`, `HostingPanelConnection`, `HostingPanelAddress`, `HostingPanelApiReader`, `HostingPanelApiWire`, `HostingPanelServerInfo`, `HostingPanelV7ServerInfo`) is marked `[Obsolete]` and points to `IProvisioningPanelPlugin`. Nothing is removed in 3.1.0; the area goes in the next major version. Code that uses it gets a warning, which a build that treats warnings as errors must suppress (`CS0618`) until it moves.
+- Deprecated: the whole `Hostpanel.Sdk.Plugins.HostingPanel` area (`IHostingPanelApiClient`, `IHostingPanelV7ApiClient`, `HostingPanelConnection`, `HostingPanelAddress`, `HostingPanelApiReader`, `HostingPanelApiWire`, `HostingPanelServerInfo`, `HostingPanelV7ServerInfo`) is marked `[Obsolete]` and points to `IProvisioningPanelPlugin`. Nothing is removed in 3.1.0; the area goes in the next major version (4.0.0, named in 3.8.0). Code that uses it gets a warning, which a build that treats warnings as errors must suppress (`CS0618`) until it moves.
 
 ## [3.0.0]
 

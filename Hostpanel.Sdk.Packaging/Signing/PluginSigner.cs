@@ -97,7 +97,12 @@ public static class PluginSigner
         }
         finally
         {
-            File.Delete(temporary);
+            // Checked, unlike the leftover above: when the folder itself is gone File.Delete throws, and that must not replace
+            // the error that brought us here.
+            if (File.Exists(temporary))
+            {
+                File.Delete(temporary);
+            }
         }
     }
 

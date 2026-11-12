@@ -63,12 +63,18 @@ public sealed class EnumValueTests
         Enum.IsDefined((VirtualServerPowerState)0).Should().BeFalse();
     }
 
-    /// <summary>The payment states and the host access failures were released with implicit values from zero; they are explicit now and unchanged.</summary>
+    /// <summary>The payment states were released with implicit values from zero; they are explicit now and unchanged.</summary>
     [Fact]
-    public void GatewayPaymentStateAndHostAccessFailure_Values_ArePinned()
+    public void GatewayPaymentState_Values_ArePinned()
     {
         Enum.GetValues<GatewayPaymentState>().Select(value => (int)value).Should().Equal(0, 1, 2);
         Enum.GetValues<GatewayPaymentState>().Select(value => value.ToString()).Should().Equal("Pending", "Paid", "Declined");
+    }
+
+    /// <summary>The host access failures were released with implicit values from zero; they are explicit now and unchanged.</summary>
+    [Fact]
+    public void PluginHostAccessFailure_Values_ArePinned()
+    {
         Enum.GetValues<PluginHostAccessFailure>().Select(value => (int)value).Should().Equal(0, 1, 2, 3, 4);
         Enum.GetValues<PluginHostAccessFailure>().Select(value => value.ToString())
             .Should().Equal("NotAllowed", "NotFound", "Unavailable", "LimitReached", "ServerUnavailable");
