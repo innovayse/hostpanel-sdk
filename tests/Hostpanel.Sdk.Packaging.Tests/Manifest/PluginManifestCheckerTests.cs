@@ -191,6 +191,16 @@ public sealed class PluginManifestCheckerTests
             PluginManifestRule.MenuIconInvalid);
     }
 
+    /// <summary>An icon name is at most 64 characters: the longest is accepted and one more is refused.</summary>
+    [Fact]
+    public void Validate_MenuIcon_BoundsTheLength()
+    {
+        const string menu = "\"ui\":{\"client\":{\"menus\":[{\"id\":\"m\",\"label\":\"Menu\",\"page\":\"p\",\"icon\":\"{0}\"}]}}";
+
+        AssertBreaks(menu.Replace("{0}", new string('a', 65)), PluginManifestRule.MenuIconInvalid);
+        Check(menu.Replace("{0}", new string('a', 64)))?.Rule.Should().NotBe(PluginManifestRule.MenuIconInvalid);
+    }
+
     /// <summary>A slot entry names a slot that exists, a safe widget id once per slot, and only context keys its slot offers.</summary>
     [Fact]
     public void Validate_Slots_AreChecked()

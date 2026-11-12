@@ -1,4 +1,5 @@
 using Hostpanel.Sdk.Packaging.Manifest;
+using Hostpanel.Sdk.Packaging.Naming;
 
 namespace Hostpanel.Sdk.Packaging.Tests.Manifest;
 
@@ -79,6 +80,28 @@ public sealed class PluginRoutePathTests
     public void TryNormalize_MoreInvalidShapes_AreRefused(string path)
     {
         PluginRoutePath.TryNormalize(path, out _).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// A literal route segment and a page id have one shape, because a page id is a segment of its address: whatever one
+    /// accepts the other accepts, so the rule cannot drift between them.
+    /// </summary>
+    /// <param name="segment">The candidate.</param>
+    [Theory]
+    [InlineData("orders")]
+    [InlineData("a-b_c0")]
+    [InlineData("0lines")]
+    [InlineData("_orders")]
+    [InlineData("-orders")]
+    [InlineData("Orders")]
+    [InlineData("or ders")]
+    [InlineData("orders\n")]
+    [InlineData("")]
+    public void LiteralSegment_HasTheShapeOfAPageId(string segment)
+    {
+        var routeAccepts = !string.IsNullOrEmpty(segment) && PluginRoutePath.TryNormalize("/" + segment, out _);
+
+        routeAccepts.Should().Be(PluginPageIdentifier.IsValid(segment));
     }
 
     /// <summary>A refused path leaves the template empty, so a caller that reads it anyway gets nothing.</summary>

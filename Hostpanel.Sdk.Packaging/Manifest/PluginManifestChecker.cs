@@ -24,7 +24,7 @@ public static partial class PluginManifestChecker
     /// <summary>The file pattern of the assemblies read in a plugin folder.</summary>
     private const string AssemblyPattern = "*.dll";
 
-    /// <summary>The longest icon name a menu may declare, in characters; the bound is part of <see cref="IconNamePattern"/>.</summary>
+    /// <summary>The longest icon name a menu may declare, in characters; checked beside <see cref="IconNamePattern"/>, which holds the shape only, so the number is written once.</summary>
     private const int MaxIconNameLength = 64;
 
     /// <summary>The name of the SDK assembly a plugin references, read from the assembly this package compiled against.</summary>
@@ -42,18 +42,18 @@ public static partial class PluginManifestChecker
     [GeneratedRegex(@"\A[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex TextKeyPattern();
 
-    /// <summary>Matches a slot widget id: the same safe shape as a literal route segment, because the id is a key in a setting and a URL-safe reference.</summary>
+    /// <summary>Matches a slot widget id: the same safe shape as a page id and a literal route segment, because the id is a key in a setting and a URL-safe reference.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_-]*\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
+    [GeneratedRegex(PluginPageIdentifier.Pattern, RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex WidgetIdPattern();
 
     /// <summary>
-    /// Matches a menu icon name: 1 to <see cref="MaxIconNameLength"/> lowercase letters, digits and hyphens, so a name
+    /// Matches the shape of a menu icon name: one or more lowercase letters, digits and hyphens, so a name
     /// can only select an icon the panel already ships, never point at a URL or carry markup. <c>\z</c>, not <c>$</c>,
     /// so a trailing newline is refused too.
     /// </summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9-]{1,64}\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
+    [GeneratedRegex(@"\A[a-z0-9-]+\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex IconNamePattern();
 
     /// <summary>
@@ -345,7 +345,7 @@ public static partial class PluginManifestChecker
     {
         foreach (var menu in menus)
         {
-            if (menu.Icon is not null && !IconNamePattern().IsMatch(menu.Icon))
+            if (menu.Icon is not null && (menu.Icon.Length > MaxIconNameLength || !IconNamePattern().IsMatch(menu.Icon)))
             {
                 return new PluginManifestViolation(
                     PluginManifestRule.MenuIconInvalid,
