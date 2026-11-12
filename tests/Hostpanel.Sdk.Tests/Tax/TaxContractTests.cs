@@ -1,8 +1,7 @@
 using Hostpanel.Sdk.Plugins.Enums;
-using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Plugins.Tax;
 using Hostpanel.Sdk.Tests.Fakes;
-using static Hostpanel.Sdk.Tests.Fakes.ContractViolationAsserts;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Tax;
 
@@ -85,7 +84,8 @@ public sealed class TaxContractTests
 
         var run = () => TaxContract.AssertCalculationIsWellFormedAsync(plugin, TaxFixtures.Request);
 
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
+        var message = await ViolationMessageAsync(run);
+
         message.Should().Contain("InvalidOperationException").And.NotContain("secret detail");
     }
 
@@ -554,7 +554,8 @@ public sealed class TaxContractTests
     {
         var run = () => TaxContract.AssertHidesSecrets("tax id " + TaxFixtures.BuyerTaxId, TaxFixtures.BuyerTaxId);
 
-        var message = run.Should().Throw<PluginContractViolationException>().Which.Message;
+        var message = ViolationMessage(run);
+
         message.Should().NotContain(TaxFixtures.BuyerTaxId).And.Contain("secret number 1");
     }
 

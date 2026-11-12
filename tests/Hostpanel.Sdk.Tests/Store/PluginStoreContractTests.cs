@@ -1,7 +1,6 @@
 using Hostpanel.Sdk.Plugins.Store;
-using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
-using static Hostpanel.Sdk.Tests.Fakes.ContractViolationAsserts;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Store;
 
