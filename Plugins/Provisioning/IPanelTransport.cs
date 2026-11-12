@@ -44,8 +44,9 @@ public interface IPanelTransport
     /// is on, returns a client that accepts the certificate of that one host name and port and of nothing else: it never
     /// accepts a certificate for another host, never disables the check for every request, and keeps every other rule of
     /// the transport. The plugin only passes the server on; it has no switch of its own and never tries to build one.
-    /// The default body returns <see cref="CreateClient()"/>, so a host that does not know the setting behaves as before and
-    /// a plugin that calls this method works against any host.
+    /// The default body returns <see cref="CreateClient()"/>, so a 3.7.0 host that does not know the setting behaves as
+    /// before. A host older than 3.7.0 has no such member, and a plugin that calls it there gets a
+    /// <see cref="MissingMethodException"/>, so a plugin that uses it sets <c>minHostVersion</c> to 3.7.0.
     /// </summary>
     /// <param name="server">The server the requests of the client are for.</param>
     /// <returns>A client with no base address; use it for the one operation and let it go.</returns>
