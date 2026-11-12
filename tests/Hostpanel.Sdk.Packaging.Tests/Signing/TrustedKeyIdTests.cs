@@ -28,8 +28,9 @@ public sealed class TrustedKeyIdTests
     [Fact]
     public void IsValid_BoundsTheLength()
     {
-        TrustedKeyId.IsValid(new string('a', 64)).Should().BeTrue();
-        TrustedKeyId.IsValid(new string('a', 65)).Should().BeFalse();
+        TrustedKeyId.MaxLength.Should().Be(64);
+        TrustedKeyId.IsValid(new string('a', TrustedKeyId.MaxLength)).Should().BeTrue();
+        TrustedKeyId.IsValid(new string('a', TrustedKeyId.MaxLength + 1)).Should().BeFalse();
         TrustedKeyId.IsValid(null).Should().BeFalse();
     }
 }

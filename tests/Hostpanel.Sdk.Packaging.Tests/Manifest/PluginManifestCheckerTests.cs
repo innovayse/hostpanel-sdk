@@ -184,11 +184,52 @@ public sealed class PluginManifestCheckerTests
     [InlineData("Chart")]
     [InlineData("a b")]
     [InlineData("<svg>")]
+    [InlineData("")]
+    [InlineData("a\\n")]
     public void Validate_MenuIcon_MustBeAPlainName(string icon)
     {
         AssertBreaks(
             "\"ui\":{\"client\":{\"menus\":[{\"id\":\"m\",\"label\":\"Menu\",\"page\":\"p\",\"icon\":\"" + icon + "\"}]}}",
             PluginManifestRule.MenuIconInvalid);
+    }
+
+    /// <summary>An icon name is at most 64 characters: the longest is accepted and one more is refused.</summary>
+    [Fact]
+    public void Validate_MenuIcon_BoundsTheLength()
+    {
+        const string menu = "\"ui\":{\"client\":{\"menus\":[{\"id\":\"m\",\"label\":\"Menu\",\"page\":\"p\",\"icon\":\"{0}\"}]}}";
+
+        AssertBreaks(menu.Replace("{0}", new string('a', 65)), PluginManifestRule.MenuIconInvalid);
+        Check(menu.Replace("{0}", new string('a', 64)))?.Rule.Should().NotBe(PluginManifestRule.MenuIconInvalid);
+    }
+
+    /// <summary>
+    /// A slot widget id starts with a lowercase letter or digit and holds lowercase letters, digits, hyphens and underscores;
+    /// the JSON escape <c>\n</c> in a case is a line feed in the id.
+    /// </summary>
+    /// <param name="id">The widget id, as JSON text.</param>
+    /// <param name="valid">Whether the manifest is accepted.</param>
+    [Theory]
+    [InlineData("w", true)]
+    [InlineData("w-1_a", true)]
+    [InlineData("1w", true)]
+    [InlineData("_w", false)]
+    [InlineData("-w", false)]
+    [InlineData("W", false)]
+    [InlineData("w\\n", false)]
+    [InlineData("", false)]
+    public void Validate_SlotWidgetId_FollowsTheShape(string id, bool valid)
+    {
+        var slots = "\"ui\":{\"slots\":[{\"id\":\"" + id + "\",\"slot\":\"client.dashboard.cards\",\"view\":\"v.json\"}]}";
+
+        if (valid)
+        {
+            Check(slots).Should().BeNull();
+        }
+        else
+        {
+            AssertBreaks(slots, PluginManifestRule.SlotWidgetIdInvalid);
+        }
     }
 
     /// <summary>A slot entry names a slot that exists, a safe widget id once per slot, and only context keys its slot offers.</summary>

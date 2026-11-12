@@ -1,4 +1,5 @@
 using Hostpanel.Sdk.Packaging.Manifest;
+using Hostpanel.Sdk.Packaging.Naming;
 
 namespace Hostpanel.Sdk.Packaging.Tests.Manifest;
 
@@ -79,6 +80,45 @@ public sealed class PluginRoutePathTests
     public void TryNormalize_MoreInvalidShapes_AreRefused(string path)
     {
         PluginRoutePath.TryNormalize(path, out _).Should().BeFalse();
+    }
+
+    /// <summary>
+    /// A literal route segment starts with a lowercase letter or digit and holds lowercase letters, digits, hyphens and
+    /// underscores; anything else, an empty segment and a trailing line feed included, is refused.
+    /// </summary>
+    /// <param name="segment">The candidate.</param>
+    /// <param name="accepted">Whether a path with this segment is accepted.</param>
+    [Theory]
+    [InlineData("orders", true)]
+    [InlineData("a-b_c0", true)]
+    [InlineData("0lines", true)]
+    [InlineData("_orders", false)]
+    [InlineData("-orders", false)]
+    [InlineData("Orders", false)]
+    [InlineData("or ders", false)]
+    [InlineData("orders\n", false)]
+    [InlineData("", false)]
+    public void LiteralSegment_FollowsTheShape(string segment, bool accepted)
+    {
+        PluginRoutePath.TryNormalize("/" + segment, out _).Should().Be(accepted);
+    }
+
+    /// <summary>A page id has the same shape as a literal segment, and the same cases give the same answers.</summary>
+    /// <param name="segment">The candidate.</param>
+    /// <param name="accepted">Whether it is a valid page id.</param>
+    [Theory]
+    [InlineData("orders", true)]
+    [InlineData("a-b_c0", true)]
+    [InlineData("0lines", true)]
+    [InlineData("_orders", false)]
+    [InlineData("-orders", false)]
+    [InlineData("Orders", false)]
+    [InlineData("or ders", false)]
+    [InlineData("orders\n", false)]
+    [InlineData("", false)]
+    public void PageId_FollowsTheSameShape(string segment, bool accepted)
+    {
+        PluginPageIdentifier.IsValid(segment).Should().Be(accepted);
     }
 
     /// <summary>A refused path leaves the template empty, so a caller that reads it anyway gets nothing.</summary>
