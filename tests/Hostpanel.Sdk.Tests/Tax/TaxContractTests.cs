@@ -2,6 +2,7 @@ using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Plugins.Tax;
 using Hostpanel.Sdk.Tests.Fakes;
+using static Hostpanel.Sdk.Tests.Fakes.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Tax;
 
@@ -590,18 +591,5 @@ public sealed class TaxContractTests
     private static TaxParty Buyer(Func<TaxAddress, TaxAddress> change)
     {
         return TaxFixtures.Request.Buyer with { Address = change(TaxFixtures.Request.Buyer.Address) };
-    }
-
-    /// <summary>Asserts that a helper call throws a violation whose message contains each given text.</summary>
-    /// <param name="run">The helper call.</param>
-    /// <param name="expected">The texts the message must contain.</param>
-    /// <returns>A task that completes when the check passed.</returns>
-    private static async Task AssertViolationAsync(Func<Task> run, params string[] expected)
-    {
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
-        foreach (var part in expected)
-        {
-            message.Should().Contain(part);
-        }
     }
 }
