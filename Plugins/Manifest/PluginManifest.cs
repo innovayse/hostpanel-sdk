@@ -188,6 +188,15 @@ public sealed class PluginManifest
     }
 
     /// <summary>
+    /// Gets the label of the account id field on the server form (the <c>serverAccountIdLabel</c> field, for example
+    /// <c>"Reseller ID"</c>) of a provisioning plugin whose panel needs an organisation, reseller or tenant id next to the
+    /// credentials. Setting it turns the field on: the host shows it for servers that use this plugin, with this label, and
+    /// passes the value as <see cref="Provisioning.PanelServerConnection.AccountId"/>. <see langword="null"/> when the
+    /// manifest sets none, which keeps the field off and <c>AccountId</c> null.
+    /// </summary>
+    public string? ServerAccountIdLabel { get; init; }
+
+    /// <summary>
     /// Gets the plugin's tags (the <c>tags</c> field, for example <c>["backup", "billing"]</c>): short keywords that plugin
     /// registries use for discovery. Optional, and the host does nothing with them beyond reading and validating them. A tag
     /// is 2 to <see cref="PluginTags.MaxLength"/> lowercase letters, digits and hyphens with no leading <c>#</c>, and a

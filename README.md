@@ -249,6 +249,14 @@ In the plugin's own tests, run the `ProvisioningContract` checks against a stub 
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
 `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
 
+### The account id of a server
+
+A panel that scopes every API call with an organisation, reseller or tenant id next to the credentials reads it from
+`PanelServerConnection.AccountId`. Do not ask the operator to type it into the user name or to join it to the user name
+with a separator. Set `serverAccountIdLabel` in `plugin.json` (for example `"Reseller ID"`) to turn on a field of the
+server form with that label, shown only for servers that use your plugin; without the label the field stays off and
+`AccountId` is null. The id is not a secret, so it prints in `ToString`; `AccessHash` and `ApiToken` stay masked.
+
 ### Registrar plugins
 
 A domain registrar is a registrar plugin that also implements `IRegistrarOperationsPlugin`, which extends the
