@@ -537,10 +537,10 @@ public sealed class TaxContractTests
         var refused = () => TaxContract.AssertUncalculableRequestIsRefusedAsync(plugin, null!);
         var unavailable = () => TaxContract.AssertUnreachableServiceIsUnavailableAsync(plugin, null!);
 
-        wellFormed.Should().Throw<ArgumentNullException>();
-        repeatable.Should().Throw<ArgumentNullException>();
-        refused.Should().Throw<ArgumentNullException>();
-        unavailable.Should().Throw<ArgumentNullException>();
+        Assert.Throws<ArgumentNullException>(() => wellFormed());
+        Assert.Throws<ArgumentNullException>(() => repeatable());
+        Assert.Throws<ArgumentNullException>(() => refused());
+        Assert.Throws<ArgumentNullException>(() => unavailable());
     }
 
     /// <summary>A printed form that shows a tax number or a street is rejected, without repeating it.</summary>
