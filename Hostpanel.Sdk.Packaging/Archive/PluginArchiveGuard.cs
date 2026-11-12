@@ -83,7 +83,7 @@ public static class PluginArchiveGuard
         isFolderItself = false;
         try
         {
-            targetPath = Path.GetFullPath(Path.Combine(contentDir, entryFullName.Replace('\\', '/')));
+            targetPath = Path.GetFullPath(Path.Combine(contentDir, PackagePath.Normalize(entryFullName)));
         }
         catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
         {

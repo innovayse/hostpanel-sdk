@@ -362,36 +362,43 @@ public static partial class PluginManifestChecker
     /// <returns>The first violation, or <see langword="null"/>.</returns>
     private static PluginManifestViolation? CheckHostVersions(string? min, string? max)
     {
-        PluginVersion? lower = null;
-        if (min is not null)
+        var invalid = ParseHostVersion(min, "minHostVersion", out var lower);
+        if (invalid is not null)
         {
-            if (!PluginVersion.TryParse(min, out var parsed))
-            {
-                return new PluginManifestViolation(
-                    PluginManifestRule.HostVersionInvalid, "minHostVersion is not a valid version: use major.minor.patch, for example 1.2.3");
-            }
-
-            lower = parsed;
+            return invalid;
         }
 
-        PluginVersion? upper = null;
-        if (max is not null)
+        invalid = ParseHostVersion(max, "maxHostVersion", out var upper);
+        if (invalid is not null)
         {
-            if (!PluginVersion.TryParse(max, out var parsed))
-            {
-                return new PluginManifestViolation(
-                    PluginManifestRule.HostVersionInvalid, "maxHostVersion is not a valid version: use major.minor.patch, for example 1.2.3");
-            }
-
-            upper = parsed;
+            return invalid;
         }
 
-        if (lower is not null && upper is not null && lower.CompareTo(upper) > 0)
+        return lower is not null && upper is not null && lower.CompareTo(upper) > 0
+            ? new PluginManifestViolation(PluginManifestRule.HostVersionRangeInverted, $"minHostVersion {min} is above maxHostVersion {max}")
+            : null;
+    }
+
+    /// <summary>Reads one bound of the host version range.</summary>
+    /// <param name="text">The bound as written, or <see langword="null"/> for no limit.</param>
+    /// <param name="member">The name of the manifest member, for the message.</param>
+    /// <param name="version">The version, or <see langword="null"/> when the bound is not set or not valid.</param>
+    /// <returns>The violation when the bound is set and is not a version, otherwise <see langword="null"/>.</returns>
+    private static PluginManifestViolation? ParseHostVersion(string? text, string member, out PluginVersion? version)
+    {
+        version = null;
+        if (text is null)
+        {
+            return null;
+        }
+
+        if (!PluginVersion.TryParse(text, out var parsed))
         {
             return new PluginManifestViolation(
-                PluginManifestRule.HostVersionRangeInverted, $"minHostVersion {min} is above maxHostVersion {max}");
+                PluginManifestRule.HostVersionInvalid, $"{member} is not a valid version: use major.minor.patch, for example 1.2.3");
         }
 
+        version = parsed;
         return null;
     }
 

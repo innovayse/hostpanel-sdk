@@ -13,7 +13,7 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- `Hostpanel.Sdk.Packaging` writes the file buffer size once (the archive guard and the signature payload each had their own), gives the refusal of an invalid signing key id one home that the signer and the payload share, and answers a malformed signature with one catch instead of two identical ones. Nothing a caller sees changes.
+- `Hostpanel.Sdk.Packaging` states what it repeated once (innovayse/hostpanel-sdk#67): the file buffer size of the archive guard and the signature payload, the refusal of an invalid signing key id (shared by the signer and the payload), what a path inside a package looks like (forward slashes, shared by the archive guard and the payload), the message and the check for an icon that is not a regular file, the two bounds of the host version range, and the two identical catches for a malformed signature. Nothing a caller sees changes: the same exceptions, messages and answers.
 - `GatewayPaymentState` and `PluginHostAccessFailure` have explicit values (innovayse/hostpanel-sdk#67), the ones they always had (0 to 2 and 0 to 4), so a reordering can never renumber them; a test pins each.
 - The eight retired `Plugins/HostingPanel` types now say in their `[Obsolete]` message that 4.0.0 removes them, where they said "the next major version"; the README and the 3.1.0 note say the same.
 - `PluginSigner` no longer checks that the stale temporary file exists before deleting it when signing starts, which `File.Delete` allows. The cleanup after a failed write keeps its check, so a folder that has vanished does not replace the original error.

@@ -171,7 +171,7 @@ public static partial class PluginIconChecker
             using var stream = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!stream.CanSeek || stream.Length > MaxIconBytes)
             {
-                return Invalid(label, $"is not a regular file of at most {MaxIconBytes} bytes");
+                return NotARegularFile(label);
             }
 
             // The path could have been swapped for a link between the first look and the open: look again, now that the
@@ -185,7 +185,7 @@ public static partial class PluginIconChecker
             var bytes = ReadBounded(stream);
             if (bytes is null)
             {
-                return Invalid(label, $"is not a regular file of at most {MaxIconBytes} bytes");
+                return NotARegularFile(label);
             }
 
             var isSvg = iconPath.EndsWith(SvgExtension, StringComparison.Ordinal);
@@ -297,6 +297,14 @@ public static partial class PluginIconChecker
     private static PluginIconCheck Invalid(string label, string problem)
     {
         return new PluginIconCheck(null, new PluginIconViolation(PluginIconRule.Invalid, $"{label} {problem}"));
+    }
+
+    /// <summary>Builds the result for an icon that is not a regular file within the size cap: too large, not seekable, or read past the cap.</summary>
+    /// <param name="label">The fixed label of the icon, for the log.</param>
+    /// <returns>The result carrying the violation.</returns>
+    private static PluginIconCheck NotARegularFile(string label)
+    {
+        return Invalid(label, $"is not a regular file of at most {MaxIconBytes} bytes");
     }
 
     /// <summary>Checks that the path has plain segments and ends in a supported extension.</summary>

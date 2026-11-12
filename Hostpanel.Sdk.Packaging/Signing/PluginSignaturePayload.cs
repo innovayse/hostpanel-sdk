@@ -123,7 +123,7 @@ public static class PluginSignaturePayload
                 continue;
             }
 
-            var relative = Path.GetRelativePath(root, entry.FullName).Replace('\\', '/');
+            var relative = PackagePath.Normalize(Path.GetRelativePath(root, entry.FullName));
             if (string.Equals(relative, PluginSignatureFile.FileName, StringComparison.Ordinal))
             {
                 continue;
