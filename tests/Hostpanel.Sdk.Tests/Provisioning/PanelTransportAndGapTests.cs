@@ -62,7 +62,7 @@ public sealed class PanelTransportAndGapTests
         client.Name.Should().NotBeNull();
     }
 
-    /// <summary>Every type of the retired panel area is marked obsolete and points to the replacement.</summary>
+    /// <summary>Every type of the retired panel area is marked obsolete, points to the replacement and names the version that removes it.</summary>
     [Fact]
     public void HostingPanelArea_IsObsolete_AndPointsToThePanelPlugin()
     {
@@ -75,7 +75,7 @@ public sealed class PanelTransportAndGapTests
         {
             var attribute = (ObsoleteAttribute?)Attribute.GetCustomAttribute(type, typeof(ObsoleteAttribute));
             attribute.Should().NotBeNull(type.Name);
-            attribute!.Message.Should().Contain(nameof(IProvisioningPanelPlugin));
+            attribute!.Message.Should().Contain(nameof(IProvisioningPanelPlugin)).And.Contain("4.0.0", "the message names the version that removes the type");
         }
     }
 

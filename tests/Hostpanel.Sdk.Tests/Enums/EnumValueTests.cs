@@ -63,6 +63,17 @@ public sealed class EnumValueTests
         Enum.IsDefined((VirtualServerPowerState)0).Should().BeFalse();
     }
 
+    /// <summary>The payment states and the host access failures were released with implicit values from zero; they are explicit now and unchanged.</summary>
+    [Fact]
+    public void GatewayPaymentStateAndHostAccessFailure_Values_ArePinned()
+    {
+        Enum.GetValues<GatewayPaymentState>().Select(value => (int)value).Should().Equal(0, 1, 2);
+        Enum.GetValues<GatewayPaymentState>().Select(value => value.ToString()).Should().Equal("Pending", "Paid", "Declined");
+        Enum.GetValues<PluginHostAccessFailure>().Select(value => (int)value).Should().Equal(0, 1, 2, 3, 4);
+        Enum.GetValues<PluginHostAccessFailure>().Select(value => value.ToString())
+            .Should().Equal("NotAllowed", "NotFound", "Unavailable", "LimitReached", "ServerUnavailable");
+    }
+
     /// <summary>The outcome enums shared by every contract are pinned too, because the new contracts reuse them.</summary>
     [Fact]
     public void SharedOutcomes_Values_ArePinned()
