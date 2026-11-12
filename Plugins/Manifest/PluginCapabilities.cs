@@ -7,6 +7,12 @@ namespace Hostpanel.Sdk.Plugins.Manifest;
 /// </summary>
 public static class PluginCapabilities
 {
+    /// <summary>
+    /// The payment plugin also implements <see cref="Hostpanel.Sdk.Plugins.Payment.IPaymentReturnPlugin"/>, which
+    /// completes a payment from the parameters of the return request.
+    /// </summary>
+    public const string PaymentReturn = "paymentReturn";
+
     /// <summary>The payment plugin also implements <see cref="Hostpanel.Sdk.Plugins.StoredCredentials.IStoredCredentialPlugin"/>.</summary>
     public const string StoredCredentials = "storedCredentials";
 

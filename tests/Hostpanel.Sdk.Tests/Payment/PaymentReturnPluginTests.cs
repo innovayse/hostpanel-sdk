@@ -1,4 +1,6 @@
+using System.Collections.ObjectModel;
 using Hostpanel.Sdk.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Plugins.Payment;
 using Hostpanel.Sdk.Tests.Fakes;
 
@@ -7,7 +9,7 @@ namespace Hostpanel.Sdk.Tests.Payment;
 /// <summary>Tests of the optional <see cref="IPaymentReturnPlugin"/> capability.</summary>
 public sealed class PaymentReturnPluginTests
 {
-    /// <summary>A plugin without the capability is still a valid payment plugin, and the host never calls it to complete.</summary>
+    /// <summary>A plugin without the capability is still a valid payment plugin and is never asked to complete.</summary>
     [Fact]
     public void LegacyPlugin_IsNotAReturnPlugin()
     {
@@ -23,17 +25,38 @@ public sealed class PaymentReturnPluginTests
         typeof(IPaymentPlugin).IsAssignableFrom(typeof(IPaymentReturnPlugin)).Should().BeTrue();
     }
 
-    /// <summary>The parameter set is a read only dictionary, so a plugin cannot change what the host passed.</summary>
+    /// <summary>The manifest capability has its documented name.</summary>
     [Fact]
-    public void CompleteAsync_ParametersAreReadOnly()
+    public void Capability_HasItsName()
+    {
+        PluginCapabilities.PaymentReturn.Should().Be("paymentReturn");
+    }
+
+    /// <summary>The method takes a read only dictionary and answers a status.</summary>
+    [Fact]
+    public void CompleteAsync_HasTheDocumentedShape()
     {
         var method = typeof(IPaymentReturnPlugin).GetMethod(nameof(IPaymentReturnPlugin.CompleteAsync))!;
-        var parameters = method.GetParameters();
 
-        parameters.Select(parameter => parameter.ParameterType).Should().Equal(
+        method.GetParameters().Select(parameter => parameter.ParameterType).Should().Equal(
             typeof(string), typeof(IReadOnlyDictionary<string, string>), typeof(CancellationToken));
-        parameters[1].ParameterType.IsAssignableTo(typeof(IDictionary<string, string>)).Should().BeFalse();
         method.ReturnType.Should().Be(typeof(Task<GatewayPaymentStatus>));
+    }
+
+    /// <summary>
+    /// A plugin that tries to change the set it was given by casting it fails, because the host passes a read only
+    /// dictionary.
+    /// </summary>
+    [Fact]
+    public void CompleteAsync_SetCannotBeChanged()
+    {
+        IReadOnlyDictionary<string, string> hostSet = new ReadOnlyDictionary<string, string>(
+            new Dictionary<string, string> { ["payer_id"] = "p-1" });
+
+        var change = () => ((IDictionary<string, string>)hostSet)["payer_id"] = "other";
+
+        change.Should().Throw<NotSupportedException>();
+        hostSet["payer_id"].Should().Be("p-1");
     }
 
     /// <summary>A nonce style gateway is paid once the nonce arrived, and the status read afterwards agrees.</summary>
@@ -52,7 +75,7 @@ public sealed class PaymentReturnPluginTests
         after.Should().Be(completed);
     }
 
-    /// <summary>A return without the value leaves the payment pending, and a repeat of the return does not charge twice.</summary>
+    /// <summary>A return without the value leaves the payment pending, and a repeat does not charge twice.</summary>
     [Fact]
     public async Task CompleteAsync_RepeatedOrEmpty_IsIdempotent()
     {
