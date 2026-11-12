@@ -5,6 +5,25 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0]
+
+### Added
+
+- `SecretMemberAttribute` in `Hostpanel.Sdk.Plugins.Diagnostics` and a source generator that ships in the package under `analyzers/dotnet/cs` (innovayse/hostpanel-sdk#67). A positional record marks a secret or personal member with `[property: SecretMember]` and is declared `partial`; the generator then writes the `PrintMembers` the record's generated `ToString` calls, which prints every member as the compiler would and shows `***` (`SecretMask.Text`) for each marked one, and `null` for a marked one that is not set. Nobody writes `PrintMembers` by hand, so a member added later is printed without anyone editing a list. A plugin can mark the members of its own records the same way. A record that cannot be given the code (it, or a type that encloses it, is not `partial`) fails the build with `HPSDK001` instead of printing the secret. A record that derives from another record calls the base record's method first, as the compiler's own does. The generator needs the compiler of the .NET 8 SDK or later, which a `net8.0` plugin already builds with.
+
+### Changed
+
+- Numbers and texts the contract helpers and the icon check wrote inline are named constants (innovayse/hostpanel-sdk#67): the default tolerance and the 100 of a percentage in `TaxContract`, the read chunk of the loopback listener, the offsets and the tag length of the icon check, the reason text of the suspend and terminate checks, the spans of the store checks, the second path of the redirect check, and the `ProvisioningRef` and `RegistrarRef` words, which are now taken with `nameof`. `TaxLimits.CountryCodeLength` (2) is new beside `CurrencyLength`. The values, the defaults and the messages are unchanged.
+- `PluginReply` names the HTTP statuses it checks (innovayse/hostpanel-sdk#67) and checks the two challenges the host answers itself, 401 and 407, in one place; the accepted statuses, the defaults and the exception messages are as before, and tests pin them.
+- `Hostpanel.Sdk.Packaging` states what it repeated once (innovayse/hostpanel-sdk#67): the file buffer size of the archive guard and the signature payload, the refusal of an invalid signing key id (shared by the signer and the payload), what a path inside a package looks like (forward slashes, shared by the archive guard and the payload), the message and the check for an icon that is not a regular file, the two bounds of the host version range, and the two identical catches for a malformed signature. Nothing a caller sees changes: the same exceptions, messages and answers.
+- `GatewayPaymentState` and `PluginHostAccessFailure` have explicit values (innovayse/hostpanel-sdk#67), the ones they always had (0 to 2 and 0 to 4), so a reordering can never renumber them; a test pins each.
+- The eight retired `Plugins/HostingPanel` types now say in their `[Obsolete]` message that 4.0.0 removes them, where they said "the next major version"; the README and the 3.1.0 note say the same.
+- `PluginSigner` no longer checks that the stale temporary file exists before deleting it when signing starts, which `File.Delete` allows. The cleanup after a failed write keeps its check, so a folder that has vanished does not replace the original error.
+- `Hostpanel.Sdk.Packaging` states each identifier rule once (innovayse/hostpanel-sdk#67): a page id, a literal route segment and a slot widget id share the new `PluginSegment.Pattern` (`PluginPageIdentifier.Pattern` has its value), the patterns of a menu icon name and of `TrustedKeyId` describe the shape only, and the length is checked beside them by one constant (`TrustedKeyId.MaxLength` is new and public). What each accepts is unchanged.
+- `PaymentGatewayBase`, `ProvisioningProviderBase` and `RegistrarProviderBase` read their settings through one internal reader (innovayse/hostpanel-sdk#67), so the key `integration:{pluginId}:{key}` and the checks on the arguments are written once. Their constructors, `Logger`, `GetConfig` and the exceptions they throw are as before.
+- The 22 records that listed their members by hand in `PrintMembers`, and `PluginSshAccess.ToString`, now use the generated code. The printed text of the members that were already masked is the same. A member that is not secret and is not set now prints as the compiler prints a null (empty), where some records wrote `null`. The records became `partial`, which changes nothing for a caller. `TaxCalculationResult` prints through the generated `ToString`: its printed form now names the type of `Lines` (as for any list) where it showed the number of lines, and adds `Total`, which no longer throws for a result built by hand with a null line (the entry adds nothing to the sum).
+- These members print as `***` now, where they printed in clear: `PaymentInstruction.CustomerRef` (the documented behaviour), `CredentialCustomerContext.Email` and `Name`, `PanelClientRef.Email` and `Name`, `StoredChargeInstruction.CustomerRef` and `MethodRef`, `PluginClientProfile.Email`, and `ClientRef` of `InvoicePaidContext`, `InvoiceRefundedContext`, `RefundAdviceContext` and `SubscriptionLapsedContext`. Only the printed form changes: the values, equality and the constructors are as before, so a plugin or host built on 3.7.0 loads and runs unchanged, and one rebuilt needs no source change.
+
 ## [3.7.0]
 
 ### Added
@@ -150,7 +169,7 @@ Nothing is required: `IProvisioningPlugin`, `ProvisioningProviderBase` and every
 
 ### Changed
 
-- Deprecated: the whole `Hostpanel.Sdk.Plugins.HostingPanel` area (`IHostingPanelApiClient`, `IHostingPanelV7ApiClient`, `HostingPanelConnection`, `HostingPanelAddress`, `HostingPanelApiReader`, `HostingPanelApiWire`, `HostingPanelServerInfo`, `HostingPanelV7ServerInfo`) is marked `[Obsolete]` and points to `IProvisioningPanelPlugin`. Nothing is removed in 3.1.0; the area goes in the next major version. Code that uses it gets a warning, which a build that treats warnings as errors must suppress (`CS0618`) until it moves.
+- Deprecated: the whole `Hostpanel.Sdk.Plugins.HostingPanel` area (`IHostingPanelApiClient`, `IHostingPanelV7ApiClient`, `HostingPanelConnection`, `HostingPanelAddress`, `HostingPanelApiReader`, `HostingPanelApiWire`, `HostingPanelServerInfo`, `HostingPanelV7ServerInfo`) is marked `[Obsolete]` and points to `IProvisioningPanelPlugin`. Nothing is removed in 3.1.0; the area goes in the next major version (4.0.0, named in 3.8.0). Code that uses it gets a warning, which a build that treats warnings as errors must suppress (`CS0618`) until it moves.
 
 ## [3.0.0]
 

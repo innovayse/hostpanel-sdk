@@ -1,6 +1,7 @@
 using Hostpanel.Sdk.Plugins.Payment;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.StoredCredentials;
 
@@ -41,7 +42,7 @@ public sealed class StoredCredentialContractTests
 
         var run = () => StoredCredentialContract.AssertCompleteSaveMethodIsIdempotentAsync(plugin, "s1");
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("call 2");
+        await AssertViolationAsync(run, "call 2");
     }
 
     /// <summary>A plugin that throws on the repeat is rejected, with the exception type in the message.</summary>
@@ -52,7 +53,7 @@ public sealed class StoredCredentialContractTests
 
         var run = () => StoredCredentialContract.AssertCompleteSaveMethodIsIdempotentAsync(plugin, "s1");
 
-        (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message.Should().Contain("InvalidOperationException");
+        await AssertViolationAsync(run, "InvalidOperationException");
     }
 
     /// <summary>A result whose Saved flag disagrees with its method is rejected.</summary>
@@ -63,7 +64,7 @@ public sealed class StoredCredentialContractTests
 
         var run = () => StoredCredentialContract.AssertCompleteSaveMethodIsIdempotentAsync(plugin, "s1");
 
-        await run.Should().ThrowAsync<PluginContractViolationException>();
+        await AssertViolationAsync(run);
     }
 
     /// <summary>Fewer than two calls, a blank session or no plugin is a mistake in the test and is refused.</summary>

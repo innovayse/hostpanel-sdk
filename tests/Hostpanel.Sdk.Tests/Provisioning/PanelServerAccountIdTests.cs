@@ -1,6 +1,5 @@
-using Hostpanel.Sdk.Plugins.Enums;
-using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Plugins.Provisioning;
+using Hostpanel.Sdk.Tests.Support;
 
 namespace Hostpanel.Sdk.Tests.Provisioning;
 
@@ -44,43 +43,23 @@ public sealed class PanelServerAccountIdTests
         printed.Should().NotContain("hash-value").And.NotContain("token-value");
     }
 
-    /// <summary>A missing user name and a missing id print as null, not as nothing.</summary>
+    /// <summary>A missing secret prints as null, so its absence shows, and a missing plain member prints as the compiler prints a null.</summary>
     [Fact]
-    public void Connection_ToString_PrintsMissingUsernameAndIdAsNull()
+    public void Connection_ToString_PrintsMissingSecretsAsNullAndMissingPlainMembersEmpty()
     {
         var connection = new PanelServerConnection(1, "web1", "web1.example", null, null, true, null, null, null);
 
-        connection.ToString().Should().Contain("Username = null").And.Contain("AccountId = null");
+        connection.ToString().Should().Contain("Username = ,").And.Contain("AccessHash = null").And.EndWith("AccountId =  }");
     }
 
     /// <summary>The manifest label is off by default and, when set, turns the field on with the plugin's wording.</summary>
     [Fact]
     public void Manifest_ServerAccountIdLabel_IsOptional()
     {
-        var plain = Build(null);
-        var labelled = Build("Reseller ID");
+        var plain = PluginManifestFixtures.Minimal(serverAccountIdLabel: null);
+        var labelled = PluginManifestFixtures.Minimal(serverAccountIdLabel: "Reseller ID");
 
         plain.ServerAccountIdLabel.Should().BeNull();
         labelled.ServerAccountIdLabel.Should().Be("Reseller ID");
-    }
-
-    /// <summary>Builds a minimal provisioning manifest.</summary>
-    /// <param name="label">The account id label, or <see langword="null"/> for none.</param>
-    /// <returns>The manifest.</returns>
-    private static PluginManifest Build(string? label)
-    {
-        return new PluginManifest
-        {
-            Id = "demo",
-            Name = "Demo",
-            Version = "1.0.0",
-            Author = "A",
-            Description = "D",
-            Type = PluginType.Provisioning,
-            Category = "Hosting",
-            EntryPoint = "Demo.Plugin",
-            SdkVersion = "3.7.0",
-            ServerAccountIdLabel = label,
-        };
     }
 }

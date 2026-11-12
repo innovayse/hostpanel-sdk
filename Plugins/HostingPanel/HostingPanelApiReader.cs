@@ -11,7 +11,7 @@ namespace Hostpanel.Sdk.Plugins.HostingPanel;
 /// These panels answer errors with HTTP 200 and an HTML body, so a status check upstream cannot
 /// catch them. Nothing of such a body is logged beyond its size, because it may echo account data.
 /// </remarks>
-[Obsolete("Superseded by Hostpanel.Sdk.Plugins.Provisioning.IProvisioningPanelPlugin: a panel plugin implements it and reaches its panel through IPanelTransport. This type will be removed in the next major version.")]
+[Obsolete("Superseded by Hostpanel.Sdk.Plugins.Provisioning.IProvisioningPanelPlugin: a panel plugin implements it and reaches its panel through IPanelTransport. This type will be removed in 4.0.0.")]
 public static class HostingPanelApiReader
 {
     /// <summary>

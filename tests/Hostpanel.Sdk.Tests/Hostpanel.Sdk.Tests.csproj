@@ -1,31 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>latest</LangVersion>
-    <IsPackable>false</IsPackable>
-    <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-
-    <!-- Like the SDK project, this one pins its own package versions so it builds on its own (this
-         repository) and inside the host's backend, which manages versions centrally. -->
+    <!-- This project builds on its own (this repository) and as a git submodule inside the host's backend, which manages
+         package versions centrally. It opts out and pins its own versions, so both builds restore the same packages. The
+         opt out is in the project file and not in Directory.Build.props: the host's Directory.Packages.props is imported
+         after that file and would win there. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="FluentAssertions" Version="6.12.2" />
+    <!-- Drives the source generator over sample records; the version is the one the generator is built against. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Hostpanel.Sdk.csproj" />
+    <ProjectReference Include="..\..\Hostpanel.Sdk.Generators\Hostpanel.Sdk.Generators.csproj" />
   </ItemGroup>
 
 </Project>

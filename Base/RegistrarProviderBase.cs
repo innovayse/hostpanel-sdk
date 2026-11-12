@@ -10,11 +10,8 @@ namespace Hostpanel.Sdk.Base;
 /// </summary>
 public abstract class RegistrarProviderBase : IRegistrarPlugin
 {
-    /// <summary>The plugin's id, the middle segment of every configuration key it reads.</summary>
-    private readonly string _pluginId;
-
-    /// <summary>Where <see cref="GetConfig"/> reads the plugin's saved settings.</summary>
-    private readonly IConfiguration _configuration;
+    /// <summary>Reads the plugin's saved settings for <see cref="GetConfig"/>.</summary>
+    private readonly PluginSettingsReader _settings;
 
     /// <summary>Initializes a new instance of the <see cref="RegistrarProviderBase"/> class.</summary>
     /// <param name="pluginId">The plugin's id, the middle segment of every configuration key it reads.</param>
@@ -24,12 +21,9 @@ public abstract class RegistrarProviderBase : IRegistrarPlugin
     /// <exception cref="ArgumentException"><paramref name="pluginId"/> is empty or white space.</exception>
     protected RegistrarProviderBase(string pluginId, IConfiguration configuration, ILogger logger)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(pluginId);
-        ArgumentNullException.ThrowIfNull(configuration);
+        _settings = new PluginSettingsReader(pluginId, configuration);
         ArgumentNullException.ThrowIfNull(logger);
 
-        _pluginId = pluginId;
-        _configuration = configuration;
         Logger = logger;
     }
 
@@ -46,8 +40,6 @@ public abstract class RegistrarProviderBase : IRegistrarPlugin
     /// <exception cref="ArgumentException"><paramref name="key"/> is empty or white space.</exception>
     protected string? GetConfig(string key)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(key);
-
-        return _configuration[$"integration:{_pluginId}:{key}"];
+        return _settings.Read(key);
     }
 }

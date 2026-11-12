@@ -62,7 +62,7 @@ public sealed class PanelTransportAndGapTests
         client.Name.Should().NotBeNull();
     }
 
-    /// <summary>Every type of the retired panel area is marked obsolete and points to the replacement.</summary>
+    /// <summary>Every type of the retired panel area is marked obsolete, points to the replacement and names the version that removes it.</summary>
     [Fact]
     public void HostingPanelArea_IsObsolete_AndPointsToThePanelPlugin()
     {
@@ -75,7 +75,7 @@ public sealed class PanelTransportAndGapTests
         {
             var attribute = (ObsoleteAttribute?)Attribute.GetCustomAttribute(type, typeof(ObsoleteAttribute));
             attribute.Should().NotBeNull(type.Name);
-            attribute!.Message.Should().Contain(nameof(IProvisioningPanelPlugin));
+            attribute!.Message.Should().Contain(nameof(IProvisioningPanelPlugin)).And.Contain("4.0.0", "the message names the version that removes the type");
         }
     }
 
@@ -85,30 +85,6 @@ public sealed class PanelTransportAndGapTests
     {
         typeof(ProvisioningContract).IsPublic.Should().BeTrue();
         typeof(ProvisioningContract).IsAbstract.Should().BeTrue("a static class is abstract and sealed");
-    }
-
-    /// <summary>A transport that hands out one client and counts the requests for it.</summary>
-    private sealed class FixedTransport : IPanelTransport
-    {
-        /// <summary>The client every call returns.</summary>
-        private readonly HttpClient _client;
-
-        /// <summary>Initializes a new instance of the <see cref="FixedTransport"/> class.</summary>
-        /// <param name="client">The client every call returns.</param>
-        public FixedTransport(HttpClient client)
-        {
-            _client = client;
-        }
-
-        /// <summary>Gets how many clients were requested.</summary>
-        public int Created { get; private set; }
-
-        /// <inheritdoc />
-        public HttpClient CreateClient()
-        {
-            Created++;
-            return _client;
-        }
     }
 
     /// <summary>A plugin shape that takes the transport in its constructor, as the contract requires.</summary>

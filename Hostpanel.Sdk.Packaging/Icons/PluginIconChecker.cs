@@ -83,6 +83,12 @@ public static partial class PluginIconChecker
     /// <summary>The label every detail starts with when the manifest value was refused: fixed text, never the value.</summary>
     private const string RefusedPathLabel = "icon path";
 
+    /// <summary>Where the type of the first chunk of a PNG file starts: after the 8 byte signature and the 4 byte length of the chunk.</summary>
+    private const int PngHeaderChunkOffset = 12;
+
+    /// <summary>How many hexadecimal characters of the SHA-256 of an icon make its entity tag (16 bytes).</summary>
+    private const int EntityTagHexLength = 32;
+
     /// <summary>The first eight bytes of every PNG file.</summary>
     private static readonly byte[] PngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
@@ -171,7 +177,7 @@ public static partial class PluginIconChecker
             using var stream = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read);
             if (!stream.CanSeek || stream.Length > MaxIconBytes)
             {
-                return Invalid(label, $"is not a regular file of at most {MaxIconBytes} bytes");
+                return NotARegularFile(label);
             }
 
             // The path could have been swapped for a link between the first look and the open: look again, now that the
@@ -185,7 +191,7 @@ public static partial class PluginIconChecker
             var bytes = ReadBounded(stream);
             if (bytes is null)
             {
-                return Invalid(label, $"is not a regular file of at most {MaxIconBytes} bytes");
+                return NotARegularFile(label);
             }
 
             var isSvg = iconPath.EndsWith(SvgExtension, StringComparison.Ordinal);
@@ -195,7 +201,7 @@ public static partial class PluginIconChecker
                 return Invalid(label, problem);
             }
 
-            var tag = $"\"{Convert.ToHexStringLower(SHA256.HashData(bytes))[..32]}\"";
+            var tag = $"\"{Convert.ToHexStringLower(SHA256.HashData(bytes))[..EntityTagHexLength]}\"";
             return new PluginIconCheck(new PluginIcon(isSvg ? SvgContentType : PngContentType, bytes, tag), null);
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
@@ -287,7 +293,7 @@ public static partial class PluginIconChecker
         }
 
         var codePoint = Convert.ToInt32(match.Groups[1].Value, 16);
-        return codePoint is 0 or > 0x10FFFF or (>= 0xD800 and <= 0xDFFF) ? ReplacementCharacter : char.ConvertFromUtf32(codePoint);
+        return codePoint == 0 || !Rune.IsValid(codePoint) ? ReplacementCharacter : char.ConvertFromUtf32(codePoint);
     }
 
     /// <summary>Builds the result for an icon that breaks <see cref="PluginIconRule.Invalid"/>.</summary>
@@ -297,6 +303,14 @@ public static partial class PluginIconChecker
     private static PluginIconCheck Invalid(string label, string problem)
     {
         return new PluginIconCheck(null, new PluginIconViolation(PluginIconRule.Invalid, $"{label} {problem}"));
+    }
+
+    /// <summary>Builds the result for an icon that is not a regular file within the size cap: too large, not seekable, or read past the cap.</summary>
+    /// <param name="label">The fixed label of the icon, for the log.</param>
+    /// <returns>The result carrying the violation.</returns>
+    private static PluginIconCheck NotARegularFile(string label)
+    {
+        return Invalid(label, $"is not a regular file of at most {MaxIconBytes} bytes");
     }
 
     /// <summary>Checks that the path has plain segments and ends in a supported extension.</summary>
@@ -385,9 +399,9 @@ public static partial class PluginIconChecker
     /// <returns>What is wrong, or <see langword="null"/>.</returns>
     private static string? CheckPng(byte[] bytes)
     {
-        var isPng = bytes.Length >= 16
+        var isPng = bytes.Length >= PngHeaderChunkOffset + PngHeaderChunk.Length
             && bytes.AsSpan(0, PngSignature.Length).SequenceEqual(PngSignature)
-            && bytes.AsSpan(12, PngHeaderChunk.Length).SequenceEqual(PngHeaderChunk);
+            && bytes.AsSpan(PngHeaderChunkOffset, PngHeaderChunk.Length).SequenceEqual(PngHeaderChunk);
         return isPng ? null : "is not a PNG image";
     }
 

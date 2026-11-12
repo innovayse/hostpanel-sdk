@@ -10,21 +10,17 @@
     <RootNamespace>Hostpanel.Sdk.Packaging</RootNamespace>
     <AssemblyName>Hostpanel.Sdk.Packaging</AssemblyName>
 
-    <!-- Like the SDK project, this one builds on its own (this repository) and as part of the host's backend,
-         which manages package versions centrally. It opts out and pins its own versions below. -->
+    <!-- This project builds on its own (this repository) and as a git submodule inside the host's backend, which manages
+         package versions centrally. It opts out and pins its own versions, so both builds restore the same packages. The
+         opt out is in the project file and not in Directory.Build.props: the host's Directory.Packages.props is imported
+         after that file and would win there. -->
     <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
 
     <!-- Package identity. The version is the one in Directory.Build.props, shared with Hostpanel.Sdk: .github/workflows/publish.yml packs both
          projects with the same version, so a plugin author and a host pin one number for the pair. -->
     <PackageId>Hostpanel.Sdk.Packaging</PackageId>
-    <Authors>Hostpanel contributors</Authors>
-    <Copyright>Copyright (c) 2024-2026 the Hostpanel contributors</Copyright>
     <Description>Shared plugin package validation for hostpanel: the signature format and Ed25519 signing and verification, plugin ids and versions, reserved assembly names, archive guards, icon safety and the structural manifest rules. The same code a host checks an upload with is what a plugin author runs before publishing. MIT licensed.</Description>
     <PackageTags>hostpanel;plugin;sdk;signing;ed25519;validation</PackageTags>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/innovayse/hostpanel-sdk</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/innovayse/hostpanel-sdk.git</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <IsPackable>true</IsPackable>
   </PropertyGroup>

@@ -1,13 +1,17 @@
 using System.Text.RegularExpressions;
+using Hostpanel.Sdk.Packaging.Naming;
 
 namespace Hostpanel.Sdk.Packaging.Manifest;
 
 /// <summary>The path rule of a manifest route and page: a leading slash, then lowercase literal segments and <c>{parameters}</c>.</summary>
 public static partial class PluginRoutePath
 {
-    /// <summary>Matches one literal route segment: lowercase letters, digits, hyphen and underscore, with nothing after it, not even a newline.</summary>
+    /// <summary>
+    /// Matches one literal route segment: lowercase letters, digits, hyphen and underscore, with nothing after it, not even a newline.
+    /// The shape is the one every literal segment of an address has: <see cref="PluginSegment.Pattern"/>.
+    /// </summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_-]*\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
+    [GeneratedRegex(PluginSegment.Pattern, RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex LiteralSegmentPattern();
 
     /// <summary>Matches one route parameter segment such as <c>{id}</c>, with nothing after it, not even a newline.</summary>

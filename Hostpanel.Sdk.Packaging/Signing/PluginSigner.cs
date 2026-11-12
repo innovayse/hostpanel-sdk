@@ -56,20 +56,14 @@ public static class PluginSigner
             throw new DirectoryNotFoundException("The package folder does not exist.");
         }
 
-        if (!TrustedKeyId.IsValid(keyId))
-        {
-            throw new InvalidDataException("The key id is not a valid key id.");
-        }
+        TrustedKeyId.EnsureValid(keyId);
 
         var parameters = PrivateParameters(privateKey);
 
         // A temporary file left by an earlier run that died between the write and the move would be listed in the payload
         // (only plugin.sig itself is skipped) and then deleted after signing, leaving a signature no one can verify.
         var leftover = Path.Combine(packageDir, PluginSignatureFile.FileName + TemporarySuffix);
-        if (File.Exists(leftover))
-        {
-            File.Delete(leftover);
-        }
+        File.Delete(leftover);
 
         var payload = PluginSignaturePayload.Build(packageDir, keyId);
 
@@ -100,6 +94,8 @@ public static class PluginSigner
         }
         finally
         {
+            // Checked, unlike the leftover above: when the folder itself is gone File.Delete throws, and that must not replace
+            // the error that brought us here.
             if (File.Exists(temporary))
             {
                 File.Delete(temporary);

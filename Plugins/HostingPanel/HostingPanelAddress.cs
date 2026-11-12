@@ -4,7 +4,7 @@ using System.Net.Sockets;
 namespace Hostpanel.Sdk.Plugins.HostingPanel;
 
 /// <summary>Builds the address a hosting panel answers on, so every provider spells it the same way.</summary>
-[Obsolete("Superseded by Hostpanel.Sdk.Plugins.Provisioning.IProvisioningPanelPlugin: a panel plugin implements it and reaches its panel through IPanelTransport. This type will be removed in the next major version.")]
+[Obsolete("Superseded by Hostpanel.Sdk.Plugins.Provisioning.IProvisioningPanelPlugin: a panel plugin implements it and reaches its panel through IPanelTransport. This type will be removed in 4.0.0.")]
 public static class HostingPanelAddress
 {
     /// <summary>Builds the HTTPS base URL of a panel endpoint, without a trailing slash.</summary>

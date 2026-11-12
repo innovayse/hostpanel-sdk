@@ -17,6 +17,15 @@ public static class TaxContract
     /// <summary>The name of the operation, for the messages.</summary>
     private const string Operation = nameof(ITaxPlugin.CalculateTaxAsync);
 
+    /// <summary>How far an amount may be from the exact tax of its rate when the caller names no tolerance: one hundredth, for a currency with two decimals.</summary>
+    private const decimal DefaultTolerance = 0.01m;
+
+    /// <summary>The upper bound of a rate and the base its share is taken from: a rate is a percentage out of 100.</summary>
+    private const decimal FullPercentage = 100m;
+
+    /// <summary>The fewest calls a repeat check makes: the first call and one repeat.</summary>
+    private const int MinimumCalls = 2;
+
     /// <summary>The checks this contract shares with the other contracts, worded for a tax service.</summary>
     private static readonly ContractCalls Calls = new("address");
 
@@ -50,7 +59,7 @@ public static class TaxContract
     public static Task<TaxCalculationResult> AssertCalculationIsWellFormedAsync(
         ITaxPlugin plugin,
         TaxCalculationRequest request,
-        decimal tolerance = 0.01m,
+        decimal tolerance = DefaultTolerance,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(plugin);
@@ -92,12 +101,12 @@ public static class TaxContract
         ITaxPlugin plugin,
         TaxCalculationRequest request,
         int calls = 2,
-        decimal tolerance = 0.01m,
+        decimal tolerance = DefaultTolerance,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(plugin);
         ValidateRequest(request);
-        ArgumentOutOfRangeException.ThrowIfLessThan(calls, 2);
+        ArgumentOutOfRangeException.ThrowIfLessThan(calls, MinimumCalls);
         ArgumentOutOfRangeException.ThrowIfNegative(tolerance);
 
         return RepeatAsync(plugin, request, calls, tolerance, ct);
@@ -354,7 +363,7 @@ public static class TaxContract
                 "it must be an ISO 3166-1 alpha-2 code in upper case.");
         }
 
-        if (line.Rate is < 0m or > 100m)
+        if (line.Rate is < 0m or > FullPercentage)
         {
             throw new PluginContractViolationException(
                 $"{Operation} answered line '{line.LineId}' on call {call} with a rate outside 0 to 100; the rate is " +
@@ -369,8 +378,8 @@ public static class TaxContract
 
         var mode = pricesIncludeTax ? "include" : "exclude";
         var exact = pricesIncludeTax
-            ? asked.Amount * line.Rate / (100m + line.Rate)
-            : asked.Amount * line.Rate / 100m;
+            ? asked.Amount * line.Rate / (FullPercentage + line.Rate)
+            : asked.Amount * line.Rate / FullPercentage;
         if (Math.Abs(line.Amount - exact) > tolerance)
         {
             throw new PluginContractViolationException(
@@ -385,7 +394,7 @@ public static class TaxContract
     /// <returns><see langword="true"/> for two upper case ASCII letters.</returns>
     private static bool IsCountryCode(string? country)
     {
-        return country is { Length: 2 } && country.All(char.IsAsciiLetterUpper);
+        return country is { Length: TaxLimits.CountryCodeLength } && country.All(char.IsAsciiLetterUpper);
     }
 
     /// <summary>Tells whether two calculations answer the same lines, whatever the order they list them in.</summary>

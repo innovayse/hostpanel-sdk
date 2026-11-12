@@ -10,9 +10,6 @@ namespace Hostpanel.Sdk.Packaging.Tests.Signing;
 /// </summary>
 public sealed class PluginSignaturePayloadTests
 {
-    /// <summary>The key id the golden payload names.</summary>
-    private const string GoldenKeyId = "demo-key";
-
     /// <summary>
     /// The payload of the golden package, written out. Each hash is the SHA-256 of the file written by
     /// <see cref="GoldenPackage.Write"/>; the paths are sorted with ordinal comparison, so an upper-case name sorts first.
@@ -33,7 +30,7 @@ public sealed class PluginSignaturePayloadTests
         using var folder = new TempFolder();
         GoldenPackage.Write(folder);
 
-        var payload = PluginSignaturePayload.Build(folder.Path, GoldenKeyId);
+        var payload = PluginSignaturePayload.Build(folder.Path, DemoKey.Id);
 
         payload.Should().Equal(new UTF8Encoding(false).GetBytes(GoldenPayload));
         payload.Take(3).Should().NotEqual(new byte[] { 0xEF, 0xBB, 0xBF });
@@ -51,8 +48,8 @@ public sealed class PluginSignaturePayloadTests
         second.Write("lib/Demo.dll", "binary");
         second.Write("plugin.json", "{\"id\":\"demo\"}");
 
-        PluginSignaturePayload.Build(first.Path, GoldenKeyId)
-            .Should().Equal(PluginSignaturePayload.Build(second.Path, GoldenKeyId));
+        PluginSignaturePayload.Build(first.Path, DemoKey.Id)
+            .Should().Equal(PluginSignaturePayload.Build(second.Path, DemoKey.Id));
     }
 
     /// <summary>Only the root signature file is left out: one in a sub-folder is a file like any other.</summary>
@@ -63,7 +60,7 @@ public sealed class PluginSignaturePayloadTests
         folder.Write("plugin.json", "{}");
         folder.Write("sub/plugin.sig", "x");
 
-        var text = Encoding.UTF8.GetString(PluginSignaturePayload.Build(folder.Path, GoldenKeyId));
+        var text = Encoding.UTF8.GetString(PluginSignaturePayload.Build(folder.Path, DemoKey.Id));
 
         text.Should().Contain(" sub/plugin.sig\n");
         text.Split('\n').Where(line => line.EndsWith(" plugin.sig", StringComparison.Ordinal)).Should().BeEmpty();
@@ -75,12 +72,12 @@ public sealed class PluginSignaturePayloadTests
     {
         using var folder = new TempFolder();
         GoldenPackage.Write(folder);
-        var before = PluginSignaturePayload.Build(folder.Path, GoldenKeyId);
+        var before = PluginSignaturePayload.Build(folder.Path, DemoKey.Id);
 
         PluginSignaturePayload.Build(folder.Path, "other-key").Should().NotEqual(before);
 
         folder.Write("lib/Demo.dll", "binarY");
-        PluginSignaturePayload.Build(folder.Path, GoldenKeyId).Should().NotEqual(before);
+        PluginSignaturePayload.Build(folder.Path, DemoKey.Id).Should().NotEqual(before);
     }
 
     /// <summary>A key id outside the allowed shape is refused before anything is read.</summary>
@@ -97,7 +94,7 @@ public sealed class PluginSignaturePayloadTests
 
         var act = () => PluginSignaturePayload.Build(folder.Path, keyId);
 
-        act.Should().Throw<InvalidDataException>();
+        act.Should().ThrowExactly<InvalidDataException>().WithMessage("The key id is not a valid key id.");
     }
 
     /// <summary>The header names the format version, so a later format is a new header and not a silent clash.</summary>
@@ -122,7 +119,7 @@ public sealed class PluginSignaturePayloadTests
             return;
         }
 
-        var act = () => PluginSignaturePayload.Build(folder.Path, GoldenKeyId);
+        var act = () => PluginSignaturePayload.Build(folder.Path, DemoKey.Id);
 
         act.Should().Throw<InvalidDataException>();
     }
@@ -139,7 +136,7 @@ public sealed class PluginSignaturePayloadTests
         folder.Write("a/b", "one");
         folder.Write("a\\b", "two");
 
-        var act = () => PluginSignaturePayload.Build(folder.Path, GoldenKeyId);
+        var act = () => PluginSignaturePayload.Build(folder.Path, DemoKey.Id);
 
         // The message names the duplicate path: a refusal for a control character or anything else would not match.
         act.Should().Throw<InvalidDataException>().WithMessage("*have the same path*");

@@ -16,7 +16,19 @@
     <!-- The one version of both packages, Hostpanel.Sdk and Hostpanel.Sdk.Packaging: a plugin author and a host pin one
          number for the pair. Bump the minor for an added member, the major for a removed or renamed one.
          .github/workflows/publish.yml reads this line and packs both projects with it. -->
-    <Version>3.7.0</Version>
+    <Version>3.8.0</Version>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Identity of the two packages, Hostpanel.Sdk and Hostpanel.Sdk.Packaging. MIT, unlike the AGPL-3.0 host: a plugin
+         compiled against these contracts is its author's to license, free or paid, open or closed. The expression is what
+         NuGet shows; the LICENSE file at the root carries the full text and is packed too. -->
+    <Authors>Hostpanel contributors</Authors>
+    <Copyright>Copyright (c) 2024-2026 the Hostpanel contributors</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/innovayse/hostpanel-sdk</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/innovayse/hostpanel-sdk.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
 </Project>

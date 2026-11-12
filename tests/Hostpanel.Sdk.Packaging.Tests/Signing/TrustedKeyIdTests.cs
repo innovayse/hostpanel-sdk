@@ -28,8 +28,32 @@ public sealed class TrustedKeyIdTests
     [Fact]
     public void IsValid_BoundsTheLength()
     {
-        TrustedKeyId.IsValid(new string('a', 64)).Should().BeTrue();
-        TrustedKeyId.IsValid(new string('a', 65)).Should().BeFalse();
+        TrustedKeyId.MaxLength.Should().Be(64);
+        TrustedKeyId.IsValid(new string('a', TrustedKeyId.MaxLength)).Should().BeTrue();
+        TrustedKeyId.IsValid(new string('a', TrustedKeyId.MaxLength + 1)).Should().BeFalse();
         TrustedKeyId.IsValid(null).Should().BeFalse();
+    }
+
+    /// <summary>EnsureValid accepts a valid key id and refuses every other with the one message the signing code gives.</summary>
+    /// <param name="keyId">The candidate.</param>
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("Upper")]
+    [InlineData("two words")]
+    public void EnsureValid_RefusesAnInvalidKeyId(string? keyId)
+    {
+        var ensure = () => TrustedKeyId.EnsureValid(keyId);
+
+        ensure.Should().ThrowExactly<InvalidDataException>().WithMessage("The key id is not a valid key id.");
+    }
+
+    /// <summary>EnsureValid lets a valid key id through.</summary>
+    [Fact]
+    public void EnsureValid_AcceptsAValidKeyId()
+    {
+        var ensure = () => TrustedKeyId.EnsureValid("demo-key.1");
+
+        ensure.Should().NotThrow();
     }
 }

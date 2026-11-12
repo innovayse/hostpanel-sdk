@@ -25,7 +25,7 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Hostpanel.Sdk --version 3.7.0
+dotnet add package Hostpanel.Sdk --version 3.8.0
 ```
 
 or, in the plugin's `.csproj`:
@@ -34,7 +34,7 @@ or, in the plugin's `.csproj`:
 <ItemGroup>
   <!-- ExcludeAssets="runtime" keeps Hostpanel.Sdk.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Hostpanel.Sdk" Version="3.7.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Hostpanel.Sdk" Version="3.8.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -258,6 +258,17 @@ answer instead of a literal of your own, so every mask in a log is the same and 
 makes a log readable and is not a security boundary: never write a secret, a token, an address or a payer detail to a
 log, a result or an exception message in the first place.
 
+The masking is generated, so no record lists its members by hand. Mark a secret or personal member with
+`[property: SecretMember]` on the parameter of a positional record and declare the record `partial`; a source generator
+that ships in this package (under `analyzers/dotnet/cs`, no reference to add) writes the `PrintMembers` that the generated
+`ToString` calls. It prints every member as the compiler would, shows `***` for each marked one and `null` for a marked one
+that is not set. Use the same attribute for your own settings and context records. A record that is not `partial`, or
+that is nested in a type that is not, fails the build (`HPSDK001`) instead of printing the secret. A test of this package
+fails when a record has a hand written `PrintMembers` or a string member named after a credential that is not marked.
+Besides credentials, the printed form of `PaymentInstruction.CustomerRef` and
+`PayerEmail`, `CredentialCustomerContext` and `PanelClientRef` (`Email`, `Name`), `StoredChargeInstruction`
+(`CustomerRef`, `MethodRef`), `PluginClientProfile.Email` and the `ClientRef` of the four fulfilment contexts show `***`.
+
 ### Callbacks
 
 A plugin can receive requests from outside the panels, for example a gateway telling it a payment changed. Declare
@@ -343,7 +354,7 @@ the list must agree with the code. One plugin serves every server of its panel t
 - **Addresses.** `PanelAccount.ControlPanelUrl` and `PanelCreateResult.ControlPanelUrl` are the account's control panel
   login page when the panel tells it; they are not sign-in links.
 - **The old panel area is obsolete.** `IHostingPanelApiClient`, `IHostingPanelV7ApiClient` and the types beside them
-  (`Hostpanel.Sdk.Plugins.HostingPanel`) are marked `[Obsolete]`; move to `IProvisioningPanelPlugin`.
+  (`Hostpanel.Sdk.Plugins.HostingPanel`) are marked `[Obsolete]`; move to `IProvisioningPanelPlugin`. The area is removed in 4.0.0.
 - **Listing** is for reconciliation: following `NextCursor` to the end returns every account once, and a panel that
   returns everything at once answers `null` as the cursor.
 
@@ -776,7 +787,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Hostpanel.Sdk" Version="3.7.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Hostpanel.Sdk" Version="3.8.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

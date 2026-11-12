@@ -17,8 +17,8 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <summary>The server every default answer carries.</summary>
     private static readonly VirtualServerInstance DefaultInstance = new("srv-1", "192.0.2.30", null, null);
 
-    /// <summary>How many times each operation was called, by method name.</summary>
-    private readonly Dictionary<string, int> _calls = new(StringComparer.Ordinal);
+    /// <summary>Counts the calls of each operation, by method name.</summary>
+    private readonly CallCounter _calls = new();
 
     /// <summary>Gets or sets a value telling whether the platform holds the server of the call; <see langword="false"/> makes every read and change answer not found.</summary>
     public bool HoldsServer { get; set; } = true;
@@ -79,13 +79,13 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <returns>The number of calls, zero when it was never called.</returns>
     public int CallsOf(string operation)
     {
-        return _calls.GetValueOrDefault(operation);
+        return _calls.CallsOf(operation);
     }
 
     /// <inheritdoc />
     public Task<ValueResult<VirtualServerInstance, PanelRefusalReason>> CreateServerAsync(VirtualServerCreateContext context, CancellationToken ct)
     {
-        var call = Count(nameof(CreateServerAsync));
+        var call = _calls.Count(nameof(CreateServerAsync));
         if (Create is not null)
         {
             return Task.FromResult(Create(call));
@@ -99,7 +99,7 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     {
         if (IsSuspended && Start is null)
         {
-            Count(nameof(StartServerAsync));
+            _calls.Count(nameof(StartServerAsync));
             return Task.FromResult(PanelActionResult.Refused(PanelRefusalReason.AccessDenied));
         }
 
@@ -115,7 +115,7 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<PanelActionResult> RebootServerAsync(PanelAccountContext context, CancellationToken ct)
     {
-        var call = Count(nameof(RebootServerAsync));
+        var call = _calls.Count(nameof(RebootServerAsync));
         return Task.FromResult(Reboot is null ? (HoldsServer ? PanelActionResult.Done() : PanelActionResult.NotFound()) : Reboot(call));
     }
 
@@ -134,7 +134,7 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<PanelActionResult> TerminateServerAsync(PanelTerminateContext context, CancellationToken ct)
     {
-        var call = Count(nameof(TerminateServerAsync));
+        var call = _calls.Count(nameof(TerminateServerAsync));
         if (Terminate is not null)
         {
             return Task.FromResult(Terminate(call));
@@ -146,7 +146,7 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<ValueResult<VirtualServerRootPassword, PanelRefusalReason>> RebuildServerAsync(VirtualServerRebuildContext context, CancellationToken ct)
     {
-        var call = Count(nameof(RebuildServerAsync));
+        var call = _calls.Count(nameof(RebuildServerAsync));
         return Task.FromResult(Rebuild is null ? DataOrNotFound(new VirtualServerRootPassword(null)) : Rebuild(call));
     }
 
@@ -159,28 +159,28 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<ValueResult<VirtualServerRootPassword, PanelRefusalReason>> ResetRootPasswordAsync(PanelChangePasswordContext context, CancellationToken ct)
     {
-        var call = Count(nameof(ResetRootPasswordAsync));
+        var call = _calls.Count(nameof(ResetRootPasswordAsync));
         return Task.FromResult(ResetRootPassword is null ? DataOrNotFound(new VirtualServerRootPassword("generated-secret-201")) : ResetRootPassword(call));
     }
 
     /// <inheritdoc />
     public Task<ValueResult<VirtualServerConsole, PanelRefusalReason>> CreateConsoleSessionAsync(PanelAccountContext context, CancellationToken ct)
     {
-        var call = Count(nameof(CreateConsoleSessionAsync));
+        var call = _calls.Count(nameof(CreateConsoleSessionAsync));
         return Task.FromResult(ConsoleSession is null ? DataOrNotFound(new VirtualServerConsole("https://console.example.test/s?t=abc", null)) : ConsoleSession(call));
     }
 
     /// <inheritdoc />
     public Task<ValueResult<VirtualServerUsage, PanelRefusalReason>> GetServerUsageAsync(PanelAccountContext context, CancellationToken ct)
     {
-        var call = Count(nameof(GetServerUsageAsync));
+        var call = _calls.Count(nameof(GetServerUsageAsync));
         return Task.FromResult(Usage is null ? DataOrNotFound(new VirtualServerUsage(null, 5.5, 1, 2, 3, 4, null, null, DateTimeOffset.UnixEpoch)) : Usage(call));
     }
 
     /// <inheritdoc />
     public Task<ValueResult<IReadOnlyList<VirtualServerImage>, PanelRefusalReason>> ListImagesAsync(VirtualServerCatalogContext context, CancellationToken ct)
     {
-        var call = Count(nameof(ListImagesAsync));
+        var call = _calls.Count(nameof(ListImagesAsync));
         return Task.FromResult(ListImages is null
             ? ValueResult<IReadOnlyList<VirtualServerImage>, PanelRefusalReason>.Done([new VirtualServerImage("img-1", "Image One"), new VirtualServerImage("img-2", "Image Two")])
             : ListImages(call));
@@ -189,7 +189,7 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<ValueResult<IReadOnlyList<VirtualServerPlan>, PanelRefusalReason>> ListPlansAsync(VirtualServerCatalogContext context, CancellationToken ct)
     {
-        var call = Count(nameof(ListPlansAsync));
+        var call = _calls.Count(nameof(ListPlansAsync));
         return Task.FromResult(ListPlans is null
             ? ValueResult<IReadOnlyList<VirtualServerPlan>, PanelRefusalReason>.Done([new VirtualServerPlan("small", 1, 1, 10), new VirtualServerPlan("large", 4, 8, 80)])
             : ListPlans(call));
@@ -198,14 +198,14 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <inheritdoc />
     public Task<PanelAccountListResult> ListServersAsync(PanelListAccountsContext context, CancellationToken ct)
     {
-        Count(nameof(ListServersAsync));
+        _calls.Count(nameof(ListServersAsync));
         return Task.FromResult(ListServers is null ? PanelAccountListResult.Page([], null) : ListServers(context.Cursor));
     }
 
     /// <inheritdoc />
     public Task<PanelConnectionTestResult> TestServerConnectionAsync(PanelTestConnectionContext context, CancellationToken ct)
     {
-        var call = Count(nameof(TestServerConnectionAsync));
+        var call = _calls.Count(nameof(TestServerConnectionAsync));
         return Task.FromResult(Test is null ? PanelConnectionTestResult.Connected("1.0", 3) : Test(call));
     }
 
@@ -215,7 +215,7 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     /// <returns>The answer.</returns>
     private PanelActionResult Change(Func<int, PanelActionResult>? script, string operation)
     {
-        var call = Count(operation);
+        var call = _calls.Count(operation);
         if (script is not null)
         {
             return script(call);
@@ -237,15 +237,5 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
         where T : class
     {
         return HoldsServer ? ValueResult<T, PanelRefusalReason>.Done(value) : ValueResult<T, PanelRefusalReason>.NotFound();
-    }
-
-    /// <summary>Counts one call of an operation.</summary>
-    /// <param name="operation">The method name.</param>
-    /// <returns>The call number of this call, starting at 1.</returns>
-    private int Count(string operation)
-    {
-        var next = _calls.GetValueOrDefault(operation) + 1;
-        _calls[operation] = next;
-        return next;
     }
 }

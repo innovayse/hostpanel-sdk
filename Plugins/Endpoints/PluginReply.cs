@@ -1,3 +1,4 @@
+using System.Net;
 using Hostpanel.Sdk.Plugins.Enums;
 
 namespace Hostpanel.Sdk.Plugins.Endpoints;
@@ -9,6 +10,59 @@ namespace Hostpanel.Sdk.Plugins.Endpoints;
 /// </summary>
 public sealed class PluginReply
 {
+    /// <summary>200, the default status of a JSON reply and the status of a stream.</summary>
+    private const int StatusOk = (int)HttpStatusCode.OK;
+
+    /// <summary>201, a JSON reply that created something.</summary>
+    private const int StatusCreated = (int)HttpStatusCode.Created;
+
+    /// <summary>202, a JSON reply that accepted work not yet done.</summary>
+    private const int StatusAccepted = (int)HttpStatusCode.Accepted;
+
+    /// <summary>203, a JSON reply whose content comes from a copy.</summary>
+    private const int StatusNonAuthoritative = (int)HttpStatusCode.NonAuthoritativeInformation;
+
+    /// <summary>204, the status of a reply without content.</summary>
+    private const int StatusNoContent = (int)HttpStatusCode.NoContent;
+
+    /// <summary>303, the default status of a redirect: the browser follows it with a plain GET.</summary>
+    private const int StatusSeeOther = (int)HttpStatusCode.SeeOther;
+
+    /// <summary>401, an authentication challenge the host answers itself.</summary>
+    private const int StatusUnauthorized = (int)HttpStatusCode.Unauthorized;
+
+    /// <summary>403, the status a plugin answers to refuse a caller.</summary>
+    private const int StatusForbidden = (int)HttpStatusCode.Forbidden;
+
+    /// <summary>407, a proxy authentication challenge the host answers itself.</summary>
+    private const int StatusProxyAuthenticationRequired = (int)HttpStatusCode.ProxyAuthenticationRequired;
+
+    /// <summary>The lowest status of any answer a plugin gives.</summary>
+    private const int FirstAnswerStatus = StatusOk;
+
+    /// <summary>The lowest status of a failure.</summary>
+    private const int FirstFailureStatus = (int)HttpStatusCode.BadRequest;
+
+    /// <summary>
+    /// The highest status of any answer a plugin gives. It stays a literal: <see cref="HttpStatusCode"/> names no member
+    /// for the end of the 5xx class, which is only a limit of the class and not a status.
+    /// </summary>
+    private const int LastAnswerStatus = 599;
+
+    /// <summary>The five redirect statuses a reply may use: permanent, found, see other, temporary and permanent keeping the method.</summary>
+    private static readonly int[] RedirectStatuses =
+    [
+        (int)HttpStatusCode.MovedPermanently,
+        (int)HttpStatusCode.Found,
+        (int)HttpStatusCode.SeeOther,
+        (int)HttpStatusCode.TemporaryRedirect,
+        (int)HttpStatusCode.PermanentRedirect,
+    ];
+
+    /// <summary>The end of the message of a refused status that the host would answer itself, so a problem and a raw reply say it the same way.</summary>
+    private static readonly string HostChallengeAdvice =
+        $"other than {StatusUnauthorized} and {StatusProxyAuthenticationRequired}; answer {StatusForbidden} to refuse a caller.";
+
     /// <summary>Initializes a new instance of the <see cref="PluginReply"/> class.</summary>
     /// <param name="kind">The shape of the reply.</param>
     /// <param name="status">The HTTP status the host answers with.</param>
@@ -56,12 +110,13 @@ public sealed class PluginReply
     /// <returns>The reply.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="body"/> is <see langword="null"/>.</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="status"/> is not a success status with a body.</exception>
-    public static PluginReply Json(object body, int status = 200)
+    public static PluginReply Json(object body, int status = StatusOk)
     {
         ArgumentNullException.ThrowIfNull(body);
-        if (status is not (200 or 201 or 202 or 203))
+        if (status is not (StatusOk or StatusCreated or StatusAccepted or StatusNonAuthoritative))
         {
-            throw new ArgumentOutOfRangeException(nameof(status), status, "A JSON reply needs a status of 200, 201, 202 or 203.");
+            throw new ArgumentOutOfRangeException(
+                nameof(status), status, $"A JSON reply needs a status of {StatusOk}, {StatusCreated}, {StatusAccepted} or {StatusNonAuthoritative}.");
         }
 
         return new PluginReply(PluginReplyKind.Json, status) { Body = body };
@@ -71,7 +126,7 @@ public sealed class PluginReply
     /// <returns>The reply.</returns>
     public static PluginReply NoContent()
     {
-        return new PluginReply(PluginReplyKind.NoContent, 204);
+        return new PluginReply(PluginReplyKind.NoContent, StatusNoContent);
     }
 
     /// <summary>Builds a problem; the host maps it to its standard error response.</summary>
@@ -89,9 +144,10 @@ public sealed class PluginReply
     public static PluginReply Problem(int status, string code, string? detail = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(code);
-        if (status is < 400 or > 599 or 401 or 407)
+        if (status is < FirstFailureStatus or > LastAnswerStatus || IsAnsweredByHost(status))
         {
-            throw new ArgumentOutOfRangeException(nameof(status), status, "A problem needs a 4xx or 5xx status other than 401 and 407; answer 403 to refuse a caller.");
+            throw new ArgumentOutOfRangeException(
+                nameof(status), status, $"A problem needs a 4xx or 5xx status {HostChallengeAdvice}");
         }
 
         return new PluginReply(PluginReplyKind.Problem, status) { Code = code, Detail = detail };
@@ -115,9 +171,10 @@ public sealed class PluginReply
     public static PluginReply Raw(int status, ReadOnlyMemory<byte> body, string contentType)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
-        if (status is < 200 or > 599 or 401 or 407)
+        if (status is < FirstAnswerStatus or > LastAnswerStatus || IsAnsweredByHost(status))
         {
-            throw new ArgumentOutOfRangeException(nameof(status), status, "A raw reply needs a status from 200 to 599 other than 401 and 407; answer 403 to refuse a caller.");
+            throw new ArgumentOutOfRangeException(
+                nameof(status), status, $"A raw reply needs a status from {FirstAnswerStatus} to {LastAnswerStatus} {HostChallengeAdvice}");
         }
 
         if (contentType.Contains('\r') || contentType.Contains('\n'))
@@ -147,13 +204,13 @@ public sealed class PluginReply
     /// <paramref name="location"/> is empty, white space or not an accepted address.
     /// </exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="status"/> is not a redirect status.</exception>
-    public static PluginReply Redirect(string location, int status = 303)
+    public static PluginReply Redirect(string location, int status = StatusSeeOther)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(location);
-        if (status is not (301 or 302 or 303 or 307 or 308))
+        if (!RedirectStatuses.Contains(status))
         {
             throw new ArgumentOutOfRangeException(
-                nameof(status), status, "A redirect needs a status of 301, 302, 303, 307 or 308.");
+                nameof(status), status, $"A redirect needs a status of {string.Join(", ", RedirectStatuses.SkipLast(1))} or {RedirectStatuses[^1]}.");
         }
 
         if (!IsAcceptedLocation(location))
@@ -189,7 +246,7 @@ public sealed class PluginReply
     public static PluginReply Stream(IAsyncEnumerable<PluginEvent> events)
     {
         ArgumentNullException.ThrowIfNull(events);
-        return new PluginReply(PluginReplyKind.Stream, 200) { Events = events };
+        return new PluginReply(PluginReplyKind.Stream, StatusOk) { Events = events };
     }
 
     /// <summary>Tells whether an address is one a redirect may go to.</summary>
@@ -211,5 +268,13 @@ public sealed class PluginReply
         return Uri.TryCreate(location, UriKind.Absolute, out var uri)
             && uri.Scheme == Uri.UriSchemeHttps
             && uri.UserInfo.Length == 0;
+    }
+
+    /// <summary>Tells whether the host answers a status itself: the authentication challenges that would sign a client out or ask for proxy credentials.</summary>
+    /// <param name="status">The status a plugin asked for.</param>
+    /// <returns><see langword="true"/> for 401 and 407.</returns>
+    private static bool IsAnsweredByHost(int status)
+    {
+        return status is StatusUnauthorized or StatusProxyAuthenticationRequired;
     }
 }

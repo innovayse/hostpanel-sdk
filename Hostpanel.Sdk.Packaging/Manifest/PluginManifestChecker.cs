@@ -24,7 +24,7 @@ public static partial class PluginManifestChecker
     /// <summary>The file pattern of the assemblies read in a plugin folder.</summary>
     private const string AssemblyPattern = "*.dll";
 
-    /// <summary>The longest icon name a menu may declare, in characters; the bound is part of <see cref="IconNamePattern"/>.</summary>
+    /// <summary>The longest icon name a menu may declare, in characters; checked beside <see cref="IconNamePattern"/>, which holds the shape only, so the number is written once.</summary>
     private const int MaxIconNameLength = 64;
 
     /// <summary>The name of the SDK assembly a plugin references, read from the assembly this package compiled against.</summary>
@@ -42,18 +42,18 @@ public static partial class PluginManifestChecker
     [GeneratedRegex(@"\A[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+)+\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex TextKeyPattern();
 
-    /// <summary>Matches a slot widget id: the same safe shape as a literal route segment, because the id is a key in a setting and a URL-safe reference.</summary>
+    /// <summary>Matches a slot widget id: the shape <see cref="PluginSegment.Pattern"/> gives every literal segment (a page id, a route part), because the id is a key in a setting and a URL-safe reference.</summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9][a-z0-9_-]*\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
+    [GeneratedRegex(PluginSegment.Pattern, RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex WidgetIdPattern();
 
     /// <summary>
-    /// Matches a menu icon name: 1 to <see cref="MaxIconNameLength"/> lowercase letters, digits and hyphens, so a name
+    /// Matches the shape of a menu icon name: one or more lowercase letters, digits and hyphens, so a name
     /// can only select an icon the panel already ships, never point at a URL or carry markup. <c>\z</c>, not <c>$</c>,
     /// so a trailing newline is refused too.
     /// </summary>
     /// <returns>The compiled pattern.</returns>
-    [GeneratedRegex(@"\A[a-z0-9-]{1,64}\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
+    [GeneratedRegex(@"\A[a-z0-9-]+\z", RegexOptions.CultureInvariant, RegexLimits.TimeoutMilliseconds)]
     private static partial Regex IconNamePattern();
 
     /// <summary>
@@ -345,7 +345,7 @@ public static partial class PluginManifestChecker
     {
         foreach (var menu in menus)
         {
-            if (menu.Icon is not null && !IconNamePattern().IsMatch(menu.Icon))
+            if (menu.Icon is not null && (menu.Icon.Length > MaxIconNameLength || !IconNamePattern().IsMatch(menu.Icon)))
             {
                 return new PluginManifestViolation(
                     PluginManifestRule.MenuIconInvalid,
@@ -362,36 +362,43 @@ public static partial class PluginManifestChecker
     /// <returns>The first violation, or <see langword="null"/>.</returns>
     private static PluginManifestViolation? CheckHostVersions(string? min, string? max)
     {
-        PluginVersion? lower = null;
-        if (min is not null)
+        var invalid = ParseHostVersion(min, "minHostVersion", out var lower);
+        if (invalid is not null)
         {
-            if (!PluginVersion.TryParse(min, out var parsed))
-            {
-                return new PluginManifestViolation(
-                    PluginManifestRule.HostVersionInvalid, "minHostVersion is not a valid version: use major.minor.patch, for example 1.2.3");
-            }
-
-            lower = parsed;
+            return invalid;
         }
 
-        PluginVersion? upper = null;
-        if (max is not null)
+        invalid = ParseHostVersion(max, "maxHostVersion", out var upper);
+        if (invalid is not null)
         {
-            if (!PluginVersion.TryParse(max, out var parsed))
-            {
-                return new PluginManifestViolation(
-                    PluginManifestRule.HostVersionInvalid, "maxHostVersion is not a valid version: use major.minor.patch, for example 1.2.3");
-            }
-
-            upper = parsed;
+            return invalid;
         }
 
-        if (lower is not null && upper is not null && lower.CompareTo(upper) > 0)
+        return lower is not null && upper is not null && lower.CompareTo(upper) > 0
+            ? new PluginManifestViolation(PluginManifestRule.HostVersionRangeInverted, $"minHostVersion {min} is above maxHostVersion {max}")
+            : null;
+    }
+
+    /// <summary>Reads one bound of the host version range.</summary>
+    /// <param name="text">The bound as written, or <see langword="null"/> for no limit.</param>
+    /// <param name="member">The name of the manifest member, for the message.</param>
+    /// <param name="version">The version, or <see langword="null"/> when the bound is not set or not valid.</param>
+    /// <returns>The violation when the bound is set and is not a version, otherwise <see langword="null"/>.</returns>
+    private static PluginManifestViolation? ParseHostVersion(string? text, string member, out PluginVersion? version)
+    {
+        version = null;
+        if (text is null)
+        {
+            return null;
+        }
+
+        if (!PluginVersion.TryParse(text, out var parsed))
         {
             return new PluginManifestViolation(
-                PluginManifestRule.HostVersionRangeInverted, $"minHostVersion {min} is above maxHostVersion {max}");
+                PluginManifestRule.HostVersionInvalid, $"{member} is not a valid version: use major.minor.patch, for example 1.2.3");
         }
 
+        version = parsed;
         return null;
     }
 
@@ -473,7 +480,7 @@ public static partial class PluginManifestChecker
             if (entry.Id is null || !WidgetIdPattern().IsMatch(entry.Id))
             {
                 return new PluginManifestViolation(
-                    PluginManifestRule.SlotWidgetIdInvalid, $"{where}: the widget id is not lowercase letters, digits, hyphens and underscores");
+                    PluginManifestRule.SlotWidgetIdInvalid, $"{where}: a widget id starts with a lowercase letter or digit and holds only lowercase letters, digits, hyphens and underscores");
             }
 
             if (!seen.Add((entry.Slot, entry.Id)))

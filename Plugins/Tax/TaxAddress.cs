@@ -1,4 +1,3 @@
-using System.Text;
 using Hostpanel.Sdk.Plugins.Diagnostics;
 
 namespace Hostpanel.Sdk.Plugins.Tax;
@@ -17,20 +16,4 @@ namespace Hostpanel.Sdk.Plugins.Tax;
 /// <param name="PostalCode">The postal code, or <see langword="null"/>.</param>
 /// <param name="City">The city, or <see langword="null"/>.</param>
 /// <param name="Line1">The first address line, or <see langword="null"/>.</param>
-public sealed record TaxAddress(string Country, string? Region, string? PostalCode, string? City, string? Line1)
-{
-    /// <summary>
-    /// Prints the record without its personal data, so the generated <c>ToString</c> never reveals it.
-    /// </summary>
-    /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
-    /// <returns>Always <see langword="true"/>: members are written.</returns>
-    private bool PrintMembers(StringBuilder builder)
-    {
-        builder.Append("Country = ").Append(Country);
-        builder.Append(", Region = ").Append(Region ?? "null");
-        builder.Append(", PostalCode = ").Append(PostalCode is null ? "null" : SecretMask.Text);
-        builder.Append(", City = ").Append(City is null ? "null" : SecretMask.Text);
-        builder.Append(", Line1 = ").Append(Line1 is null ? "null" : SecretMask.Text);
-        return true;
-    }
-}
+public sealed partial record TaxAddress(string Country, string? Region, [property: SecretMember] string? PostalCode, [property: SecretMember] string? City, [property: SecretMember] string? Line1);

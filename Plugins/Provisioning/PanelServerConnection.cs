@@ -1,4 +1,3 @@
-using System.Text;
 using Hostpanel.Sdk.Plugins.Diagnostics;
 
 namespace Hostpanel.Sdk.Plugins.Provisioning;
@@ -26,7 +25,7 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// not a secret and prints in <c>ToString</c>. A plugin reads it from here and never asks the operator to join it to
 /// <see cref="Username"/>. Optional and null by default, so existing callers and plugins are unchanged.
 /// </param>
-public sealed record PanelServerConnection(
+public sealed partial record PanelServerConnection(
     int ServerId,
     string Name,
     string Hostname,
@@ -34,27 +33,6 @@ public sealed record PanelServerConnection(
     int? Port,
     bool UseSsl,
     string? Username,
-    string? AccessHash,
-    string? ApiToken,
-    string? AccountId = null)
-{
-    /// <summary>
-    /// Prints the record without its secret members, so the generated <c>ToString</c> never reveals them.
-    /// </summary>
-    /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
-    /// <returns>Always <see langword="true"/>: members are written.</returns>
-    private bool PrintMembers(StringBuilder builder)
-    {
-        builder.Append("ServerId = ").Append(ServerId);
-        builder.Append(", Name = ").Append(Name);
-        builder.Append(", Hostname = ").Append(Hostname);
-        builder.Append(", IpAddress = ").Append(IpAddress);
-        builder.Append(", Port = ").Append(Port);
-        builder.Append(", UseSsl = ").Append(UseSsl);
-        builder.Append(", Username = ").Append(Username ?? "null");
-        builder.Append(", AccessHash = ").Append(AccessHash is null ? "null" : SecretMask.Text);
-        builder.Append(", ApiToken = ").Append(ApiToken is null ? "null" : SecretMask.Text);
-        builder.Append(", AccountId = ").Append(AccountId ?? "null");
-        return true;
-    }
-}
+    [property: SecretMember] string? AccessHash,
+    [property: SecretMember] string? ApiToken,
+    string? AccountId = null);
