@@ -13,6 +13,9 @@ namespace Hostpanel.Sdk.Plugins.Diagnostics;
 /// </summary>
 internal sealed class ContractChecks : ContractCalls
 {
+    /// <summary>The reason text the contracts send with a suspension or a termination they expect the plugin to answer for an unknown target.</summary>
+    internal const string Reason = "contract check";
+
     /// <summary>The nouns the messages of this instance use.</summary>
     private readonly ContractWords _words;
 

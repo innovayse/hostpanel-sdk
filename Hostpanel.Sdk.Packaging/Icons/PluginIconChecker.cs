@@ -86,6 +86,12 @@ public static partial class PluginIconChecker
     /// <summary>The first eight bytes of every PNG file.</summary>
     private static readonly byte[] PngSignature = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A];
 
+    /// <summary>Where the type of the first chunk of a PNG file starts: after the 8 byte signature and the 4 byte length of the chunk.</summary>
+    private const int PngHeaderChunkOffset = 12;
+
+    /// <summary>How many hexadecimal characters of the SHA-256 of an icon make its entity tag (16 bytes).</summary>
+    private const int EntityTagHexLength = 32;
+
     /// <summary>The type of the first chunk of every PNG file, at bytes 12 to 15.</summary>
     private static readonly byte[] PngHeaderChunk = [0x49, 0x48, 0x44, 0x52];
 
@@ -195,7 +201,7 @@ public static partial class PluginIconChecker
                 return Invalid(label, problem);
             }
 
-            var tag = $"\"{Convert.ToHexStringLower(SHA256.HashData(bytes))[..32]}\"";
+            var tag = $"\"{Convert.ToHexStringLower(SHA256.HashData(bytes))[..EntityTagHexLength]}\"";
             return new PluginIconCheck(new PluginIcon(isSvg ? SvgContentType : PngContentType, bytes, tag), null);
         }
         catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
@@ -393,9 +399,9 @@ public static partial class PluginIconChecker
     /// <returns>What is wrong, or <see langword="null"/>.</returns>
     private static string? CheckPng(byte[] bytes)
     {
-        var isPng = bytes.Length >= 16
+        var isPng = bytes.Length >= PngHeaderChunkOffset + PngHeaderChunk.Length
             && bytes.AsSpan(0, PngSignature.Length).SequenceEqual(PngSignature)
-            && bytes.AsSpan(12, PngHeaderChunk.Length).SequenceEqual(PngHeaderChunk);
+            && bytes.AsSpan(PngHeaderChunkOffset, PngHeaderChunk.Length).SequenceEqual(PngHeaderChunk);
         return isPng ? null : "is not a PNG image";
     }
 

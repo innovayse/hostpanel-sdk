@@ -14,7 +14,7 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 public static class ProvisioningContract
 {
     /// <summary>The checks this contract shares with the registrar and virtual server contracts, worded for a panel.</summary>
-    private static readonly ContractChecks Checks = new(new ContractWords("account", "an account", "panel", "ProvisioningRef", "the account was created again. A repeat with the same user name must answer AlreadyApplied."));
+    private static readonly ContractChecks Checks = new(new ContractWords("account", "an account", "panel", nameof(PanelCreateResult.ProvisioningRef), "the account was created again. A repeat with the same user name must answer AlreadyApplied."));
 
     /// <summary>
     /// Calls <see cref="IProvisioningPanelPlugin.CreateAccountAsync"/> repeatedly with one context and asserts the promise
@@ -191,7 +191,7 @@ public static class ProvisioningContract
 
         await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.SuspendAccountAsync),
-            () => plugin.SuspendAccountAsync(new PanelSuspendContext(server, service, "contract check"), ct),
+            () => plugin.SuspendAccountAsync(new PanelSuspendContext(server, service, ContractChecks.Reason), ct),
             PanelOperationOutcome.NotFound);
         await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.UnsuspendAccountAsync),
@@ -203,7 +203,7 @@ public static class ProvisioningContract
             PanelOperationOutcome.NotFound);
         await Checks.ExpectAsync<PanelActionResult, PanelRefusalReason>(
             nameof(IProvisioningPanelPlugin.TerminateAccountAsync),
-            () => plugin.TerminateAccountAsync(new PanelTerminateContext(server, service, "contract check"), ct),
+            () => plugin.TerminateAccountAsync(new PanelTerminateContext(server, service, ContractChecks.Reason), ct),
             PanelOperationOutcome.Succeeded,
             PanelOperationOutcome.AlreadyApplied);
 

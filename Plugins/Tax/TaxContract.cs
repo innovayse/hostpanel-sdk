@@ -17,6 +17,12 @@ public static class TaxContract
     /// <summary>The name of the operation, for the messages.</summary>
     private const string Operation = nameof(ITaxPlugin.CalculateTaxAsync);
 
+    /// <summary>How far an amount may be from the exact tax of its rate when the caller names no tolerance: one hundredth, for a currency with two decimals.</summary>
+    private const decimal DefaultTolerance = 0.01m;
+
+    /// <summary>A rate is a percentage: 0 to 100.</summary>
+    private const decimal FullPercentage = 100m;
+
     /// <summary>The checks this contract shares with the other contracts, worded for a tax service.</summary>
     private static readonly ContractCalls Calls = new("address");
 
@@ -50,7 +56,7 @@ public static class TaxContract
     public static Task<TaxCalculationResult> AssertCalculationIsWellFormedAsync(
         ITaxPlugin plugin,
         TaxCalculationRequest request,
-        decimal tolerance = 0.01m,
+        decimal tolerance = DefaultTolerance,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(plugin);
@@ -92,7 +98,7 @@ public static class TaxContract
         ITaxPlugin plugin,
         TaxCalculationRequest request,
         int calls = 2,
-        decimal tolerance = 0.01m,
+        decimal tolerance = DefaultTolerance,
         CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(plugin);
@@ -354,7 +360,7 @@ public static class TaxContract
                 "it must be an ISO 3166-1 alpha-2 code in upper case.");
         }
 
-        if (line.Rate is < 0m or > 100m)
+        if (line.Rate is < 0m or > FullPercentage)
         {
             throw new PluginContractViolationException(
                 $"{Operation} answered line '{line.LineId}' on call {call} with a rate outside 0 to 100; the rate is " +
@@ -369,8 +375,8 @@ public static class TaxContract
 
         var mode = pricesIncludeTax ? "include" : "exclude";
         var exact = pricesIncludeTax
-            ? asked.Amount * line.Rate / (100m + line.Rate)
-            : asked.Amount * line.Rate / 100m;
+            ? asked.Amount * line.Rate / (FullPercentage + line.Rate)
+            : asked.Amount * line.Rate / FullPercentage;
         if (Math.Abs(line.Amount - exact) > tolerance)
         {
             throw new PluginContractViolationException(
