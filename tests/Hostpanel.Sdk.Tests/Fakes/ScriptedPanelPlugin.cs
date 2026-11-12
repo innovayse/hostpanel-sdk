@@ -10,8 +10,8 @@ namespace Hostpanel.Sdk.Tests.Fakes;
 /// </summary>
 internal sealed class ScriptedPanelPlugin : IProvisioningPanelPlugin
 {
-    /// <summary>How many times each operation was called, by method name.</summary>
-    private readonly Dictionary<string, int> _calls = new(StringComparer.Ordinal);
+    /// <summary>Counts the calls of each operation, by method name.</summary>
+    private readonly CallCounter _calls = new();
 
     /// <summary>Gets or sets what <c>CreateAccountAsync</c> answers on each call.</summary>
     public Func<int, PanelCreateResult> Create { get; set; } =
@@ -53,78 +53,68 @@ internal sealed class ScriptedPanelPlugin : IProvisioningPanelPlugin
     /// <returns>The number of calls, zero when it was never called.</returns>
     public int CallsOf(string operation)
     {
-        return _calls.GetValueOrDefault(operation);
+        return _calls.CallsOf(operation);
     }
 
     /// <inheritdoc />
     public Task<PanelCreateResult> CreateAccountAsync(PanelCreateAccountContext context, CancellationToken ct)
     {
         LastCreateServer = context.Server;
-        return Task.FromResult(Create(Count(nameof(CreateAccountAsync))));
+        return Task.FromResult(Create(_calls.Count(nameof(CreateAccountAsync))));
     }
 
     /// <inheritdoc />
     public Task<PanelActionResult> SuspendAccountAsync(PanelSuspendContext context, CancellationToken ct)
     {
-        return Task.FromResult(Suspend(Count(nameof(SuspendAccountAsync))));
+        return Task.FromResult(Suspend(_calls.Count(nameof(SuspendAccountAsync))));
     }
 
     /// <inheritdoc />
     public Task<PanelActionResult> UnsuspendAccountAsync(PanelAccountContext context, CancellationToken ct)
     {
-        return Task.FromResult(Unsuspend(Count(nameof(UnsuspendAccountAsync))));
+        return Task.FromResult(Unsuspend(_calls.Count(nameof(UnsuspendAccountAsync))));
     }
 
     /// <inheritdoc />
     public Task<PanelActionResult> TerminateAccountAsync(PanelTerminateContext context, CancellationToken ct)
     {
-        return Task.FromResult(Terminate(Count(nameof(TerminateAccountAsync))));
+        return Task.FromResult(Terminate(_calls.Count(nameof(TerminateAccountAsync))));
     }
 
     /// <inheritdoc />
     public Task<PanelActionResult> ChangePackageAsync(PanelChangePackageContext context, CancellationToken ct)
     {
-        return Task.FromResult(ChangePackage(Count(nameof(ChangePackageAsync))));
+        return Task.FromResult(ChangePackage(_calls.Count(nameof(ChangePackageAsync))));
     }
 
     /// <inheritdoc />
     public Task<PanelActionResult> ChangePasswordAsync(PanelChangePasswordContext context, CancellationToken ct)
     {
-        return Task.FromResult(ChangePassword(Count(nameof(ChangePasswordAsync))));
+        return Task.FromResult(ChangePassword(_calls.Count(nameof(ChangePasswordAsync))));
     }
 
     /// <inheritdoc />
     public Task<PanelSsoResult> CreateSsoLinkAsync(PanelSsoContext context, CancellationToken ct)
     {
-        return Task.FromResult(Sso(Count(nameof(CreateSsoLinkAsync))));
+        return Task.FromResult(Sso(_calls.Count(nameof(CreateSsoLinkAsync))));
     }
 
     /// <inheritdoc />
     public Task<PanelUsageResult> GetUsageAsync(PanelAccountContext context, CancellationToken ct)
     {
-        return Task.FromResult(Usage(Count(nameof(GetUsageAsync))));
+        return Task.FromResult(Usage(_calls.Count(nameof(GetUsageAsync))));
     }
 
     /// <inheritdoc />
     public Task<PanelConnectionTestResult> TestConnectionAsync(PanelTestConnectionContext context, CancellationToken ct)
     {
-        return Task.FromResult(Test(Count(nameof(TestConnectionAsync))));
+        return Task.FromResult(Test(_calls.Count(nameof(TestConnectionAsync))));
     }
 
     /// <inheritdoc />
     public Task<PanelAccountListResult> ListAccountsAsync(PanelListAccountsContext context, CancellationToken ct)
     {
-        Count(nameof(ListAccountsAsync));
+        _calls.Count(nameof(ListAccountsAsync));
         return Task.FromResult(List(context.Cursor));
-    }
-
-    /// <summary>Counts one call of an operation.</summary>
-    /// <param name="operation">The method name.</param>
-    /// <returns>The call number of this call, starting at 1.</returns>
-    private int Count(string operation)
-    {
-        var next = _calls.GetValueOrDefault(operation) + 1;
-        _calls[operation] = next;
-        return next;
     }
 }

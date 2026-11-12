@@ -1,6 +1,6 @@
 using Hostpanel.Sdk.Plugins.Store;
-using Hostpanel.Sdk.Plugins.StoredCredentials;
 using Hostpanel.Sdk.Tests.Fakes;
+using static Hostpanel.Sdk.Tests.Support.ContractViolationAsserts;
 
 namespace Hostpanel.Sdk.Tests.Store;
 
@@ -222,15 +222,5 @@ public sealed class PluginStoreContractTests
         }
 
         (await store.ListKeysAsync(string.Empty, 10, CancellationToken.None)).Should().BeEmpty();
-    }
-
-    /// <summary>Asserts that a helper call throws a violation whose message contains the given text.</summary>
-    /// <param name="run">The helper call.</param>
-    /// <param name="expected">The text the message must contain.</param>
-    /// <returns>A task that completes when the check passed.</returns>
-    private static async Task AssertViolationAsync(Func<Task> run, string expected)
-    {
-        var message = (await run.Should().ThrowAsync<PluginContractViolationException>()).Which.Message;
-        message.Should().Contain(expected);
     }
 }
