@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Enums;
 
 namespace Hostpanel.Sdk.Plugins.Provisioning;
@@ -20,6 +21,7 @@ public sealed record PanelCreateResult(
     string? ExistingDomain,
     string? ControlPanelUrl,
     PanelRefusalReason? Reason)
+    : IOperationAnswer<PanelRefusalReason>
 {
     /// <summary>Builds the answer for an account the panel created now.</summary>
     /// <param name="provisioningRef">The panel's reference for the new account.</param>

@@ -34,3 +34,18 @@ it. Such a change also needs a pull request in
 [innovayse/hostpanel](https://github.com/innovayse/hostpanel), which includes this repository as a
 git submodule at `backend/src/Hostpanel.Sdk`: that pull request moves the submodule to your commit
 and carries the host side. Link the two pull requests to each other.
+
+## New operations are new interfaces
+
+A contract never grows by a member. Adding a method to an interface that plugins already implement breaks every one of
+them at compile time, and a plugin built on an earlier version would no longer load. A new operation therefore arrives as
+a new interface that extends the existing one (for example `IRegistrarWhoisPlugin` extends `IRegistrarOperationsPlugin`),
+with its own manifest capability in `PluginCapabilities`. The host checks `plugin is INewInterface` at run time and treats
+a plugin that does not implement it as `NotSupported`. The same goes for a new refusal reason: append it to the enum and
+never renumber the values that exist.
+
+A default interface member, a method with a body, is the one exception, and only when the default keeps the old
+behaviour (for example `IPanelTransport.CreateClient(PanelServerConnection)`, whose default calls `CreateClient()`). Hosts and
+plugins built on an earlier version still load, because the member has a body. A plugin that calls the new member needs
+a host that has it, because an older host throws `MissingMethodException`, so the changelog says so and such a plugin
+sets `minHostVersion` in its manifest.

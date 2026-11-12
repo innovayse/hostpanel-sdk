@@ -17,6 +17,7 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// <param name="Url">The absolute, time limited sign-in address; set exactly when <paramref name="Outcome"/> is <c>Succeeded</c>. Secret.</param>
 /// <param name="Reason">Why the panel refused; set exactly when <paramref name="Outcome"/> is <c>Refused</c>.</param>
 public sealed record PanelSsoResult(PanelOperationOutcome Outcome, string? Url, PanelRefusalReason? Reason)
+    : IOperationAnswer<PanelRefusalReason>
 {
     /// <summary>Builds the answer for a link the panel issued.</summary>
     /// <param name="url">The absolute sign-in address.</param>

@@ -7,11 +7,39 @@ namespace Hostpanel.Sdk.Plugins.Manifest;
 /// </summary>
 public static class PluginCapabilities
 {
+    /// <summary>
+    /// The payment plugin also implements <see cref="Hostpanel.Sdk.Plugins.Payment.IPaymentReturnPlugin"/>, which
+    /// completes a payment from the parameters of the return request.
+    /// </summary>
+    public const string PaymentReturn = "paymentReturn";
+
     /// <summary>The payment plugin also implements <see cref="Hostpanel.Sdk.Plugins.StoredCredentials.IStoredCredentialPlugin"/>.</summary>
     public const string StoredCredentials = "storedCredentials";
 
     /// <summary>The provisioning plugin also implements <see cref="Hostpanel.Sdk.Plugins.Provisioning.IProvisioningPanelPlugin"/>, the account operations of a hosting control panel.</summary>
     public const string ProvisioningPanel = "provisioningPanel";
+
+    /// <summary>
+    /// The provisioning plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerPlugin"/>, the
+    /// operations of a virtual server or cloud platform. The plugin type stays <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.Provisioning"/>:
+    /// a virtual server is a service provisioned on a server the host knows, like a hosting account.
+    /// </summary>
+    public const string VirtualServer = "virtualServer";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarOperationsPlugin"/>, the domain operations of a registrar.</summary>
+    public const string RegistrarOperations = "registrarOperations";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarEmailForwardingPlugin"/>, e-mail forwarding for its domains.</summary>
+    public const string RegistrarEmailForwarding = "registrarEmailForwarding";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarDnsManagementPlugin"/>, the DNS management switch.</summary>
+    public const string RegistrarDnsManagement = "registrarDnsManagement";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarWhoisPlugin"/>, the WHOIS lookup.</summary>
+    public const string RegistrarWhois = "registrarWhois";
+
+    /// <summary>The virtual server plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerListPlugin"/>, the listing of the servers a platform holds, for reconciliation.</summary>
+    public const string VirtualServerList = "virtualServerList";
 
     /// <summary>
     /// Any plugin type may declare it. It means the plugin class also implements
@@ -22,4 +50,12 @@ public static class PluginCapabilities
     /// (<c>api.callbacks</c>); its client and admin routes, pages and slots are not served yet.
     /// </summary>
     public const string Endpoints = "endpoints";
+
+    /// <summary>
+    /// Any plugin type may declare it. It means the plugin class also implements
+    /// <see cref="Hostpanel.Sdk.Plugins.Tax.ITaxPlugin"/>, so the host can ask it to calculate the tax of an invoice. A plugin
+    /// of type <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.Tax"/> is a tax plugin without declaring it; the capability is
+    /// for a plugin of another type that also offers tax, for example a payment gateway whose provider calculates tax.
+    /// </summary>
+    public const string Tax = "tax";
 }

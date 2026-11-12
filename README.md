@@ -25,7 +25,7 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Hostpanel.Sdk --version 3.2.0
+dotnet add package Hostpanel.Sdk --version 3.7.0
 ```
 
 or, in the plugin's `.csproj`:
@@ -34,7 +34,7 @@ or, in the plugin's `.csproj`:
 <ItemGroup>
   <!-- ExcludeAssets="runtime" keeps Hostpanel.Sdk.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Hostpanel.Sdk" Version="3.2.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Hostpanel.Sdk" Version="3.7.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -53,13 +53,14 @@ Upgrading from 1.x? Version 2.0.0 moves types into one namespace per area and re
 
 | `PluginType` | Contract | What it is for |
 |---|---|---|
-| `Provisioning` | `IProvisioningPlugin`, `ProvisioningProviderBase` | Hosting accounts on a server or control panel. `IProvisioningPanelPlugin` adds the account operations (see "Provisioning panel plugins"); the marker and the base class give settings access. |
+| `Provisioning` | `IProvisioningPlugin`, `ProvisioningProviderBase` | Hosting accounts on a server or control panel. `IProvisioningPanelPlugin` adds the account operations (see "Provisioning panel plugins") and `IVirtualServerPlugin` the operations of a virtual server or cloud platform (see "Virtual server plugins"); the marker and the base class give settings access. |
 | `Payment` | `IPaymentPlugin`, `PaymentGatewayBase` | A payment gateway: start a payment, read its status, refund it. |
-| `Registrar` | `IRegistrarPlugin`, `RegistrarProviderBase` | A domain registrar. The contract is a marker today: the base class gives settings access, there are no operations yet. |
+| `Registrar` | `IRegistrarPlugin`, `RegistrarProviderBase` | A domain registrar. `IRegistrarOperationsPlugin` adds the domain operations (see "Registrar plugins"); the marker and the base class give settings access. |
 | `Identity` | `IClientResolver` | Decides which client a signed-in principal acts for and what it may do there. At most one identity plugin may be enabled. |
 | `Fulfilment` | `IFulfilmentPlugin` | Delivers digital products once an invoice is paid, and is asked before a refund moves money back. Every enabled fulfilment plugin sees every digital invoice. |
 | `Hosted` | `IHostedPlugin` | A background worker the host starts after its own services are up and stops on shutdown. A plugin of another type may implement it too. |
 | `App` | `IPluginEndpoints` | Answers the routes its manifest declares and adds pages and slot content, without web framework types or user tokens. |
+| `Tax` | `ITaxPlugin` | Calculates the tax due on the lines of an invoice (see "Tax plugins"). |
 
 ### Fulfilment plugins
 
@@ -167,6 +168,96 @@ plugin that grants credits on a paid invoice can also give the client a screen, 
 `ClientRef`. Without the capability a plugin that is not an app plugin has its `api` and `ui` blocks refused, and a
 declared capability whose class does not implement `IPluginEndpoints` is refused when the plugin is activated.
 
+### Credentials and redirects
+
+SDK 3.7.0 requires a host not to follow redirects for any HTTP client it gives to a plugin, the client of
+`IPanelTransport` included. A 3xx answer then reaches your code as it is. That is deliberate: a client that followed a
+redirect would send your authorization header, and for some handlers your request body, to whatever address the answer
+names, which may be another host or an unintended path. So decide for yourself. Send an API key or token only to the
+host you built the address for, and when a 3xx answer names a new address, check its scheme, host and port (and that it
+is `https`) before you send a new request to it, with the credential again only if they are the same. A host older than
+the requirement may still follow redirects, so on such a host also check the final address of every response with
+`PluginHttp.EnsureFinalHost` (see "Calling a gateway or a panel" below). In the plugin's own tests, run
+`PluginHttpContract.AssertRedirectIsNotFollowedAsync(() => transport.CreateClient())` against the transport double you
+test with: it starts a local listener that answers a redirect and checks that the client returns the 3xx answer and
+makes no second request. The host's address guard may refuse a loopback address, so run it with a transport double and
+not behind that guard.
+
+### Calling a gateway or a panel
+
+The steps every plugin that talks to a gateway or a panel repeats are in `PluginHttp` (`Hostpanel.Sdk.Plugins.Http`), so
+a mistake does not depend on the author. Build one with a `TimeProvider` (`TimeProvider.System` in production, a fake
+clock in tests), send on the client the host's transport gave you, check where the answer came from, and read the body
+with a limit (the redirect rule that goes with it is in "Credentials and redirects" above). Both calls have a deadline, and the deadline of the read covers a body that arrives too slowly:
+
+```csharp
+var http = new PluginHttp(TimeProvider.System);
+var origin = new Uri("https://api.gateway.example/");
+using var response = await http.SendAsync(client, request, TimeSpan.FromSeconds(15), ct);
+PluginHttp.EnsureFinalHost(response, origin);
+var body = await http.ReadBoundedAsync(response, 64 * 1024, TimeSpan.FromSeconds(15), ct);
+```
+
+- `SendAsync` wraps a refused or dropped connection and a TLS error in one `PluginHttpException`
+  (`PluginHttpFault.Transport`) with a fixed message and no inner exception: the inner message can contain the address
+  you called and its query string. A call that does not finish before its deadline is `PluginHttpFault.TimedOut`. A
+  cancellation by the caller's token stays an `OperationCanceledException`.
+- `EnsureFinalHost` takes the `Uri` you built the request for and throws `PluginHttpFault.UnexpectedHost` when the
+  response came from another scheme, host or port. Hosts compare without regard to case, and an IPv6 address is
+  compared with its brackets, as `Uri.Host` writes it, which is why it takes a `Uri` and not a host text.
+- `ReadBoundedAsync` refuses a declared `Content-Length` over the limit before it reads, stops reading at the limit
+  when there is none (`PluginHttpFault.TooLarge`), and gives up at its deadline (`PluginHttpFault.TimedOut`).
+
+### De-duplicating webhooks with the advanced store
+
+A plugin that handles webhooks must remember which events it handled, expire old markers and keep two processes from
+handling one event. `IPluginStoreAdvanced` extends `IPluginStore` with exactly that, and the store the host gives a
+plugin implements it when the host supports it, so test for it and fall back to what you do today otherwise. The
+interface is new, so the change is source and binary compatible. The limits (`PluginStoreLimits`) are the host's: at
+most 1000 keys in the store, 200 keys per list and a time to live of at most 30 days. A write of a new key past the
+quota throws `PluginStoreQuotaException`, and a write with a time to live out of range throws
+`ArgumentOutOfRangeException`; neither writes anything. A plain `SetAsync` replaces the value and clears its expiry.
+
+```csharp
+// Exactly one process gets true for an event id; the marker removes itself after a day.
+var first = call.Store is IPluginStoreAdvanced advanced
+    ? await advanced.SetIfAbsentAsync("event:" + eventId, "handled", TimeSpan.FromDays(1), ct)
+    : await MarkOnceWithTheOldStoreAsync(call.Store, "event:" + eventId, ct);
+if (!first)
+{
+    return PluginReply.NoContent();
+}
+
+// The fallback keeps what plugins do today: read, then write. Two processes can both pass, so the handler of the
+// event must also be safe to run twice.
+static async Task<bool> MarkOnceWithTheOldStoreAsync(IPluginStore store, string key, CancellationToken ct)
+{
+    if (await store.GetAsync(key, ct) is not null)
+    {
+        return false;
+    }
+
+    await store.SetAsync(key, "handled", ct);
+    return true;
+}
+```
+
+`ListKeysAsync("event:", 100, ct)` lists what is stored under a prefix, in ordinal order. A prefix follows the rules of
+a key, is case sensitive, and there is no paging, which replaces a shared index key that two processes can overwrite.
+In the plugin's own tests, run the `PluginStoreContract` checks against `InMemoryPluginStore`, a store that keeps the
+promises and whose clock you move with `AdvanceAsync`: `AssertSetIfAbsentIsAtomicAsync`,
+`AssertExpiredKeyReadsAsAbsentAsync`, `AssertPlainSetClearsTimeToLiveAsync`, `AssertTimeToLiveBoundsAsync` and
+`AssertListKeysHonoursPrefixAndLimitAsync`; each throws `PluginContractViolationException` naming the promise that
+was broken.
+
+### Logging and secrets
+
+The SDK records print their secret members as `***`, and that text is public as `SecretMask.Text` in
+`Hostpanel.Sdk.Plugins.Diagnostics`. Use it in your own settings object and in any diagnostic line about a gateway
+answer instead of a literal of your own, so every mask in a log is the same and a search for it finds them all. It
+makes a log readable and is not a security boundary: never write a secret, a token, an address or a payer detail to a
+log, a result or an exception message in the first place.
+
 ### Callbacks
 
 A plugin can receive requests from outside the panels, for example a gateway telling it a payment changed. Declare
@@ -177,6 +268,19 @@ the routes under `api.callbacks` in `plugin.json` (a list like `api.client`, `Pl
 `PluginCall.Headers` (empty on other calls), and the plugin must verify the sender itself, for example by a signature
 over `PluginCall.Body`. Answer with `PluginReply.Raw(status, bytes, contentType)` when the sender expects a fixed
 plain answer such as `OK`; the status is 200 to 599 except 401 and 407.
+
+### Redirects on callback routes
+
+A public callback route that a gateway or a browser lands on, such as the return address after a payment, can send the
+payer on to a page of the host with `PluginReply.Redirect(location, status)`. The status is 301, 302, 303, 307 or 308
+and 303 by default. The `location` is either a host relative path (one leading slash, never two, and never under the
+API path) or an absolute `https` URL without user info. It has no control character (a line break, a tab, a null, DEL
+or a C1 control), no leading or trailing white space and no backslash. The factory refuses anything else, and the host
+validates the address again before it answers, treating a bad one as a plugin fault like any other bad reply. The plugin
+never writes the `Location` header itself, and a raw reply cannot fake a redirect: raw replies are limited to media
+types without markup. Never build the location from the request, such as a `next` query parameter: an address the
+caller chose is an open redirect. Use a fixed path, or one assembled from values you looked up yourself. The reply kind
+needs a host of 3.7.0 or later.
 
 ### Refunds, cancelling and idempotency
 
@@ -249,6 +353,210 @@ In the plugin's own tests, run the `ProvisioningContract` checks against a stub 
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
 `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
 
+### Panels with a self signed certificate
+
+Many hosting panels answer on a private port with a self signed certificate. Whether to trust one is the operator's
+decision, made per server with the setting "accept a self signed certificate", never the plugin's: a plugin may not create
+its own handler to accept a certificate. Ask for the client of the server you are talking to with
+`transport.CreateClient(server)` instead of `CreateClient()`. A host that supports the setting returns a client that
+accepts the certificate of that one host name and port and of nothing else, and keeps every other rule of the transport
+(address guard, timeouts, no retry). A 3.7.0 host that does not know the setting returns the plain client, because the default
+body of the method calls `CreateClient()`. A host older than 3.7.0 has no such member and the call throws
+`MissingMethodException`, so a plugin that uses it sets `minHostVersion` to `3.7.0`. In the plugin's own tests, start a
+`SelfSignedListener`, describe it as a `PanelServerConnection` (its `HostName` and `Port`), and run
+`PanelTransportContract.AssertSelfSignedIsRefusedByDefaultAsync` and `AssertSelfSignedIsAcceptedForTheServerOnlyAsync`
+against the transport you test with. The second check also proves that the allowance stops at the server's own host
+name and port. The host's address guard may refuse a loopback address, so the listener is for the tests of a plugin,
+with a transport double, and not for a transport behind that guard.
+
+### The account id of a server
+
+A panel that scopes every API call with an organisation, reseller or tenant id next to the credentials reads it from
+`PanelServerConnection.AccountId`. Do not ask the operator to type it into the user name or to join it to the user name
+with a separator. Set `serverAccountIdLabel` in `plugin.json` (for example `"Reseller ID"`) to turn on a field of the
+server form with that label, shown only for servers that use your plugin; without the label the field stays off and
+`AccountId` is null. The label is 1 to 60 characters with no control character, and it is a literal shown as it is or
+a text key defined in the manifest's `locales`, like the other labels; `PluginManifestChecker` reports
+`AccountIdLabelInvalid` for a bad one. The id is not a secret, so it prints in `ToString`; `AccessHash` and `ApiToken`
+stay masked.
+
+### Registrar plugins
+
+A domain registrar is a registrar plugin that also implements `IRegistrarOperationsPlugin`, which extends the
+`IRegistrarPlugin` marker. The marker and `RegistrarProviderBase` do not change, so a registrar plugin built on an earlier
+version compiles and loads as before, with no operations. List `registrarOperations` in the manifest's `capabilities`; the
+list must agree with the code. One plugin serves one registrar account: each call carries it as a `RegistrarConnection`
+(account name, `ApiKey`, optional `ApiUrl` and `ClientIp`, `TestMode`), so keep no state between calls.
+
+| Operation | Context | Result | Repeat |
+|---|---|---|---|
+| `CheckAvailabilityAsync` | `RegistrarAvailabilityContext` | `ValueResult<RegistrarAvailability, RegistrarRefusalReason>` | Read only |
+| `RegisterAsync` | `RegistrarRegisterContext` | `ValueResult<RegistrarOrder, RegistrarRefusalReason>` | A domain the account already holds is `AlreadyApplied` with the same `RegistrarRef` |
+| `TransferAsync` | `RegistrarTransferContext` | `ValueResult<RegistrarOrder, RegistrarRefusalReason>` | A transfer already under way or complete is `AlreadyApplied` |
+| `RenewAsync` | `RegistrarRenewContext` | `ValueResult<RegistrarOrder, RegistrarRefusalReason>` | An expiry already at or past `CurrentExpiresAt` plus the years is `AlreadyApplied` |
+| `CheckDomainActiveAsync` | `RegistrarDomainContext` | `ValueResult<RegistrarOrder, RegistrarRefusalReason>` | Read only, for an order that answered `RequiresPolling` |
+| `CancelTransferAsync`, `InitiateOutgoingTransferAsync` | `RegistrarDomainContext` | `OperationResult<RegistrarRefusalReason>` | Already cancelled or prepared is a success |
+| `GetEppCodeAsync` | `RegistrarDomainContext` | `ValueResult<RegistrarEppCode, RegistrarRefusalReason>` | Read only; the code prints as `***` |
+| `SetNameserversAsync` | `RegistrarNameserversContext` | `OperationResult<RegistrarRefusalReason>` | The same list is a success |
+| `SetAutoRenewAsync`, `SetWhoisPrivacyAsync`, `SetRegistrarLockAsync` | `RegistrarFlagContext` | `OperationResult<RegistrarRefusalReason>` | The state already wanted is a success |
+| `GetContactAsync` | `RegistrarDomainContext` | `ValueResult<RegistrarContact, RegistrarRefusalReason>` | Read only |
+| `SetContactAsync` | `RegistrarContactContext` | `OperationResult<RegistrarRefusalReason>` | The same contact is a success |
+| `GetDnsRecordsAsync` | `RegistrarDomainContext` | `ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>` | Read only |
+| `AddDnsRecordAsync` | `RegistrarDnsRecordContext` | `OperationResult<RegistrarRefusalReason>` | The same record is a success |
+| `UpdateDnsRecordAsync` | `RegistrarDnsRecordUpdateContext` | `OperationResult<RegistrarRefusalReason>` | The updated content already there is a success |
+| `DeleteDnsRecordAsync` | `RegistrarDnsRecordRemovalContext` | `OperationResult<RegistrarRefusalReason>` | A record already gone is `AlreadyApplied`, never `NotFound` |
+| `GetTldPricingAsync` | `RegistrarPricingContext` | `ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>` | Read only |
+| `SetEmailForwardingAsync` | `RegistrarFlagContext` | `OperationResult<RegistrarRefusalReason>` | Optional interface; the state already wanted is a success |
+| `AddEmailForwardingRuleAsync`, `UpdateEmailForwardingRuleAsync` | `RegistrarEmailForwardingRuleContext` | `OperationResult<RegistrarRefusalReason>` | Optional interface; the same rule is a success |
+| `DeleteEmailForwardingRuleAsync` | `RegistrarEmailForwardingRemovalContext` | `OperationResult<RegistrarRefusalReason>` | Optional interface; a rule already gone is `AlreadyApplied` |
+| `SetDnsManagementAsync` | `RegistrarFlagContext` | `OperationResult<RegistrarRefusalReason>` | Optional interface; the state already wanted is a success |
+| `GetWhoisAsync` | `RegistrarWhoisContext` | `ValueResult<RegistrarWhois, RegistrarRefusalReason>` | Optional interface; read only |
+| `TestConnectionAsync` | `RegistrarTestConnectionContext` | `PanelConnectionTestResult` | Never throws for an unreachable registrar |
+
+- **Outcomes, not exceptions.** Every operation answers a `PanelOperationOutcome` (`Succeeded`, `AlreadyApplied`,
+  `NotFound`, `Refused`, `NotSupported`), the same one the provisioning contracts use; the test answers a
+  `PanelConnectionOutcome`. A refusal carries a `RegistrarRefusalReason`. Throw only when you do not know what happened,
+  for example when the registrar could not be reached: the host then retries, which is safe because of the idempotency
+  column above. A purchase is a success only when the registrar did it; a registrar that is not configured refuses.
+- **No registrar text, no secrets.** A result never contains the registrar's own error text (it can carry a domain or a
+  contact detail) or a secret. `ApiKey` and the authorization code print as `***`; do not undo that in your own logs.
+- **Orders.** `RegistrarOrder.RequiresPolling` is `true` while the registrar has accepted an order but not finished it, as a
+  transfer in usually is; the host then calls `CheckDomainActiveAsync` until it is `false`. `ExpiresAt` is `null` when the
+  registrar does not say, and the host extends the expiry it holds.
+- **Network.** Take an `IPanelTransport` in the constructor and send every request on `CreateClient()`; never create your
+  own `HttpClient`. The client has no base address, so build it from `RegistrarConnection.ApiUrl` or your own default, and
+  honour `TestMode` by calling the sandbox API and never the live one.
+- **Optional operations are separate interfaces.** E-mail forwarding (`IRegistrarEmailForwardingPlugin`:
+  `SetEmailForwardingAsync`, `AddEmailForwardingRuleAsync`, `UpdateEmailForwardingRuleAsync`,
+  `DeleteEmailForwardingRuleAsync`), the DNS management switch (`IRegistrarDnsManagementPlugin`:
+  `SetDnsManagementAsync`) and the WHOIS lookup (`IRegistrarWhoisPlugin`: `GetWhoisAsync`) extend
+  `IRegistrarOperationsPlugin`, each with its own capability (`registrarEmailForwarding`, `registrarDnsManagement`,
+  `registrarWhois`). A host treats a plugin that does not implement one as `NotSupported` for it. New operations always
+  arrive as new interfaces, never as members of an existing one.
+- **DNS records have no registrar id on the host side.** `RegistrarDnsRecordUpdateContext` carries the record as it is now
+  and the content it should have, and `RegistrarDnsRecordRemovalContext` carries the whole record; find the record by type,
+  host and value, and use `RegistrarDnsRecord.Id` only when it is given. A delete of a record that is gone is
+  `AlreadyApplied`; a delete on a domain the registrar does not hold is `NotFound`.
+- **Personal data.** `RegistrarContact` and the registrant of `RegistrarWhois` print masked, so a context or a result that
+  holds them does not leak them into a log line.
+
+In the plugin's own tests, run the `RegistrarContract` checks against a stub of your registrar:
+`AssertRegisterIsIdempotentAsync`, `AssertTransferIsIdempotentAsync`, `AssertRenewIsIdempotentAsync`,
+`AssertSetNameserversIsIdempotentAsync`, `AssertSetAutoRenewIsIdempotentAsync`, `AssertSetWhoisPrivacyIsIdempotentAsync`,
+`AssertSetRegistrarLockIsIdempotentAsync`, `AssertSetContactIsIdempotentAsync`, `AssertAddDnsRecordIsIdempotentAsync`, `AssertUpdateDnsRecordIsIdempotentAsync`,
+`AssertDeleteDnsRecordIsIdempotentAsync`, `AssertCancelTransferIsIdempotentAsync`,
+`AssertInitiateOutgoingTransferIsIdempotentAsync`, the matching checks for the optional interfaces
+(`AssertSetEmailForwardingIsIdempotentAsync`, `AssertAddEmailForwardingRuleIsIdempotentAsync`,
+`AssertUpdateEmailForwardingRuleIsIdempotentAsync`, `AssertDeleteEmailForwardingRuleIsIdempotentAsync`,
+`AssertSetDnsManagementIsIdempotentAsync`, `AssertWhoisAnswersAsync`), `AssertReadsAnswerValuesAsync`,
+`AssertUnknownDomainIsNotFoundAsync`, `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws
+`PluginContractViolationException` naming the promise that was broken.
+
+### Virtual server plugins
+
+A virtual server or cloud platform is a provisioning plugin that also implements `IVirtualServerPlugin`, which extends the
+`IProvisioningPlugin` marker. It is a capability of the provisioning type and not a new plugin type: a virtual server is
+a service provisioned on a server the host knows, like a hosting account, and the plugin type values do not change. The
+marker, `ProvisioningProviderBase` and `IProvisioningPanelPlugin` do not change either. List `virtualServer` in the
+manifest's `capabilities` and the module ids the plugin serves in `serverModules`; the lists must agree with the code. The
+vocabulary is the one of the panel contract: the platform arrives as a `PanelServerConnection`, the service as a
+`PanelService` whose `ProvisioningRef` is what `CreateServerAsync` returned, and the answers are `PanelActionResult` and
+`ValueResult<T, PanelRefusalReason>`.
+
+| Operation | Context | Result | Repeat |
+|---|---|---|---|
+| `CreateServerAsync` | `VirtualServerCreateContext` | `ValueResult<VirtualServerInstance, PanelRefusalReason>` | A server already held under the same `Name` is `AlreadyApplied` with the same `ProvisioningRef` |
+| `StartServerAsync`, `StopServerAsync` | `PanelAccountContext` | `PanelActionResult` | Already running or stopped is a success; starting a suspended server is `Refused` with `AccessDenied` |
+| `RebootServerAsync` | `PanelAccountContext` | `PanelActionResult` | Restarts again each time |
+| `SuspendServerAsync` | `PanelSuspendContext` | `PanelActionResult` | Already suspended is a success |
+| `UnsuspendServerAsync` | `PanelAccountContext` | `PanelActionResult` | Not suspended is a success |
+| `TerminateServerAsync` | `PanelTerminateContext` | `PanelActionResult` | Already gone is `AlreadyApplied`, never `NotFound` |
+| `RebuildServerAsync` | `VirtualServerRebuildContext` | `ValueResult<VirtualServerRootPassword, PanelRefusalReason>` | Erases the disk again each time |
+| `ChangePlanAsync` | `PanelChangePackageContext` | `PanelActionResult` | Already on the plan is a success |
+| `ResetRootPasswordAsync` | `PanelChangePasswordContext` | `ValueResult<VirtualServerRootPassword, PanelRefusalReason>` | Sets it again and succeeds |
+| `CreateConsoleSessionAsync` | `PanelAccountContext` | `ValueResult<VirtualServerConsole, PanelRefusalReason>` | Issues a new address each time |
+| `GetServerUsageAsync` | `PanelAccountContext` | `ValueResult<VirtualServerUsage, PanelRefusalReason>` | Read only |
+| `ListImagesAsync`, `ListPlansAsync` | `VirtualServerCatalogContext` | `ValueResult<IReadOnlyList<...>, PanelRefusalReason>` | Read only |
+| `ListServersAsync` | `PanelListAccountsContext` | `PanelAccountListResult` | Optional interface `IVirtualServerListPlugin` (capability `virtualServerList`); read only, paged by `NextCursor`, a server is a `PanelAccount` |
+| `TestServerConnectionAsync` | `PanelTestConnectionContext` | `PanelConnectionTestResult` | Never throws for an unreachable platform |
+
+- **Outcomes, idempotency, secrets and network** follow the panel contract: outcomes instead of exceptions, a stable
+  create keyed by the name the host stores before the first call, no platform text in a result, and every request on the
+  `IPanelTransport` client. `PanelRefusalReason` gains `ImageUnknown` and `NameInvalid` for this contract; the plan name
+  travels in `PanelPackage.Name` and is a name `ListPlansAsync` returned.
+- **Passwords.** The host sends the root password to set. A platform that cannot set one generates it and answers it in
+  `VirtualServerInstance.GeneratedPassword` or `VirtualServerRootPassword.GeneratedPassword`; both print as `***`. The
+  console address in `VirtualServerConsole.Url` is a credential and prints as `***` too.
+- **Usage** is in bytes, and every figure is optional: report what the platform has.
+- **Suspension.** A platform with no suspension of its own powers the server off and keeps the client from starting it in
+  whatever way the platform allows; `UnsuspendServerAsync` lifts that and does not power the server on.
+
+In the plugin's own tests, run the `VirtualServerContract` checks against a stub of your platform:
+`AssertCreateIsIdempotentAsync`, `AssertStartIsIdempotentAsync`, `AssertStopIsIdempotentAsync`,
+`AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`, `AssertTerminateIsIdempotentAsync`,
+`AssertChangePlanIsIdempotentAsync`, `AssertSuspendedServerIsNotStartedAsync`, `AssertUnknownServerIsNotFoundAsync`,
+`AssertReadsAnswerValuesAsync`, `AssertCatalogIsWellFormedAsync`, `AssertListServersIsCompleteAsync`,
+`AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
+promise that was broken.
+
+### Choosing the session kind
+
+`CreatePaymentAsync` answers a `PaymentSession`, and a session is exactly one `PaymentSessionKind`:
+
+| Kind | When | What the plugin fills |
+|---|---|---|
+| `Redirect` (1) | the gateway has a hosted page the payer opens with a plain GET (the default) | `RedirectUrl` |
+| `FormPost` (2) | the hosted page is opened with a POST that carries a token or other fields | `FormPost`, and the same address as `RedirectUrl` |
+| `BrowserStep` (3) | the payer completes a step in the browser (a card field that produces a nonce) before the payment can be charged | `RedirectUrl` (the page of the step) and `Kind` |
+
+Choose the redirect whenever the gateway offers one, because it needs no form and no wait. `Kind` is optional and
+`Redirect` by default. `Kind` and `FormPost` always agree, and a session whose pair contradicts is refused, in the
+constructor and in a `with` expression, whatever the order: `FormPost` is required with `Kind.FormPost` and allowed
+with nothing else, and a value that is not defined is refused. The constructor without a `Kind` derives it (a form
+gives `FormPost`, none gives `Redirect`). To change a session between `FormPost` and another kind, build a new
+session; a `with` expression cannot, because each change is checked on its own. `RedirectUrl` is never empty.
+
+For a **form post** the plugin only describes the form. The host renders the page and applies its own rules: the
+action must be an absolute `https` URL without user info or line breaks, field names are not empty, names and values
+are encoded as attribute text, no script from the plugin is ever included, and the page has a button that submits the
+form for a payer whose browser runs no script. The form keeps within `PaymentFormPostLimits` (at most 64 fields,
+names up to 128 and values up to 8192 characters, an action up to 2048). A session that breaks a rule is a failed
+payment.
+
+For a **browser step** the flow is:
+
+1. `CreatePaymentAsync` answers `new PaymentSession(orderId, stepPageUrl, null, PaymentSessionKind.BrowserStep)`.
+2. The host sends the payer to the page; the payer completes the step with the gateway's own page or script, which
+   puts the result (a nonce, a payer id) in the query of the return address.
+3. The host waits for that return request instead of reading the status, calls
+   `IPaymentReturnPlugin.CompleteAsync` with its parameters (see the next section), and only then reads the status.
+
+A plugin that answers `BrowserStep` therefore implements `IPaymentReturnPlugin` and lists `paymentReturn` in its
+manifest. The SDK cannot see the plugin class from a session, so the host, not the SDK, checks that the plugin
+implements the interface; a session of this kind from a plugin without it is a failed payment. A host older than
+3.7.0 does not know the kind and treats the session as a redirect.
+
+### Completing a payment from the return request
+
+Some gateways finish a payment with a value only the payer's browser has when it comes back. A plugin that needs it
+implements `IPaymentReturnPlugin` beside `IPaymentPlugin` and lists `paymentReturn` (`PluginCapabilities.PaymentReturn`)
+in `capabilities`; the host checks for the interface at run time, so a plugin without it is unchanged. The host calls
+`CompleteAsync(gatewayOrderId, returnParameters, ct)` with the query parameters of the return request (and the posted
+fields of a browser step) before it reads the status, and the plugin answers the status the payment is in. The host picks
+the names that reach the plugin and keeps within `PaymentReturnLimits` (at most 32 parameters, names up to 64 and values
+up to 2048 characters); it never passes credentials, cookies or headers. Names are compared ordinally, and when a name
+arrives more than once the first value wins. The set is read only and comes from the payer's browser, so treat it as
+untrusted input. `CompleteAsync` is idempotent: a payer who returns twice must not be charged twice.
+
+The plugin never serves a page. The browser gets the value from the gateway: from its hosted page, or from the
+gateway's own script on the page that `PaymentSession.RedirectUrl` names. It then comes back to the host's return
+address with the value in the query, and the host passes it on.
+
+- **A nonce style gateway** (the browser obtains a payment method nonce from the gateway): `CompleteAsync` reads the nonce
+  parameter, charges the order at the gateway with it once, and answers `Paid` or `Declined`.
+- **A payer id style gateway** (the return address carries the payer id and a token): `CompleteAsync` reads both, asks
+  the gateway to execute the approved payment, and answers its status. A return without them answers `Pending`.
+
 ### Saving the method during a payment
 
 To let a payer save the method they pay with, the host sets `PaymentInstruction.SavePaymentMethod` to `true`. A plugin
@@ -256,6 +564,18 @@ that supports it asks the gateway to store the method and, when `GetStatusAsync`
 in `GatewayPaymentStatus.SavedMethod` (a `SavedMethod`: token reference, brand, last four digits and expiry). A plugin
 that does not support it ignores the flag and leaves `SavedMethod` null; the host treats that as "not saved" and the
 payment itself is unaffected. Both members are optional, so a plugin that never saves methods needs no change.
+
+The host also sets `PaymentInstruction.CustomerRef` on a saving payment: the gateway customer it got from
+`IStoredCredentialPlugin.EnsureCustomerAsync`. A plugin attaches the stored method to that customer, so the later stored
+charge for the same reference finds it. It is optional and null when no method is saved.
+
+### The payer's e-mail address
+
+Some gateways refuse to create a payment without an e-mail address. The host sets `PaymentInstruction.PayerEmail` to the
+address of the client the invoice belongs to when it knows one, and leaves it null otherwise, so null is a normal value:
+a plugin that needs an address answers a refusal the host can show, and never invents or fixes one. The address is
+personal data. Send it only to your own gateway, never write it to a log, and do not undo that the record prints it as
+`***`. A plugin that does not read it needs no change.
 
 ### Stored credential plugins
 
@@ -298,13 +618,51 @@ agree with the code.
 - The host stores no methods: it lists them live through `ListMethodsAsync` and keeps only its consent link to a
   `MethodRef`.
 
+### Tax plugins
+
+A tax plugin implements `ITaxPlugin` and tells the host what tax is due on the lines of an invoice, so the rate comes
+from a tax service instead of a number typed by hand. Its manifest type is `Tax`; a plugin of another type that also
+offers tax implements the same interface and lists `tax` (`PluginCapabilities.Tax`) in `capabilities`. The plugin keeps
+its credentials and settings itself, like a payment plugin.
+
+`CalculateTaxAsync` takes a `TaxCalculationRequest` and answers a `TaxCalculationResult`. The request holds the
+currency, whether the line amounts already include tax, the seller and the buyer (`TaxParty`: a `TaxAddress`, whether it
+is a business, the tax number) and the lines (`TaxLine`: an id, the line total with discounts already taken off, the
+quantity, the product's tax category and whether it is a digital service). The result has one of three outcomes
+(`TaxOutcome`):
+
+| Outcome | Meaning | Carries |
+|---|---|---|
+| `Calculated` | every line was calculated | one `TaxLineResult` per requested line (`LineId`, `Rate` as a percentage, `Amount`, `Jurisdiction`) and `Total`, their sum |
+| `Refused` | the service declined, for example for an address it does not cover | a `TaxRefusalReason` |
+| `Unavailable` | the service could not be reached or is rate limited | nothing; the host tries again later |
+
+- **No guessed rate, no zero tax by accident.** A line the service cannot rate makes the whole calculation `Refused`. A
+  failed or unreachable service is `Unavailable`, never a calculation of zero tax. A rate of 0 is a real answer for an
+  exempt or reverse charged supply and comes with an amount of 0.
+- **Amounts follow the rate.** The amount is the line total times the rate when prices exclude tax, and the part of the
+  line total that is tax at that rate when they include it, rounded the way the service rounds. Rates are between 0 and
+  100, amounts are never negative, and every jurisdiction names an ISO 3166-1 alpha-2 country.
+- **Outcomes, not exceptions.** A refusal and an unavailable service are answers, and the plugin does not throw for them;
+  when nothing can be said, answer `Unavailable`. A request keeps within `TaxLimits` (at most 500 lines, line ids and
+  tax numbers up to 64 characters, address fields up to 128, a three letter upper case currency and a two letter upper
+  case country).
+- **No personal data in a result.** Tax numbers and address details print as `***` on the request; do not undo that in
+  your own logs, and never put the service's own text, an address or a tax number in a result.
+
+In the plugin's own tests, run the `TaxContract` checks against a stub of your service:
+`AssertCalculationIsWellFormedAsync`, `AssertCalculationIsRepeatableAsync`, `AssertUncalculableRequestIsRefusedAsync`,
+`AssertUnreachableServiceIsUnavailableAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException`
+naming the promise that was broken. The amount check allows a tolerance for the service's rounding, one hundredth by
+default; pass the smallest unit of the currency for one with another number of decimals.
+
 ## Manifest
 
 `plugin.json` sits beside the plugin assembly and declares `id`, `name`, `version`, `author`,
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
 `showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
-implements: `storedCredentials` for a payment plugin, `endpoints` for any type), `minHostVersion` and
+implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `virtualServer` and `virtualServerList` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement` and `registrarWhois` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
 `maxHostVersion` (the range of host versions the plugin runs on, each a semantic version such as `2.1.0`; a missing
 bound means no limit, and the lower may not be above the upper) and `changelog` (notes for this version, at most 4000
 characters). The `id` is lower-case letters and digits,
@@ -418,7 +776,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Hostpanel.Sdk" Version="3.2.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Hostpanel.Sdk" Version="3.7.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

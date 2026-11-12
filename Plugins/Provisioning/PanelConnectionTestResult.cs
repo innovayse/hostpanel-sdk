@@ -3,7 +3,8 @@ using Hostpanel.Sdk.Plugins.Enums;
 namespace Hostpanel.Sdk.Plugins.Provisioning;
 
 /// <summary>
-/// Result of <see cref="IProvisioningPanelPlugin.TestConnectionAsync"/>. It carries no panel error text: why a test failed
+/// Result of <see cref="IProvisioningPanelPlugin.TestConnectionAsync"/>, and of the connection tests of the virtual server and
+/// registrar contracts. It carries no error text of the other side: why a test failed
 /// is for the plugin's log, and the host shows a fixed sentence for the <see cref="PanelConnectionOutcome"/>.
 /// </summary>
 /// <param name="Outcome">How the test ended.</param>

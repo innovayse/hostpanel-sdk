@@ -1,7 +1,8 @@
 namespace Hostpanel.Sdk.Plugins.Enums;
 
 /// <summary>
-/// How a test of the connection to a hosting panel ended. The values start at 1 and 0 is not valid. A test is the one
+/// How a test of the connection to a hosting panel, a virtual server platform or a registrar ended. The values start at 1
+/// and 0 is not valid. A test is the one
 /// operation where "cannot reach" is an answer rather than an exception, because finding that out is its purpose.
 /// </summary>
 public enum PanelConnectionOutcome

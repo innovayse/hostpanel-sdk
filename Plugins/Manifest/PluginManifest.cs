@@ -10,6 +10,9 @@ public sealed class PluginManifest
     /// <summary>The longest <see cref="Changelog"/> a manifest may carry, in characters.</summary>
     public const int MaxChangelogLength = 4000;
 
+    /// <summary>The longest <see cref="ServerAccountIdLabel"/>, in characters.</summary>
+    public const int MaxServerAccountIdLabelLength = 60;
+
     /// <summary>Backing field of <see cref="Fields"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginField> _fields = [];
 
@@ -152,7 +155,7 @@ public sealed class PluginManifest
     /// Gets the optional capabilities the plugin declares, named in <see cref="PluginCapabilities"/> (for example
     /// <c>storedCredentials</c>). Lets the admin and the client portal show what a plugin can do without activating
     /// it; each entry must agree with the interfaces the plugin class implements. <c>storedCredentials</c> fits
-    /// payment plugins (<see cref="PluginType.Payment"/>) only; <c>endpoints</c> fits any plugin type. A type
+    /// payment plugins (<see cref="PluginType.Payment"/>) only; <c>endpoints</c> and <c>tax</c> fit any plugin type. A type
     /// leaves the list empty when no capability applies to it. A missing or <c>null</c> <c>capabilities</c>
     /// in the JSON reads as an empty list, never <see langword="null"/>.
     /// </summary>
@@ -176,8 +179,8 @@ public sealed class PluginManifest
     /// <summary>
     /// Gets the server module ids a provisioning plugin serves (the <c>serverModules</c> field, for example
     /// <c>["examplepanel"]</c>): the host sends a server whose module is listed here to this plugin. Required for a plugin
-    /// that implements <see cref="Provisioning.IProvisioningPanelPlugin"/> (and so lists
-    /// <see cref="PluginCapabilities.ProvisioningPanel"/>), and ignored for every other plugin. Each id follows
+    /// that implements <see cref="Provisioning.IProvisioningPanelPlugin"/> or <see cref="VirtualServers.IVirtualServerPlugin"/> (and so lists
+    /// <see cref="PluginCapabilities.ProvisioningPanel"/> or <see cref="PluginCapabilities.VirtualServer"/>), and ignored for every other plugin. Each id follows
     /// <see cref="PluginServerModules"/>, which also validates the list. A missing or <c>null</c> <c>serverModules</c>
     /// reads as an empty list, never <see langword="null"/>.
     /// </summary>
@@ -186,6 +189,17 @@ public sealed class PluginManifest
         get => _serverModules;
         init => _serverModules = value ?? [];
     }
+
+    /// <summary>
+    /// Gets the label of the account id field on the server form (the <c>serverAccountIdLabel</c> field, for example
+    /// <c>"Reseller ID"</c>) of a provisioning plugin whose panel needs an organisation, reseller or tenant id next to
+    /// the credentials. Setting it turns the field on: the host shows it for servers that use this plugin, with this
+    /// label, and passes the value as <see cref="Provisioning.PanelServerConnection.AccountId"/>. It is a literal
+    /// shown as it is, or a text key defined in the manifest's locales, like the other labels of a manifest; it is 1 to
+    /// <see cref="MaxServerAccountIdLabelLength"/> characters with no control character. <see langword="null"/> when
+    /// the manifest sets none, which keeps the field off and <c>AccountId</c> null.
+    /// </summary>
+    public string? ServerAccountIdLabel { get; init; }
 
     /// <summary>
     /// Gets the plugin's tags (the <c>tags</c> field, for example <c>["backup", "billing"]</c>): short keywords that plugin
