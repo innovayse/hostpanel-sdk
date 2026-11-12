@@ -167,6 +167,7 @@ plugin that grants credits on a paid invoice can also give the client a screen, 
 `ClientRef`. Without the capability a plugin that is not an app plugin has its `api` and `ui` blocks refused, and a
 declared capability whose class does not implement `IPluginEndpoints` is refused when the plugin is activated.
 
+<<<<<<< HEAD
 ### De-duplicating webhooks with the advanced store
 
 A plugin that handles webhooks must remember which events it handled, expire old markers and keep two processes from
@@ -208,6 +209,15 @@ promises and whose clock you move with `AdvanceAsync`: `AssertSetIfAbsentIsAtomi
 `AssertExpiredKeyReadsAsAbsentAsync`, `AssertPlainSetClearsTimeToLiveAsync`, `AssertTimeToLiveBoundsAsync` and
 `AssertListKeysHonoursPrefixAndLimitAsync`; each throws `PluginContractViolationException` naming the promise that
 was broken.
+=======
+### Logging and secrets
+
+The SDK records print their secret members as `***`, and that text is public as `SecretMask.Text` in
+`Hostpanel.Sdk.Plugins.Diagnostics`. Use it in your own settings object and in any diagnostic line about a gateway
+answer instead of a literal of your own, so every mask in a log is the same and a search for it finds them all. It
+makes a log readable and is not a security boundary: never write a secret, a token, an address or a payer detail to a
+log, a result or an exception message in the first place.
+>>>>>>> origin/develop
 
 ### Callbacks
 
@@ -421,6 +431,14 @@ payment itself is unaffected. Both members are optional, so a plugin that never 
 The host also sets `PaymentInstruction.CustomerRef` on a saving payment: the gateway customer it got from
 `IStoredCredentialPlugin.EnsureCustomerAsync`. A plugin attaches the stored method to that customer, so the later stored
 charge for the same reference finds it. It is optional and null when no method is saved.
+
+### The payer's e-mail address
+
+Some gateways refuse to create a payment without an e-mail address. The host sets `PaymentInstruction.PayerEmail` to the
+address of the client the invoice belongs to when it knows one, and leaves it null otherwise, so null is a normal value:
+a plugin that needs an address answers a refusal the host can show, and never invents or fixes one. The address is
+personal data. Send it only to your own gateway, never write it to a log, and do not undo that the record prints it as
+`***`. A plugin that does not read it needs no change.
 
 ### Stored credential plugins
 
