@@ -9,11 +9,17 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Tax provider contract (innovayse/hostpanel-sdk#39): `ITaxPlugin` in `Hostpanel.Sdk.Plugins.Tax`, so a tax service can ship as an external plugin and the invoice tax rate no longer has to be typed by hand. One operation, `CalculateTaxAsync(TaxCalculationRequest, CancellationToken)`, answering a `TaxCalculationResult`. A calculation is a read: it changes nothing at the service, so a repeat is safe.
+  - Request: `TaxCalculationRequest` (`Currency`, `PricesIncludeTax`, `Seller`, `Buyer`, `Lines`), with `TaxParty` (`Address`, `IsBusiness`, `TaxId`), `TaxAddress` (`Country`, `Region`, `PostalCode`, `City`, `Line1`) and `TaxLine` (`LineId`, `Amount`, `Quantity`, `TaxCategory`, `IsDigitalService`). The tax numbers and the address details print as `***`; the country and the region stay readable.
+  - Result: `TaxCalculationResult` with the typed outcome `TaxOutcome` (`Calculated`, `Refused`, `Unavailable`), built with `Calculated`, `Refused` and `Unavailable`. A calculation answers one `TaxLineResult` per requested line (`LineId`, `Rate` as a percentage, `Amount`, `Jurisdiction`) with `TaxJurisdiction` (`Country`, `Region`), and `Total` is the sum of the line amounts. A refusal carries a `TaxRefusalReason` (`AddressUnsupported`, `TaxIdInvalid`, `CurrencyNotSupported`, `CategoryUnknown`, `AccessDenied`, `Other`). A rate is never guessed, and a service that cannot be reached is `Unavailable`, never a calculation of zero tax.
+  - `TaxContract` (for a plugin's own tests, like `RegistrarContract`): `AssertCalculationIsWellFormedAsync` (every line answered once, rates between 0 and 100, amounts not negative and matching the rate and the price mode within a tolerance), `AssertCalculationIsRepeatableAsync`, `AssertUncalculableRequestIsRefusedAsync`, `AssertUnreachableServiceIsUnavailableAsync` and `AssertHidesSecrets`. They throw `PluginContractViolationException`.
+  - `PluginType.Tax` (7), appended after `App`, and `PluginCapabilities.Tax` (`"tax"`), the manifest capability a plugin of any other type lists when it also implements `ITaxPlugin`.
 - `PaymentInstruction.CustomerRef` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#36): the gateway-side customer the saved method belongs to. The host fills it with the reference it got from `IStoredCredentialPlugin.EnsureCustomerAsync` whenever `SavePaymentMethod` is `true`, so a plugin can attach the stored method to that customer and a later stored charge for the same reference finds it. A plugin that does not save methods ignores it.
 
 ### Compatibility
 
 - `CustomerRef` is a trailing optional record parameter, like the 3.5.0 members: callers and plugins recompile unchanged, and the existing constructor call sites keep their meaning. The record constructor and `Deconstruct` gain a parameter, so a plugin built against 3.6.0 binaries keeps working only when it is rebuilt against 3.7.0.
+- The tax contract is additive: `PluginType.Tax` is appended and no existing member changes, so a plugin built on 3.6.0 compiles and loads as it is. A host that does not know the tax type skips the plugin; a host that does reads `plugin is ITaxPlugin`.
 
 ## [3.6.0]
 
