@@ -111,6 +111,7 @@ public sealed class TaxContractShapeTests
         TaxLimits.MaxLineIdLength.Should().Be(64);
         TaxLimits.MaxTaxIdLength.Should().Be(64);
         TaxLimits.CurrencyLength.Should().Be(3);
+        TaxLimits.MaxAddressFieldLength.Should().Be(128);
     }
 
     /// <summary>A party without a tax number prints it as null and not as a mask.</summary>

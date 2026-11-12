@@ -398,6 +398,19 @@ address with the value in the query, and the host passes it on.
 - **A payer id style gateway** (the return address carries the payer id and a token): `CompleteAsync` reads both, asks
   the gateway to execute the approved payment, and answers its status. A return without them answers `Pending`.
 
+### Choosing the session kind
+
+`CreatePaymentAsync` answers a `PaymentSession`. Most gateways send the payer to a hosted page with a plain GET:
+fill `RedirectUrl` and leave `FormPost` null. A gateway whose hosted page is opened with a POST that carries a token
+or other fields fills `FormPost` with a `PaymentFormPost` (the `Action` URL and the `Fields`) and passes the same
+address as `RedirectUrl`, which is never empty and which the host then ignores. The plugin only describes the form.
+The host renders the page and applies its own rules: the action must be an absolute `https` URL without user info or
+line breaks, field names are not empty, names and values are encoded as attribute text, no script from the plugin is
+ever included, and the page has a button that submits the form for a payer whose browser runs no script. The form keeps
+within `PaymentFormPostLimits` (at most 64 fields, names up to 128 and values up to 8192 characters, an action up to
+2048). A session that breaks a rule is a failed payment. Choose the redirect whenever the gateway offers one, because it
+needs no form.
+
 ### Saving the method during a payment
 
 To let a payer save the method they pay with, the host sets `PaymentInstruction.SavePaymentMethod` to `true`. A plugin
@@ -486,7 +499,8 @@ quantity, the product's tax category and whether it is a digital service). The r
   100, amounts are never negative, and every jurisdiction names an ISO 3166-1 alpha-2 country.
 - **Outcomes, not exceptions.** A refusal and an unavailable service are answers, and the plugin does not throw for them;
   when nothing can be said, answer `Unavailable`. A request keeps within `TaxLimits` (at most 500 lines, line ids and
-  tax numbers up to 64 characters, a three letter currency).
+  tax numbers up to 64 characters, address fields up to 128, a three letter upper case currency and a two letter upper
+  case country).
 - **No personal data in a result.** Tax numbers and address details print as `***` on the request; do not undo that in
   your own logs, and never put the service's own text, an address or a tax number in a result.
 
