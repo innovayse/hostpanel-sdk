@@ -10,6 +10,7 @@ and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `PaymentInstruction.CustomerRef` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#36): the gateway-side customer the saved method belongs to. The host fills it with the reference it got from `IStoredCredentialPlugin.EnsureCustomerAsync` whenever `SavePaymentMethod` is `true`, so a plugin can attach the stored method to that customer and a later stored charge for the same reference finds it. A plugin that does not save methods ignores it.
+- `PaymentInstruction.PayerEmail` (`string?`, optional, `null` by default) (innovayse/hostpanel-sdk#41): the e-mail address of the client the invoice belongs to, for gateways that refuse to create a payment without one. The host leaves it `null` when it knows no address. It is personal data, so a plugin sends it only to its own gateway and never logs it, and the generated `ToString` prints it as `***`. It is a trailing optional record parameter after `CustomerRef`, so callers and plugins recompile unchanged; a plugin built against 3.6.0 binaries keeps working only when it is rebuilt against 3.7.0, as for the other trailing members.
 
 ### Compatibility
 
