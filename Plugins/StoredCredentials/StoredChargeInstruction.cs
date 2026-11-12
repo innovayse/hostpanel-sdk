@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Payment;
 
 namespace Hostpanel.Sdk.Plugins.StoredCredentials;
@@ -14,9 +15,9 @@ namespace Hostpanel.Sdk.Plugins.StoredCredentials;
 /// never charges twice, or looks the key up itself first when the gateway has no native idempotency.
 /// </param>
 /// <param name="ReturnUrl">Absolute URL the payer returns to after authenticating, used when the outcome is <see cref="Enums.StoredChargeOutcome.ActionRequired"/>.</param>
-public sealed record StoredChargeInstruction(
-    string CustomerRef,
-    string MethodRef,
+public sealed partial record StoredChargeInstruction(
+    [property: SecretMember] string CustomerRef,
+    [property: SecretMember] string MethodRef,
     long AmountMinor,
     string Currency,
     string InvoiceReference,

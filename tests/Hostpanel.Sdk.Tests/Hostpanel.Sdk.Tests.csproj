@@ -22,10 +22,13 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="FluentAssertions" Version="6.12.2" />
+    <!-- Drives the source generator over sample records; the version is the one the generator is built against. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.8.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\Hostpanel.Sdk.csproj" />
+    <ProjectReference Include="..\..\Hostpanel.Sdk.Generators\Hostpanel.Sdk.Generators.csproj" />
   </ItemGroup>
 
 </Project>

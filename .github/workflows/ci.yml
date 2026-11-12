@@ -58,6 +58,8 @@ jobs:
         run: |
           dotnet pack Hostpanel.Sdk.csproj -c Release --no-build -o artifacts -p:ContinuousIntegrationBuild=true
           dotnet pack Hostpanel.Sdk.Packaging/Hostpanel.Sdk.Packaging.csproj -c Release --no-build -o artifacts -p:ContinuousIntegrationBuild=true
+      - name: Check the package carries the source generator
+        run: unzip -l artifacts/Hostpanel.Sdk.[0-9]*.nupkg | grep -q "analyzers/dotnet/cs/Hostpanel.Sdk.Generators.dll"
       - name: Upload the package
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

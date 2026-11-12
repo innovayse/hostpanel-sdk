@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Identity;
 
 namespace Hostpanel.Sdk.Plugins.Fulfilment;
@@ -16,10 +17,10 @@ namespace Hostpanel.Sdk.Plugins.Fulfilment;
 /// <param name="Currency">ISO 4217 alpha code of the invoice.</param>
 /// <param name="TransactionReference">The refund's gateway reference, or null.</param>
 /// <param name="RefundedAt">When the refund was recorded (UTC).</param>
-public sealed record InvoiceRefundedContext(
+public sealed partial record InvoiceRefundedContext(
     int InvoiceId,
     int ClientId,
-    string ClientRef,
+    [property: SecretMember] string ClientRef,
     ExternalAccount? Account,
     IReadOnlyList<FulfilmentLine> Lines,
     decimal RefundedAmount,

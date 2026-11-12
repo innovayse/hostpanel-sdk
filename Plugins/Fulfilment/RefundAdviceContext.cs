@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Identity;
 
 namespace Hostpanel.Sdk.Plugins.Fulfilment;
@@ -14,10 +15,10 @@ namespace Hostpanel.Sdk.Plugins.Fulfilment;
 /// <param name="Lines">Every product line on the invoice.</param>
 /// <param name="RequestedAmount">What the admin asked to refund, in <paramref name="Currency"/>.</param>
 /// <param name="Currency">ISO 4217 alpha code of the invoice.</param>
-public sealed record RefundAdviceContext(
+public sealed partial record RefundAdviceContext(
     int InvoiceId,
     int ClientId,
-    string ClientRef,
+    [property: SecretMember] string ClientRef,
     ExternalAccount? Account,
     IReadOnlyList<FulfilmentLine> Lines,
     decimal RequestedAmount,

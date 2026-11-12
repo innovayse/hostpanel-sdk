@@ -1,4 +1,3 @@
-using System.Text;
 using Hostpanel.Sdk.Plugins.Diagnostics;
 
 namespace Hostpanel.Sdk.Plugins.Registrar;
@@ -16,23 +15,9 @@ namespace Hostpanel.Sdk.Plugins.Registrar;
 /// <param name="ApiUrl">The address of the registrar's API when the admin saved one, or <see langword="null"/> for the plugin's own default. An absolute address.</param>
 /// <param name="ClientIp">The address the registrar has allow-listed for API calls, for a registrar that asks for it with every request, or <see langword="null"/>.</param>
 /// <param name="TestMode"><see langword="true"/> when the admin asked for the registrar's sandbox, which a plugin honours by calling the sandbox API and never the live one.</param>
-public sealed record RegistrarConnection(
-    string? AccountName,
-    string? ApiKey,
+public sealed partial record RegistrarConnection(
+    [property: SecretMember] string? AccountName,
+    [property: SecretMember] string? ApiKey,
     string? ApiUrl,
     string? ClientIp,
-    bool TestMode)
-{
-    /// <summary>Prints the record without its secret member, so the generated <c>ToString</c> never reveals it.</summary>
-    /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
-    /// <returns>Always <see langword="true"/>: members are written.</returns>
-    private bool PrintMembers(StringBuilder builder)
-    {
-        builder.Append("AccountName = ").Append(AccountName is null ? "null" : SecretMask.Text);
-        builder.Append(", ApiKey = ").Append(ApiKey is null ? "null" : SecretMask.Text);
-        builder.Append(", ApiUrl = ").Append(ApiUrl);
-        builder.Append(", ClientIp = ").Append(ClientIp);
-        builder.Append(", TestMode = ").Append(TestMode);
-        return true;
-    }
-}
+    bool TestMode);

@@ -1,4 +1,3 @@
-using System.Text;
 using Hostpanel.Sdk.Plugins.Diagnostics;
 
 namespace Hostpanel.Sdk.Plugins.Payment;
@@ -30,31 +29,12 @@ namespace Hostpanel.Sdk.Plugins.Payment;
 /// generated <c>ToString</c> prints it as <c>***</c>, and a plugin must not undo that. Optional and null by default, so
 /// existing callers and plugins are unchanged.
 /// </param>
-public sealed record PaymentInstruction(
+public sealed partial record PaymentInstruction(
     string OrderNumber,
     long AmountMinor,
     string ReturnUrl,
     string? Description,
     string? Language,
     bool SavePaymentMethod = false,
-    string? CustomerRef = null,
-    string? PayerEmail = null)
-{
-    /// <summary>
-    /// Prints the record with the payer's e-mail address masked, so the generated <c>ToString</c> never reveals it.
-    /// </summary>
-    /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
-    /// <returns>Always <see langword="true"/>: members are written.</returns>
-    private bool PrintMembers(StringBuilder builder)
-    {
-        builder.Append("OrderNumber = ").Append(OrderNumber);
-        builder.Append(", AmountMinor = ").Append(AmountMinor);
-        builder.Append(", ReturnUrl = ").Append(ReturnUrl);
-        builder.Append(", Description = ").Append(Description);
-        builder.Append(", Language = ").Append(Language);
-        builder.Append(", SavePaymentMethod = ").Append(SavePaymentMethod);
-        builder.Append(", CustomerRef = ").Append(CustomerRef);
-        builder.Append(", PayerEmail = ").Append(PayerEmail is null ? "null" : SecretMask.Text);
-        return true;
-    }
-}
+    [property: SecretMember] string? CustomerRef = null,
+    [property: SecretMember] string? PayerEmail = null);

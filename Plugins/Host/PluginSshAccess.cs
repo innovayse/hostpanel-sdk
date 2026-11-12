@@ -1,3 +1,5 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
+
 namespace Hostpanel.Sdk.Plugins.Host;
 
 /// <summary>
@@ -14,19 +16,11 @@ namespace Hostpanel.Sdk.Plugins.Host;
 /// <param name="HostKeyFingerprint">
 /// The SHA-256 fingerprint the host has pinned for <paramref name="Host"/>, or null when it has none for that address.
 /// </param>
-public sealed record PluginSshAccess(
+public sealed partial record PluginSshAccess(
     Guid KeyId,
     string Host,
     int Port,
     string Username,
     string? Domain,
-    string PrivateKey,
-    string? HostKeyFingerprint)
-{
-    /// <summary>Describes the access without the private key, so logging the value never leaks it.</summary>
-    /// <returns>The key id, address, user and domain.</returns>
-    public override string ToString()
-    {
-        return $"{nameof(PluginSshAccess)} {{ KeyId = {KeyId}, Host = {Host}, Port = {Port}, Username = {Username}, Domain = {Domain} }}";
-    }
-}
+    [property: SecretMember] string PrivateKey,
+    string? HostKeyFingerprint);

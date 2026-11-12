@@ -1,4 +1,3 @@
-using System.Text;
 using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Provisioning;
 
@@ -17,29 +16,12 @@ namespace Hostpanel.Sdk.Plugins.VirtualServers;
 /// <param name="Name">The name of the virtual server on the platform, also used as its host name. Stable across retries of one create, and unique on the platform.</param>
 /// <param name="RootPassword">The initial password of the root or administrator user. Secret. A platform that cannot set it generates one and answers it in <see cref="VirtualServerInstance.GeneratedPassword"/>.</param>
 /// <param name="SshPublicKey">A public key to authorize for the root user, or <see langword="null"/> for none.</param>
-public sealed record VirtualServerCreateContext(
+public sealed partial record VirtualServerCreateContext(
     PanelServerConnection Server,
     PanelService Service,
     PanelClientRef Client,
     PanelPackage Plan,
     string ImageId,
     string Name,
-    string RootPassword,
-    string? SshPublicKey)
-{
-    /// <summary>Prints the record without its secret member, so the generated <c>ToString</c> never reveals it.</summary>
-    /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
-    /// <returns>Always <see langword="true"/>: members are written.</returns>
-    private bool PrintMembers(StringBuilder builder)
-    {
-        builder.Append("Server = ").Append(Server);
-        builder.Append(", Service = ").Append(Service);
-        builder.Append(", Client = ").Append(Client);
-        builder.Append(", Plan = ").Append(Plan);
-        builder.Append(", ImageId = ").Append(ImageId);
-        builder.Append(", Name = ").Append(Name);
-        builder.Append(", RootPassword = ").Append(SecretMask.Text);
-        builder.Append(", SshPublicKey = ").Append(SshPublicKey);
-        return true;
-    }
-}
+    [property: SecretMember] string RootPassword,
+    string? SshPublicKey);

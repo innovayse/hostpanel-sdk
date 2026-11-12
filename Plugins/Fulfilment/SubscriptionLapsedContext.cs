@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Identity;
 
 namespace Hostpanel.Sdk.Plugins.Fulfilment;
@@ -18,10 +19,10 @@ namespace Hostpanel.Sdk.Plugins.Fulfilment;
 /// <param name="Lines">Every product line on the invoice.</param>
 /// <param name="DueDate">When the invoice was due (UTC).</param>
 /// <param name="LapsedAt">When the host declared the lapse (UTC).</param>
-public sealed record SubscriptionLapsedContext(
+public sealed partial record SubscriptionLapsedContext(
     int InvoiceId,
     int ClientId,
-    string ClientRef,
+    [property: SecretMember] string ClientRef,
     ExternalAccount? Account,
     IReadOnlyList<FulfilmentLine> Lines,
     DateTimeOffset DueDate,

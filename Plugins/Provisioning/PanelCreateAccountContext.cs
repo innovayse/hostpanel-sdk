@@ -1,4 +1,3 @@
-using System.Text;
 using Hostpanel.Sdk.Plugins.Diagnostics;
 
 namespace Hostpanel.Sdk.Plugins.Provisioning;
@@ -15,27 +14,11 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// <param name="DomainName">The primary domain of the account.</param>
 /// <param name="Username">The panel user name for the account. Stable across retries of one create.</param>
 /// <param name="Password">The initial password of the account. Secret.</param>
-public sealed record PanelCreateAccountContext(
+public sealed partial record PanelCreateAccountContext(
     PanelServerConnection Server,
     PanelService Service,
     PanelClientRef Client,
     PanelPackage Package,
     string DomainName,
     string Username,
-    string Password)
-{
-    /// <summary>Prints the record without its secret members, so the generated <c>ToString</c> never reveals them.</summary>
-    /// <param name="builder">The builder the generated <c>ToString</c> is assembling.</param>
-    /// <returns>Always <see langword="true"/>: members are written.</returns>
-    private bool PrintMembers(StringBuilder builder)
-    {
-        builder.Append("Server = ").Append(Server);
-        builder.Append(", Service = ").Append(Service);
-        builder.Append(", Client = ").Append(Client);
-        builder.Append(", Package = ").Append(Package);
-        builder.Append(", DomainName = ").Append(DomainName);
-        builder.Append(", Username = ").Append(Username);
-        builder.Append(", Password = ").Append(SecretMask.Text);
-        return true;
-    }
-}
+    [property: SecretMember] string Password);

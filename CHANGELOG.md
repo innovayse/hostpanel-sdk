@@ -5,6 +5,17 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0]
+
+### Added
+
+- `SecretMemberAttribute` in `Hostpanel.Sdk.Plugins.Diagnostics` and a source generator that ships in the package under `analyzers/dotnet/cs` (innovayse/hostpanel-sdk#67). A positional record marks a secret or personal member with `[property: SecretMember]` and is declared `partial`; the generator then writes the `PrintMembers` the record's generated `ToString` calls, which prints every member as the compiler would and shows `***` (`SecretMask.Text`) for each marked one, and `null` for a marked one that is not set. Nobody writes `PrintMembers` by hand, so a member added later is printed without anyone editing a list. A plugin can mark the members of its own records the same way. A record that cannot be given the code (it, or a type that encloses it, is not `partial`) fails the build with `HPSDK001` instead of printing the secret. A record that derives from another record calls the base record's method first, as the compiler's own does. The generator needs the compiler of the .NET 8 SDK or later, which a `net8.0` plugin already builds with.
+
+### Changed
+
+- The 22 records that listed their members by hand in `PrintMembers`, and `PluginSshAccess.ToString`, now use the generated code. The printed text of the members that were already masked is the same. A member that is not secret and is not set now prints as the compiler prints a null (empty), where some records wrote `null`. The records became `partial`, which changes nothing for a caller. `TaxCalculationResult` prints through the generated `ToString`: its printed form now names the type of `Lines` (as for any list) where it showed the number of lines, and adds `Total`, which no longer throws for a result built by hand with a null line (the entry adds nothing to the sum).
+- These members print as `***` now, where they printed in clear: `PaymentInstruction.CustomerRef` (the documented behaviour), `CredentialCustomerContext.Email` and `Name`, `PanelClientRef.Email` and `Name`, `StoredChargeInstruction.CustomerRef` and `MethodRef`, `PluginClientProfile.Email`, and `ClientRef` of `InvoicePaidContext`, `InvoiceRefundedContext`, `RefundAdviceContext` and `SubscriptionLapsedContext`. Only the printed form changes: the values, equality and the constructors are as before, so a plugin or host built on 3.7.0 loads and runs unchanged, and one rebuilt needs no source change.
+
 ## [3.7.0]
 
 ### Added
