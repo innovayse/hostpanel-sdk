@@ -18,7 +18,9 @@ public sealed class SecretMaskTests
         type.Name.Should().Be("SecretMask");
     }
 
-    /// <summary>The text is a public constant with the value the records print, so a change is a deliberate break.</summary>
+    /// <summary>
+    /// The text is a public constant with the value the records print, so a change is a deliberate break.
+    /// </summary>
     [Fact]
     public void Text_IsAPublicConstantWithTheMask()
     {

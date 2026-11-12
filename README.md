@@ -388,6 +388,14 @@ The host also sets `PaymentInstruction.CustomerRef` on a saving payment: the gat
 `IStoredCredentialPlugin.EnsureCustomerAsync`. A plugin attaches the stored method to that customer, so the later stored
 charge for the same reference finds it. It is optional and null when no method is saved.
 
+### The payer's e-mail address
+
+Some gateways refuse to create a payment without an e-mail address. The host sets `PaymentInstruction.PayerEmail` to the
+address of the client the invoice belongs to when it knows one, and leaves it null otherwise, so null is a normal value:
+a plugin that needs an address answers a refusal the host can show, and never invents or fixes one. The address is
+personal data. Send it only to your own gateway, never write it to a log, and do not undo that the record prints it as
+`***`. A plugin that does not read it needs no change.
+
 ### Stored credential plugins
 
 A payment plugin may also implement `IStoredCredentialPlugin` to keep payment methods at the gateway and charge
