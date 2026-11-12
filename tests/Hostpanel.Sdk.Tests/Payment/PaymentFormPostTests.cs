@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Payment;
 
 namespace Hostpanel.Sdk.Tests.Payment;
@@ -101,14 +102,15 @@ public sealed class PaymentFormPostTests
         build.Should().Throw<ArgumentException>();
     }
 
-    /// <summary>A session still deconstructs into its three members.</summary>
+    /// <summary>A session deconstructs into its four members, the kind last.</summary>
     [Fact]
-    public void PaymentSession_Deconstructs_IntoThreeMembers()
+    public void PaymentSession_Deconstructs_IntoFourMembers()
     {
-        var (orderId, address, form) = new PaymentSession("gw-1", "https://pay.example/gw-1");
+        var (orderId, address, form, kind) = new PaymentSession("gw-1", "https://pay.example/gw-1");
 
         orderId.Should().Be("gw-1");
         address.Should().Be("https://pay.example/gw-1");
         form.Should().BeNull();
+        kind.Should().Be(PaymentSessionKind.Redirect);
     }
 }
