@@ -12,6 +12,18 @@ public static class PluginHostAccess
     /// </summary>
     public const string Ssh = "ssh";
 
+    /// <summary>
+    /// Websites on a hosting service of the caller whose product is bound to the plugin:
+    /// <see cref="IPluginHostHostingApi.EnsureWebsiteAsync"/> and <see cref="IPluginHostHostingApi.RemoveWebsiteAsync"/>.
+    /// </summary>
+    public const string Websites = "websites";
+
+    /// <summary>
+    /// Databases on a hosting service of the caller whose product is bound to the plugin:
+    /// <see cref="IPluginHostHostingApi.EnsureDatabaseAsync"/> and <see cref="IPluginHostHostingApi.RemoveDatabaseAsync"/>.
+    /// </summary>
+    public const string Databases = "databases";
+
     /// <summary>Gets every kind this SDK version knows, in the order the admin panel lists them.</summary>
-    public static IReadOnlyList<string> All { get; } = [Ssh];
+    public static IReadOnlyList<string> All { get; } = [Ssh, Websites, Databases];
 }

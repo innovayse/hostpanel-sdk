@@ -75,9 +75,9 @@ public sealed class EnumValueTests
     [Fact]
     public void PluginHostAccessFailure_Values_ArePinned()
     {
-        Enum.GetValues<PluginHostAccessFailure>().Select(value => (int)value).Should().Equal(0, 1, 2, 3, 4);
+        Enum.GetValues<PluginHostAccessFailure>().Select(value => (int)value).Should().Equal(0, 1, 2, 3, 4, 5, 6);
         Enum.GetValues<PluginHostAccessFailure>().Select(value => value.ToString())
-            .Should().Equal("NotAllowed", "NotFound", "Unavailable", "LimitReached", "ServerUnavailable");
+            .Should().Equal("NotAllowed", "NotFound", "Unavailable", "LimitReached", "ServerUnavailable", "InvalidRequest", "Conflict");
     }
 
     /// <summary>The outcome enums shared by every contract are pinned too, because the new contracts reuse them.</summary>

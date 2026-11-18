@@ -25,7 +25,7 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Hostpanel.Sdk --version 3.8.0
+dotnet add package Hostpanel.Sdk --version 3.9.0
 ```
 
 or, in the plugin's `.csproj`:
@@ -34,7 +34,7 @@ or, in the plugin's `.csproj`:
 <ItemGroup>
   <!-- ExcludeAssets="runtime" keeps Hostpanel.Sdk.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Hostpanel.Sdk" Version="3.8.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Hostpanel.Sdk" Version="3.9.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -142,6 +142,17 @@ plugin sees no HTTP request, no token and no web framework type.
   a client's values. Keep client data in `call.Store`, which is bound to the call's client.
 - Optional: implement `IPluginStatus` to report health, and `IPluginMigrations` to bring data kept outside the
   host up to date before the first call.
+- Hosting access: `IPluginHostApi` also carries `IssueSshAccessAsync` and `RevokeSshAccessAsync` for the `ssh` kind. Websites
+  and databases arrive on a separate interface, `IPluginHostHostingApi`, which extends it, so a plugin checks
+  `call.Host is IPluginHostHostingApi hosting` and does without when the host is older than 3.9.0. Declare the kinds in
+  the manifest's `hostAccess` (`PluginHostAccess.Ssh`, `Websites`, `Databases`; `PluginHostAccess.All` lists them).
+  `GetHostingCapabilitiesAsync(serviceId)` says what the service's account supports (`PluginHostingCapabilities`: the
+  three flags and the PHP versions). `EnsureWebsiteAsync(serviceId, PluginWebsiteSpec)` is safe to repeat for a host
+  name; the document root is relative to the account home, and `DocumentRootMayBeLink` asks for the pool settings
+  that let the plugin switch the root through a symbolic link. `EnsureDatabaseAsync(serviceId, label)` returns the
+  password once, on creation (`PluginDatabase.Password`, null afterwards), so store it at once; it prints as `***`.
+  `RemoveWebsiteAsync` and `RemoveDatabaseAsync` remove what this plugin created. A refusal is a
+  `PluginHostAccessException`; `PluginHostAccessFailure.InvalidRequest` and `Conflict` are new in 3.9.0.
 
 ### Slots
 
@@ -787,7 +798,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Hostpanel.Sdk" Version="3.8.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Hostpanel.Sdk" Version="3.9.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>
