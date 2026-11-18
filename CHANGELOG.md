@@ -5,6 +5,15 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.0]
+
+### Added
+
+- Websites and databases on a client's hosting service (innovayse/hostpanel#1294). `PluginHostAccess.Websites` (`"websites"`) and `PluginHostAccess.Databases` (`"databases"`) join `Ssh`, and `PluginHostAccess.All` lists the three.
+- `IPluginHostHostingApi` in `Hostpanel.Sdk.Plugins.Host`, a new interface that extends `IPluginHostApi`, which does not change, so a plugin built on 3.8.0 loads and runs unchanged. A plugin checks `host is IPluginHostHostingApi` and does without when the host lacks it. Operations: `GetHostingCapabilitiesAsync`, `EnsureWebsiteAsync`, `RemoveWebsiteAsync`, `EnsureDatabaseAsync` and `RemoveDatabaseAsync`. It has no default bodies.
+- The records they use: `PluginHostingCapabilities` (`Ssh`, `Websites`, `Databases`, `PhpVersions`), `PluginWebsiteSpec` (`Hostname`, `DocumentRoot` relative to the account home, `PhpVersion`, `DocumentRootMayBeLink` for pool settings that let the document root be switched through a symbolic link), `PluginWebsite` (`Id`, `Hostname`, `DocumentRoot`, `DocumentRootPath`, `PhpVersion`) and `PluginDatabase` (`Id`, `Name`, `Username`, `Host`, `Port`, `Password`). The password of a database is returned once, when it is created, and prints as `***`.
+- `PluginHostAccessFailure.InvalidRequest` (5) and `Conflict` (6), appended after the values that exist.
+
 ## [3.8.0]
 
 ### Added

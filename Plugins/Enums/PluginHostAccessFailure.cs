@@ -20,4 +20,10 @@ public enum PluginHostAccessFailure
 
     /// <summary>The hosting server did not answer, or the outcome is unknown; try again later.</summary>
     ServerUnavailable = 4,
+
+    /// <summary>The host cannot accept the request as given, for example a host name or a document root that is not valid.</summary>
+    InvalidRequest = 5,
+
+    /// <summary>The request clashes with something that exists, for example a host name that belongs to another website.</summary>
+    Conflict = 6,
 }
