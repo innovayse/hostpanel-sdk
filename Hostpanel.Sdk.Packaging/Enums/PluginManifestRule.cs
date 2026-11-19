@@ -76,4 +76,7 @@ public enum PluginManifestRule
     /// control character.
     /// </summary>
     AccountIdLabelInvalid = 22,
+
+    /// <summary>The <c>agentProfile</c> is not one of <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginAgentProfiles.All"/>.</summary>
+    AgentProfileInvalid = 23,
 }

@@ -393,6 +393,17 @@ leaves it `null`, so a plugin that reads it sets `minHostVersion` to the first h
 `ProvisioningContract.AssertLoginDetailsAreReadableAsync` and `AssertUnknownAccountLoginIsNotFoundAsync` check these promises
 in the plugin's own tests.
 
+#### An SSH key agent profile
+
+The host keeps one SSH key agent as shared infrastructure for the servers of panel plugins. A panel plugin that wants its
+servers served by it names a profile in the manifest's `agentProfile`, for example `"agentProfile": "hostingPanelV7"`. The
+names are defined by the SDK, in `PluginAgentProfiles` (`PluginAgentProfiles.All` lists them, `IsKnown` checks one), and
+describe a kind of panel, never a vendor; a plugin cannot invent one, and a name is matched exactly, with its letter case.
+A manifest that names any other profile is refused by `PluginManifestChecker.Validate` with
+`PluginManifestRule.AgentProfileInvalid`. Without `agentProfile` (the default, `null`) the plugin's servers have no SSH key
+agent. A host that does not read the field ignores it, so a plugin that needs it sets `minHostVersion` to the first host
+release that does.
+
 ### Panels with a self signed certificate
 
 Many hosting panels answer on a private port with a self signed certificate. Whether to trust one is the operator's
