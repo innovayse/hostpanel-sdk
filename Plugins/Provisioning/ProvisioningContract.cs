@@ -1,5 +1,6 @@
 using Hostpanel.Sdk.Plugins.Diagnostics;
 using Hostpanel.Sdk.Plugins.Enums;
+using Hostpanel.Sdk.Plugins.Results;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
 
 namespace Hostpanel.Sdk.Plugins.Provisioning;
@@ -13,6 +14,9 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// </summary>
 public static class ProvisioningContract
 {
+    /// <summary>The name of the login details operation, for the messages.</summary>
+    private const string LoginOperation = nameof(IProvisioningPanelLoginPlugin.GetLoginDetailsAsync);
+
     /// <summary>The checks this contract shares with the registrar and virtual server contracts, worded for a panel.</summary>
     private static readonly ContractChecks Checks = new(new ContractWords("account", "an account", "panel", nameof(PanelCreateResult.ProvisioningRef), "the account was created again. A repeat with the same user name must answer AlreadyApplied."));
 
@@ -220,6 +224,68 @@ public static class ProvisioningContract
     }
 
     /// <summary>
+    /// Calls <see cref="IProvisioningPanelLoginPlugin.GetLoginDetailsAsync"/> for an account the panel holds and asserts that
+    /// it answers the details: <c>Succeeded</c> with a non empty user name and an absolute <c>http</c> or <c>https</c> sign-in
+    /// address, or <c>NotSupported</c> for a panel that has no sign-in page to show. The caller arranges a panel that holds
+    /// the account.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="knownAccount">The server and an account the panel holds.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result, so the test can assert more about the details; a not supported answer has none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="knownAccount"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">
+    /// The call threw, answered <see langword="null"/>, answered an outcome that does not fit, succeeded without details, or
+    /// answered details with an empty user name or a sign-in address that is not an absolute <c>http</c> or <c>https</c> address.
+    /// </exception>
+    public static async Task<ValueResult<PanelLoginDetails, PanelRefusalReason>> AssertLoginDetailsAreReadableAsync(
+        IProvisioningPanelLoginPlugin plugin,
+        PanelAccountContext knownAccount,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(knownAccount);
+
+        var result = await Checks.AssertReadAnswersValueAsync<ValueResult<PanelLoginDetails, PanelRefusalReason>, PanelRefusalReason>(
+            LoginOperation,
+            () => plugin.GetLoginDetailsAsync(knownAccount, ct),
+            true);
+
+        if (result.Value is { } details)
+        {
+            CheckLoginDetails(details);
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Asserts that <see cref="IProvisioningPanelLoginPlugin.GetLoginDetailsAsync"/> answers <c>NotFound</c> or
+    /// <c>NotSupported</c> for an account the panel does not hold, and does not throw. The caller arranges a panel that holds
+    /// no account under the reference in <paramref name="unknownAccount"/>.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="unknownAccount">The server and a reference the panel does not know.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when the check passed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="unknownAccount"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/> or answered an outcome the promise does not allow.</exception>
+    public static Task AssertUnknownAccountLoginIsNotFoundAsync(
+        IProvisioningPanelLoginPlugin plugin,
+        PanelAccountContext unknownAccount,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(unknownAccount);
+
+        return Checks.ExpectAsync<ValueResult<PanelLoginDetails, PanelRefusalReason>, PanelRefusalReason>(
+            LoginOperation,
+            () => plugin.GetLoginDetailsAsync(unknownAccount, ct),
+            PanelOperationOutcome.NotFound,
+            PanelOperationOutcome.NotSupported);
+    }
+
+    /// <summary>
     /// Calls <see cref="IProvisioningPanelPlugin.TestConnectionAsync"/> and asserts that it answers instead of throwing,
     /// whatever the server: an unreachable or refusing panel is an outcome. The caller arranges the server (reachable,
     /// wrong credentials, nothing listening) and compares the returned outcome with what it arranged.
@@ -286,5 +352,23 @@ public static class ProvisioningContract
     public static void AssertHidesSecrets(object value, params string?[] secrets)
     {
         Checks.AssertHidesSecrets(value, secrets);
+    }
+
+    /// <summary>Asserts that login details can be shown: a user name to sign in with and an address to sign in at.</summary>
+    /// <param name="details">The details the plugin answered.</param>
+    /// <exception cref="PluginContractViolationException">The user name is empty or the sign-in address is not an absolute <c>http</c> or <c>https</c> address.</exception>
+    private static void CheckLoginDetails(PanelLoginDetails details)
+    {
+        if (string.IsNullOrWhiteSpace(details.Username))
+        {
+            throw new PluginContractViolationException($"{LoginOperation} answered details without a Username; the client has nothing to sign in with.");
+        }
+
+        var isWebAddress = Uri.TryCreate(details.LoginUrl, UriKind.Absolute, out var address)
+            && (address.Scheme == Uri.UriSchemeHttps || address.Scheme == Uri.UriSchemeHttp);
+        if (!isWebAddress)
+        {
+            throw new PluginContractViolationException($"{LoginOperation} answered a LoginUrl that is not an absolute http or https address.");
+        }
     }
 }

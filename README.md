@@ -375,6 +375,24 @@ In the plugin's own tests, run the `ProvisioningContract` checks against a stub 
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
 `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
 
+#### Login details and a panel password
+
+A panel that can tell the host how a client signs in to an account also implements `IProvisioningPanelLoginPlugin`, which
+extends `IProvisioningPanelPlugin`; the interface it extends does not change, so a panel plugin built earlier loads and
+runs as before and is not asked. List `provisioningPanelLogin` (`PluginCapabilities.ProvisioningPanelLogin`) in the
+manifest's `capabilities`. `GetLoginDetailsAsync(PanelAccountContext, CancellationToken)` is a read, so a repeat is safe.
+It answers `Succeeded` with a `PanelLoginDetails` (`Username`, `Password`, `Domain`, `ServerIp`, `LoginUrl`),
+`NotFound` for an account the panel does not hold, `NotSupported` for a panel with no sign-in page to show, or `Refused`
+with a `PanelRefusalReason`. `Password` is `null` unless the panel reveals one and prints as `***`; `LoginUrl` is the
+absolute `http` or `https` address of the sign-in page, never a single sign on link, which carries a credential.
+
+`PanelServerConnection.Password` is the password of the panel user for a panel that signs in with a user name and a
+password. It is `null` for a panel that uses an access key or a token, and prints as `***`. A host that does not fill it
+leaves it `null`, so a plugin that reads it sets `minHostVersion` to the first host release that does.
+
+`ProvisioningContract.AssertLoginDetailsAreReadableAsync` and `AssertUnknownAccountLoginIsNotFoundAsync` check these promises
+in the plugin's own tests.
+
 ### Panels with a self signed certificate
 
 Many hosting panels answer on a private port with a self signed certificate. Whether to trust one is the operator's

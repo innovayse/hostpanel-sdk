@@ -5,8 +5,9 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// <summary>
 /// The server a hosting panel or virtual server operation runs against: where it is and the credentials the host stores for it. The host
 /// fills in what it has and a plugin reads the members its panel uses; a panel that authenticates with a user and a
-/// token reads <see cref="Username"/> and <see cref="ApiToken"/>, one that uses a single key reads <see cref="AccessHash"/>.
-/// <see cref="AccessHash"/> and <see cref="ApiToken"/> are secrets: the generated <c>ToString</c> prints them masked,
+/// token reads <see cref="Username"/> and <see cref="ApiToken"/>, one that uses a single key reads <see cref="AccessHash"/>, and one
+/// that signs in with a user name and a password reads <see cref="Username"/> and <see cref="Password"/>.
+/// <see cref="AccessHash"/>, <see cref="ApiToken"/> and <see cref="Password"/> are secrets: the generated <c>ToString</c> prints them masked,
 /// and a plugin must never log them, put them in a result or send them anywhere but its own panel.
 /// </summary>
 /// <param name="ServerId">The host's id of the server, for the plugin's log lines.</param>
@@ -25,6 +26,12 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// not a secret and prints in <c>ToString</c>. A plugin reads it from here and never asks the operator to join it to
 /// <see cref="Username"/>. Optional and null by default, so existing callers and plugins are unchanged.
 /// </param>
+/// <param name="Password">
+/// The panel user's password, or <see langword="null"/> when none is saved: a panel that authenticates with an access key
+/// or a token has no password to keep. Secret. Optional and null by default, so existing callers and plugins are
+/// unchanged. A host that does not fill it leaves it null, so a plugin that reads it sets <c>minHostVersion</c> to the first
+/// host release that does.
+/// </param>
 public sealed partial record PanelServerConnection(
     int ServerId,
     string Name,
@@ -35,4 +42,5 @@ public sealed partial record PanelServerConnection(
     string? Username,
     [property: SecretMember] string? AccessHash,
     [property: SecretMember] string? ApiToken,
-    string? AccountId = null);
+    string? AccountId = null,
+    [property: SecretMember] string? Password = null);
