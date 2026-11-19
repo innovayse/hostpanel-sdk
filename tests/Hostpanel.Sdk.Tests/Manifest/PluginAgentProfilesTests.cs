@@ -36,7 +36,7 @@ public sealed class PluginAgentProfilesTests
     [InlineData("hostingPanelV7 ")]
     [InlineData("HOSTINGPANELV7")]
     [InlineData("hostingpanelv7")]
-    [InlineData("cwp")]
+    [InlineData("otherpanel")]
     public void IsKnown_OtherName_IsFalse(string? name)
     {
         PluginAgentProfiles.IsKnown(name).Should().BeFalse();
