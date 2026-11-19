@@ -98,6 +98,7 @@ public static partial class PluginManifestChecker
             ?? CheckHostVersions(manifest.MinHostVersion, manifest.MaxHostVersion)
             ?? CheckChangelog(manifest.Changelog)
             ?? CheckAccountIdLabel(manifest.ServerAccountIdLabel)
+            ?? CheckAgentProfile(manifest.AgentProfile)
             ?? CheckTextKeys(manifest);
     }
 
@@ -433,6 +434,21 @@ public static partial class PluginManifestChecker
             return new PluginManifestViolation(
                 PluginManifestRule.AccountIdLabelInvalid,
                 $"serverAccountIdLabel: 1 to {PluginManifest.MaxServerAccountIdLabelLength} characters with no control character are allowed");
+        }
+
+        return null;
+    }
+
+    /// <summary>Checks the <c>agentProfile</c>: when set, it is one of <see cref="PluginAgentProfiles.All"/>.</summary>
+    /// <param name="profile">The manifest's agent profile, or <see langword="null"/> when it has none.</param>
+    /// <returns>The violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckAgentProfile(string? profile)
+    {
+        if (profile is not null && !PluginAgentProfiles.IsKnown(profile))
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.AgentProfileInvalid,
+                $"agentProfile: use one of {string.Join(", ", PluginAgentProfiles.All)}");
         }
 
         return null;

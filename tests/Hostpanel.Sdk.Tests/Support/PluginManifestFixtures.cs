@@ -13,8 +13,9 @@ internal static class PluginManifestFixtures
     /// <param name="tags">The tags.</param>
     /// <param name="serverModules">The server modules.</param>
     /// <param name="serverAccountIdLabel">The label of the account id field of a server.</param>
+    /// <param name="agentProfile">The SSH key agent profile.</param>
     /// <returns>The manifest.</returns>
-    internal static PluginManifest Minimal(string[]? tags = null, string[]? serverModules = null, string? serverAccountIdLabel = null)
+    internal static PluginManifest Minimal(string[]? tags = null, string[]? serverModules = null, string? serverAccountIdLabel = null, string? agentProfile = null)
     {
         return new PluginManifest
         {
@@ -30,6 +31,7 @@ internal static class PluginManifestFixtures
             Tags = tags!,
             ServerModules = serverModules!,
             ServerAccountIdLabel = serverAccountIdLabel,
+            AgentProfile = agentProfile,
         };
     }
 }
