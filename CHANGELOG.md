@@ -5,6 +5,13 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.10.0]
+
+### Added
+
+- `PluginViews.OpenUrlFromProperty` (`"openUrlFrom"`) (innovayse/hostpanel#1333): an optional member of an action block, the name of a field of the action's JSON reply that holds an absolute URL; the host opens it in a new tab. `{ "kind": "action", "label": "actions.open", "route": { "method": "post", "path": "/services/{serviceId}/login" }, "openUrlFrom": "url" }`. It is allowed only on an action that calls a route, and not together with `navigate`. A view without it renders as before, so a plugin built on 3.9.0 loads and runs unchanged; a plugin that uses it sets `minHostVersion` to the first host release that reads it.
+- `PluginViews.IsOpenUrlFieldName(string?)` and `PluginViews.MaxOpenUrlFieldLength` (64): the one check of the value, 1 to 64 ASCII letters, digits or underscores, so it is never a dotted path. The host uses it when it checks a view document.
+
 ## [3.9.0]
 
 ### Added
