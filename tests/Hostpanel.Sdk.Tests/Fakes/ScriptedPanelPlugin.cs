@@ -1,4 +1,6 @@
+using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
+using Hostpanel.Sdk.Plugins.Results;
 
 namespace Hostpanel.Sdk.Tests.Fakes;
 
@@ -8,7 +10,7 @@ namespace Hostpanel.Sdk.Tests.Fakes;
 /// operation, which starts at 1, and may throw. By default the plugin behaves like a panel that holds one account: the
 /// first create creates it, every later one finds it, and the actions succeed.
 /// </summary>
-internal sealed class ScriptedPanelPlugin : IProvisioningPanelPlugin
+internal sealed class ScriptedPanelPlugin : IProvisioningPanelLoginPlugin
 {
     /// <summary>Counts the calls of each operation, by method name.</summary>
     private readonly CallCounter _calls = new();
@@ -38,6 +40,10 @@ internal sealed class ScriptedPanelPlugin : IProvisioningPanelPlugin
     /// <summary>Gets or sets what <c>GetUsageAsync</c> answers on each call.</summary>
     public Func<int, PanelUsageResult> Usage { get; set; } =
         _ => PanelUsageResult.Read(new PanelUsage(10, 100, 5, null, DateTimeOffset.UnixEpoch));
+
+    /// <summary>Gets or sets what <c>GetLoginDetailsAsync</c> answers on each call.</summary>
+    public Func<int, ValueResult<PanelLoginDetails, PanelRefusalReason>> Login { get; set; } =
+        _ => ValueResult<PanelLoginDetails, PanelRefusalReason>.Done(PanelFixtures.LoginDetails);
 
     /// <summary>Gets or sets what <c>TestConnectionAsync</c> answers on each call.</summary>
     public Func<int, PanelConnectionTestResult> Test { get; set; } = _ => PanelConnectionTestResult.Connected("1.0", 3);
@@ -97,6 +103,12 @@ internal sealed class ScriptedPanelPlugin : IProvisioningPanelPlugin
     public Task<PanelSsoResult> CreateSsoLinkAsync(PanelSsoContext context, CancellationToken ct)
     {
         return Task.FromResult(Sso(_calls.Count(nameof(CreateSsoLinkAsync))));
+    }
+
+    /// <inheritdoc />
+    public Task<ValueResult<PanelLoginDetails, PanelRefusalReason>> GetLoginDetailsAsync(PanelAccountContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Login(_calls.Count(nameof(GetLoginDetailsAsync))));
     }
 
     /// <inheritdoc />
