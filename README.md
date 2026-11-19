@@ -802,6 +802,12 @@ a page shows and the plugin routes it calls, and the panel renders it. The shape
   slot the area of the slot). Each `{parameter}` is filled from the page path parameter or the slot context key of
   the same name.
 
+- **Open an address.** An `action` that has a `route` can carry `"openUrlFrom": "url"` (since 3.10.0,
+  `PluginViews.OpenUrlFromProperty`): the name of a field of the route's JSON reply that holds an absolute URL, which
+  the host opens in a new tab. The value is a simple field name, 1 to 64 letters, digits or underscores
+  (`PluginViews.IsOpenUrlFieldName`), never a dotted path. It is refused on an action with no `route` and on one that
+  also has `navigate`. The host decides which addresses it opens.
+
 The host checks every view document when it loads a plugin and when one is installed, before any plugin code runs: the
 file exists (`PLUGIN_VIEW_MISSING`), is a JSON object (`PLUGIN_VIEW_INVALID`), has a supported `schema`
 (`PLUGIN_VIEW_SCHEMA_UNSUPPORTED`), uses only known block kinds (`PLUGIN_VIEW_BLOCK_KIND_UNKNOWN`), every label that
