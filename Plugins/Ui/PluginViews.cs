@@ -57,6 +57,12 @@ namespace Hostpanel.Sdk.Plugins.Ui;
 /// the reader: a manifest <c>externalOrigins</c> entry or a domain of the reader's own hosting services. Anything else
 /// shows nothing. A plugin cannot widen the allowed origins or the sandbox flags of the frame.
 /// </para>
+/// <para>
+/// An action that calls a route can send the reader to the address its reply holds (since 3.10.0):
+/// <c>{ "kind": "action", "label": "actions.open", "route": { "method": "post", "path": "/services/{serviceId}/login" }, "openUrlFrom": "url" }</c>.
+/// <see cref="OpenUrlFromProperty"/> names a field of the action's JSON reply that holds an absolute URL; the host opens
+/// it in a new tab and, as for every address a plugin supplies, decides which addresses it will open.
+/// </para>
 /// </remarks>
 public static class PluginViews
 {
@@ -148,4 +154,42 @@ public static class PluginViews
 
     /// <summary>Gets the values of <see cref="PreviewSizeProperty"/>. Compared exactly.</summary>
     public static IReadOnlyList<string> PreviewSizes { get; } = [PreviewSizeDesktop, PreviewSizePhone];
+
+    /// <summary>
+    /// The member of an action block naming a field of the action's JSON reply that holds an absolute URL the host opens
+    /// in a new tab (since 3.10.0). Its value is a field name (see <see cref="IsOpenUrlFieldName"/>), not a dotted path.
+    /// It is optional, so a view without it renders as before. It is allowed only on an action that calls a route (an
+    /// action with a <c>route</c>, since there is no reply to read otherwise), and never together with the action's
+    /// <c>navigate</c> member: an action either moves inside the panel or opens an address, not both.
+    /// </summary>
+    public const string OpenUrlFromProperty = "openUrlFrom";
+
+    /// <summary>The longest field name <see cref="OpenUrlFromProperty"/> may hold, in characters.</summary>
+    public const int MaxOpenUrlFieldLength = 64;
+
+    /// <summary>
+    /// Tells whether a value is a simple field name for <see cref="OpenUrlFromProperty"/>: 1 to
+    /// <see cref="MaxOpenUrlFieldLength"/> ASCII letters, digits or underscores. A dot, a space, a hyphen or any other
+    /// character makes it invalid, so the member can never be a path into the reply. Compared exactly.
+    /// </summary>
+    /// <param name="value">The value to check; <c>null</c> is not a field name.</param>
+    /// <returns><c>true</c> when the value is a simple field name.</returns>
+    public static bool IsOpenUrlFieldName(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > MaxOpenUrlFieldLength)
+        {
+            return false;
+        }
+
+        foreach (var character in value)
+        {
+            var simple = character is >= 'a' and <= 'z' or >= 'A' and <= 'Z' or >= '0' and <= '9' or '_';
+            if (!simple)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }

@@ -49,7 +49,7 @@ public sealed class PanelServerAccountIdTests
     {
         var connection = new PanelServerConnection(1, "web1", "web1.example", null, null, true, null, null, null);
 
-        connection.ToString().Should().Contain("Username = ,").And.Contain("AccessHash = null").And.EndWith("AccountId =  }");
+        connection.ToString().Should().Contain("Username = ,").And.Contain("AccessHash = null").And.EndWith("AccountId = , Password = null }");
     }
 
     /// <summary>The manifest label is off by default and, when set, turns the field on with the plugin's wording.</summary>

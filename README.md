@@ -25,7 +25,7 @@ against this package does not put your plugin under the AGPL.
 Pin the version you build against, so a new SDK release never changes your plugin by surprise:
 
 ```bash
-dotnet add package Hostpanel.Sdk --version 3.8.0
+dotnet add package Hostpanel.Sdk --version 3.9.0
 ```
 
 or, in the plugin's `.csproj`:
@@ -34,7 +34,7 @@ or, in the plugin's `.csproj`:
 <ItemGroup>
   <!-- ExcludeAssets="runtime" keeps Hostpanel.Sdk.dll out of the plugin's output: the host already
        loads it, and a second copy in the plugin folder breaks every cast (see "Shipping" below). -->
-  <PackageReference Include="Hostpanel.Sdk" Version="3.8.0" ExcludeAssets="runtime" />
+  <PackageReference Include="Hostpanel.Sdk" Version="3.9.0" ExcludeAssets="runtime" />
 </ItemGroup>
 ```
 
@@ -142,6 +142,17 @@ plugin sees no HTTP request, no token and no web framework type.
   a client's values. Keep client data in `call.Store`, which is bound to the call's client.
 - Optional: implement `IPluginStatus` to report health, and `IPluginMigrations` to bring data kept outside the
   host up to date before the first call.
+- Hosting access: `IPluginHostApi` also carries `IssueSshAccessAsync` and `RevokeSshAccessAsync` for the `ssh` kind. Websites
+  and databases arrive on a separate interface, `IPluginHostHostingApi`, which extends it, so a plugin checks
+  `call.Host is IPluginHostHostingApi hosting` and does without when the host is older than 3.9.0. Declare the kinds in
+  the manifest's `hostAccess` (`PluginHostAccess.Ssh`, `Websites`, `Databases`; `PluginHostAccess.All` lists them).
+  `GetHostingCapabilitiesAsync(serviceId)` says what the service's account supports (`PluginHostingCapabilities`: the
+  three flags and the PHP versions). `EnsureWebsiteAsync(serviceId, PluginWebsiteSpec)` is safe to repeat for a host
+  name; the document root is relative to the account home, and `DocumentRootMayBeLink` asks for the pool settings
+  that let the plugin switch the root through a symbolic link. `EnsureDatabaseAsync(serviceId, label)` returns the
+  password once, on creation (`PluginDatabase.Password`, null afterwards), so store it at once; it prints as `***`.
+  `RemoveWebsiteAsync` and `RemoveDatabaseAsync` remove what this plugin created. A refusal is a
+  `PluginHostAccessException`; `PluginHostAccessFailure.InvalidRequest` and `Conflict` are new in 3.9.0.
 
 ### Slots
 
@@ -363,6 +374,35 @@ In the plugin's own tests, run the `ProvisioningContract` checks against a stub 
 `AssertTerminateIsIdempotentAsync`, `AssertChangePackageIsIdempotentAsync`, `AssertChangePasswordIsIdempotentAsync`,
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
 `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
+
+#### Login details and a panel password
+
+A panel that can tell the host how a client signs in to an account also implements `IProvisioningPanelLoginPlugin`, which
+extends `IProvisioningPanelPlugin`; the interface it extends does not change, so a panel plugin built earlier loads and
+runs as before and is not asked. List `provisioningPanelLogin` (`PluginCapabilities.ProvisioningPanelLogin`) in the
+manifest's `capabilities`. `GetLoginDetailsAsync(PanelAccountContext, CancellationToken)` is a read, so a repeat is safe.
+It answers `Succeeded` with a `PanelLoginDetails` (`Username`, `Password`, `Domain`, `ServerIp`, `LoginUrl`),
+`NotFound` for an account the panel does not hold, `NotSupported` for a panel with no sign-in page to show, or `Refused`
+with a `PanelRefusalReason`. `Password` is `null` unless the panel reveals one and prints as `***`; `LoginUrl` is the
+absolute `http` or `https` address of the sign-in page, never a single sign on link, which carries a credential.
+
+`PanelServerConnection.Password` is the password of the panel user for a panel that signs in with a user name and a
+password. It is `null` for a panel that uses an access key or a token, and prints as `***`. A host that does not fill it
+leaves it `null`, so a plugin that reads it sets `minHostVersion` to the first host release that does.
+
+`ProvisioningContract.AssertLoginDetailsAreReadableAsync` and `AssertUnknownAccountLoginIsNotFoundAsync` check these promises
+in the plugin's own tests.
+
+#### An SSH key agent profile
+
+The host keeps one SSH key agent as shared infrastructure for the servers of panel plugins. A panel plugin that wants its
+servers served by it names a profile in the manifest's `agentProfile`, for example `"agentProfile": "hostingPanelV7"`. The
+names are defined by the SDK, in `PluginAgentProfiles` (`PluginAgentProfiles.All` lists them, `IsKnown` checks one), and
+describe a kind of panel, never a vendor; a plugin cannot invent one, and a name is matched exactly, with its letter case.
+A manifest that names any other profile is refused by `PluginManifestChecker.Validate` with
+`PluginManifestRule.AgentProfileInvalid`. Without `agentProfile` (the default, `null`) the plugin's servers have no SSH key
+agent. A host that does not read the field ignores it, so a plugin that needs it sets `minHostVersion` to the first host
+release that does.
 
 ### Panels with a self signed certificate
 
@@ -762,6 +802,12 @@ a page shows and the plugin routes it calls, and the panel renders it. The shape
   slot the area of the slot). Each `{parameter}` is filled from the page path parameter or the slot context key of
   the same name.
 
+- **Open an address.** An `action` that has a `route` can carry `"openUrlFrom": "url"` (since 3.10.0,
+  `PluginViews.OpenUrlFromProperty`): the name of a field of the route's JSON reply that holds an absolute URL, which
+  the host opens in a new tab. The value is a simple field name, 1 to 64 letters, digits or underscores
+  (`PluginViews.IsOpenUrlFieldName`), never a dotted path. It is refused on an action with no `route` and on one that
+  also has `navigate`. The host decides which addresses it opens.
+
 The host checks every view document when it loads a plugin and when one is installed, before any plugin code runs: the
 file exists (`PLUGIN_VIEW_MISSING`), is a JSON object (`PLUGIN_VIEW_INVALID`), has a supported `schema`
 (`PLUGIN_VIEW_SCHEMA_UNSUPPORTED`), uses only known block kinds (`PLUGIN_VIEW_BLOCK_KIND_UNKNOWN`), every label that
@@ -787,7 +833,7 @@ A hosted plugin that logs a heartbeat. The project:
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Hostpanel.Sdk" Version="3.8.0" ExcludeAssets="runtime" />
+    <PackageReference Include="Hostpanel.Sdk" Version="3.9.0" ExcludeAssets="runtime" />
     <None Include="plugin.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

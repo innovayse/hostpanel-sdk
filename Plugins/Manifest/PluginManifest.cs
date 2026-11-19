@@ -202,6 +202,15 @@ public sealed class PluginManifest
     public string? ServerAccountIdLabel { get; init; }
 
     /// <summary>
+    /// Gets the SSH key agent profile a provisioning plugin names (the <c>agentProfile</c> field, for example
+    /// <c>"hostingPanelV7"</c>): the host uses the profile to manage SSH keys on the servers that use this plugin, through the
+    /// SSH key agent it keeps. It must be one of <see cref="PluginAgentProfiles.All"/>, matched exactly. It matters for a plugin
+    /// that implements <see cref="Provisioning.IProvisioningPanelPlugin"/> and is ignored for every other plugin.
+    /// <see langword="null"/> when the manifest sets none, which means the plugin's servers have no SSH key agent.
+    /// </summary>
+    public string? AgentProfile { get; init; }
+
+    /// <summary>
     /// Gets the plugin's tags (the <c>tags</c> field, for example <c>["backup", "billing"]</c>): short keywords that plugin
     /// registries use for discovery. Optional, and the host does nothing with them beyond reading and validating them. A tag
     /// is 2 to <see cref="PluginTags.MaxLength"/> lowercase letters, digits and hyphens with no leading <c>#</c>, and a

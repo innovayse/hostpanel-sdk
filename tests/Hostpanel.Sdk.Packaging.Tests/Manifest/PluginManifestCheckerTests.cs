@@ -503,4 +503,28 @@ public sealed class PluginManifestCheckerTests
         AssertBreaks(key, PluginManifestRule.LabelKeyMissing);
         Check(key + ",\"locales\":{\"en\":{\"settings.accountId\":\"Reseller ID\"}}").Should().BeNull();
     }
+
+    /// <summary>The agent profile is read from plugin.json, and a manifest without it reads null and passes.</summary>
+    [Fact]
+    public void Validate_AgentProfile_IsReadFromTheJson()
+    {
+        var withProfile = ManifestJson.Read("\"agentProfile\": \"hostingPanelV7\"");
+        var without = ManifestJson.Read();
+
+        withProfile.AgentProfile.Should().Be(PluginAgentProfiles.HostingPanelV7);
+        without.AgentProfile.Should().BeNull();
+        PluginManifestChecker.Validate(withProfile, Options).Should().BeNull();
+        PluginManifestChecker.Validate(without, Options).Should().BeNull();
+    }
+
+    /// <summary>A name the SDK does not define breaks the rule, whatever the reason: other name, case, padding, empty.</summary>
+    [Theory]
+    [InlineData("otherpanel")]
+    [InlineData("HostingPanelV7")]
+    [InlineData(" hostingPanelV7")]
+    [InlineData("")]
+    public void Validate_AgentProfile_UndefinedNameBreaks(string name)
+    {
+        AssertBreaks("\"agentProfile\": \"" + name + "\"", PluginManifestRule.AgentProfileInvalid);
+    }
 }
