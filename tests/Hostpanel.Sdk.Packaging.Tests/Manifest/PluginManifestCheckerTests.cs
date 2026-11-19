@@ -519,7 +519,7 @@ public sealed class PluginManifestCheckerTests
 
     /// <summary>A name the SDK does not define breaks the rule, whatever the reason: other name, case, padding, empty.</summary>
     [Theory]
-    [InlineData("cwp")]
+    [InlineData("otherpanel")]
     [InlineData("HostingPanelV7")]
     [InlineData(" hostingPanelV7")]
     [InlineData("")]
