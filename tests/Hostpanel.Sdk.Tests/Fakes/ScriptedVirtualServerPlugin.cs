@@ -12,7 +12,7 @@ namespace Hostpanel.Sdk.Tests.Fakes;
 /// Setting <see cref="HoldsServer"/> to <see langword="false"/> makes it a platform that holds nothing. A script receives
 /// the call number of its operation, which starts at 1, and may throw.
 /// </summary>
-internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
+internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin, IVirtualServerSnapshotPlugin, IVirtualServerBackupPlugin, IVirtualServerFirewallPlugin
 {
     /// <summary>The server every default answer carries.</summary>
     private static readonly VirtualServerInstance DefaultInstance = new("srv-1", "192.0.2.30", null, null);
@@ -58,6 +58,30 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
 
     /// <summary>Gets or sets what <c>ChangePlanAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, PanelActionResult>? ChangePlan { get; set; }
+
+    /// <summary>Gets or sets what <c>ListSnapshotsAsync</c> answers on each call; <see langword="null"/> keeps the default, an empty list.</summary>
+    public Func<int, ValueResult<IReadOnlyList<VirtualServerRestorePoint>, PanelRefusalReason>>? ListSnapshots { get; set; }
+
+    /// <summary>Gets or sets what <c>CreateSnapshotAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, PanelActionResult>? CreateSnapshot { get; set; }
+
+    /// <summary>Gets or sets what <c>DeleteSnapshotAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, PanelActionResult>? DeleteSnapshot { get; set; }
+
+    /// <summary>Gets or sets what <c>ListBackupsAsync</c> answers on each call; <see langword="null"/> keeps the default, an empty list.</summary>
+    public Func<int, ValueResult<IReadOnlyList<VirtualServerRestorePoint>, PanelRefusalReason>>? ListBackups { get; set; }
+
+    /// <summary>Gets or sets what <c>CreateBackupAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, PanelActionResult>? CreateBackup { get; set; }
+
+    /// <summary>Gets or sets what <c>DeleteBackupAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, PanelActionResult>? DeleteBackup { get; set; }
+
+    /// <summary>Gets or sets what <c>GetFirewallRulesAsync</c> answers on each call; <see langword="null"/> keeps the default, an empty list.</summary>
+    public Func<int, ValueResult<IReadOnlyList<VirtualServerFirewallRule>, PanelRefusalReason>>? GetFirewallRules { get; set; }
+
+    /// <summary>Gets or sets what <c>SetFirewallRulesAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
+    public Func<int, PanelActionResult>? SetFirewallRules { get; set; }
 
     /// <summary>Gets or sets what <c>ListImagesAsync</c> answers on each call; <see langword="null"/> keeps the default.</summary>
     public Func<int, ValueResult<IReadOnlyList<VirtualServerImage>, PanelRefusalReason>>? ListImages { get; set; }
@@ -203,6 +227,70 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
     }
 
     /// <inheritdoc />
+    public Task<ValueResult<IReadOnlyList<VirtualServerRestorePoint>, PanelRefusalReason>> ListSnapshotsAsync(PanelAccountContext context, CancellationToken ct)
+    {
+        return Task.FromResult(RestorePoints(ListSnapshots, nameof(ListSnapshotsAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<PanelActionResult> CreateSnapshotAsync(VirtualServerRestorePointCreateContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(CreateSnapshot, nameof(CreateSnapshotAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<PanelActionResult> RestoreSnapshotAsync(VirtualServerRestorePointContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(null, nameof(RestoreSnapshotAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<PanelActionResult> DeleteSnapshotAsync(VirtualServerRestorePointContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(DeleteSnapshot, nameof(DeleteSnapshotAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<ValueResult<IReadOnlyList<VirtualServerRestorePoint>, PanelRefusalReason>> ListBackupsAsync(PanelAccountContext context, CancellationToken ct)
+    {
+        return Task.FromResult(RestorePoints(ListBackups, nameof(ListBackupsAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<PanelActionResult> CreateBackupAsync(VirtualServerRestorePointCreateContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(CreateBackup, nameof(CreateBackupAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<PanelActionResult> RestoreBackupAsync(VirtualServerRestorePointContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(null, nameof(RestoreBackupAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<PanelActionResult> DeleteBackupAsync(VirtualServerRestorePointContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(DeleteBackup, nameof(DeleteBackupAsync)));
+    }
+
+    /// <inheritdoc />
+    public Task<ValueResult<IReadOnlyList<VirtualServerFirewallRule>, PanelRefusalReason>> GetFirewallRulesAsync(PanelAccountContext context, CancellationToken ct)
+    {
+        var call = _calls.Count(nameof(GetFirewallRulesAsync));
+        var answer = GetFirewallRules is null
+            ? ValueResult<IReadOnlyList<VirtualServerFirewallRule>, PanelRefusalReason>.Done([])
+            : GetFirewallRules(call);
+        return Task.FromResult(answer);
+    }
+
+    /// <inheritdoc />
+    public Task<PanelActionResult> SetFirewallRulesAsync(VirtualServerFirewallContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Change(SetFirewallRules, nameof(SetFirewallRulesAsync)));
+    }
+
+    /// <inheritdoc />
     public Task<PanelConnectionTestResult> TestServerConnectionAsync(PanelTestConnectionContext context, CancellationToken ct)
     {
         var call = _calls.Count(nameof(TestServerConnectionAsync));
@@ -237,5 +325,17 @@ internal sealed class ScriptedVirtualServerPlugin : IVirtualServerListPlugin
         where T : class
     {
         return HoldsServer ? ValueResult<T, PanelRefusalReason>.Done(value) : ValueResult<T, PanelRefusalReason>.NotFound();
+    }
+
+    /// <summary>Answers a listing of snapshots or backups: the script when there is one, otherwise an empty list.</summary>
+    /// <param name="script">The test's script, or <see langword="null"/>.</param>
+    /// <param name="operation">The method name.</param>
+    /// <returns>The answer.</returns>
+    private ValueResult<IReadOnlyList<VirtualServerRestorePoint>, PanelRefusalReason> RestorePoints(
+        Func<int, ValueResult<IReadOnlyList<VirtualServerRestorePoint>, PanelRefusalReason>>? script,
+        string operation)
+    {
+        var call = _calls.Count(operation);
+        return script is null ? ValueResult<IReadOnlyList<VirtualServerRestorePoint>, PanelRefusalReason>.Done([]) : script(call);
     }
 }

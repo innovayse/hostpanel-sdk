@@ -4,9 +4,9 @@ using System.Reflection;
 namespace Hostpanel.Sdk.Tests.Diagnostics;
 
 /// <summary>
-/// Builds a sample of any SDK record from its widest public constructor, so a guard test can print every record without a
-/// hand kept list of them: a record added later is sampled the day it is declared. Text arguments carry a marker, so the
-/// printed form shows which values were masked.
+/// Builds a sample of any SDK record from its widest public constructor and then sets every init property the constructor
+/// does not take, so a guard test can print every record without a hand kept list of them: a record or a member added later
+/// is sampled the day it is declared. Text values carry a marker, so the printed form shows which values were masked.
 /// </summary>
 internal static class RecordSamples
 {
@@ -18,7 +18,7 @@ internal static class RecordSamples
 
     /// <summary>Builds a sample of the record.</summary>
     /// <param name="type">The record type.</param>
-    /// <returns>An instance whose text members are <c>sample-value-</c> followed by the member's name.</returns>
+    /// <returns>An instance whose text members, constructor parameters and init properties alike, are <c>sample-value-</c> followed by the member's name.</returns>
     internal static object Create(Type type)
     {
         return Create(type, 0);
@@ -38,20 +38,35 @@ internal static class RecordSamples
         var constructor = type.GetConstructors(BindingFlags.Public | BindingFlags.Instance)
             .OrderByDescending(candidate => candidate.GetParameters().Length)
             .First();
-        var arguments = constructor.GetParameters().Select(parameter => ValueFor(parameter, depth)).ToArray();
-        return constructor.Invoke(arguments);
+        var parameters = constructor.GetParameters();
+        var arguments = parameters.Select(parameter => ValueFor(parameter.ParameterType, parameter.Name!, depth)).ToArray();
+        var sample = constructor.Invoke(arguments);
+
+        // Init properties are not constructor parameters, so left alone they stay at their default (null) and a secret one
+        // would print as "null" instead of the mask. Positional properties are already set by the constructor.
+        var initialized = parameters.Select(parameter => parameter.Name!).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.SetMethod is { IsPublic: true } && property.GetIndexParameters().Length == 0 && !initialized.Contains(property.Name))
+            {
+                property.SetValue(sample, ValueFor(property.PropertyType, property.Name, depth));
+            }
+        }
+
+        return sample;
     }
 
-    /// <summary>Invents the value of one constructor parameter.</summary>
-    /// <param name="parameter">The parameter.</param>
+    /// <summary>Invents the value of one constructor parameter or init property.</summary>
+    /// <param name="memberType">The type of the parameter or property.</param>
+    /// <param name="name">Its name, which a text value carries after the marker.</param>
     /// <param name="depth">How many records enclose the one being built.</param>
-    /// <returns>A value the parameter's type accepts.</returns>
-    private static object? ValueFor(ParameterInfo parameter, int depth)
+    /// <returns>A value the type accepts.</returns>
+    private static object? ValueFor(Type memberType, string name, int depth)
     {
-        var type = Nullable.GetUnderlyingType(parameter.ParameterType) ?? parameter.ParameterType;
+        var type = Nullable.GetUnderlyingType(memberType) ?? memberType;
         if (type == typeof(string))
         {
-            return $"{Marker}-{parameter.Name}";
+            return $"{Marker}-{name}";
         }
 
         if (type.IsEnum)

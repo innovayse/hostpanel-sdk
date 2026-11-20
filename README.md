@@ -45,7 +45,9 @@ not released yet, and move to `X.Y.Z` once it is. NuGet never picks a prerelease
 The package targets `net8.0`, so a plugin can target `net8.0` or later. The version follows the
 contract: a new minor version adds members, a new major version removes or renames them. The
 manifest's `sdkVersion` field is the plugin contract level the host checks, not the package version: see
-"Manifest" below for the value to declare.
+"Manifest" below for the value to declare. It does not move with the package, so a plugin built on package 3.11.0 declares
+the same `sdkVersion` as one built on 3.0.0. To require a host that fills a member added in a later package version,
+set `minHostVersion` in the manifest to the first host release that does.
 
 Upgrading from 1.x? Version 2.0.0 moves types into one namespace per area and renames a few members. The migration table in [`CHANGELOG.md`](CHANGELOG.md#migrating-from-1x) lists every move and rename. A plugin built against 1.x cannot load in a 2.0.0 host: it must be rebuilt against 2.0.0.
 
@@ -153,6 +155,20 @@ plugin sees no HTTP request, no token and no web framework type.
   password once, on creation (`PluginDatabase.Password`, null afterwards), so store it at once; it prints as `***`.
   `RemoveWebsiteAsync` and `RemoveDatabaseAsync` remove what this plugin created. A refusal is a
   `PluginHostAccessException`; `PluginHostAccessFailure.InvalidRequest` and `Conflict` are new in 3.9.0.
+- Reading one gateway order now (since 3.11.0): a payment plugin's callback, a webhook or a return from the gateway's
+  page, can ask the host to read that order through `IPluginHostPaymentApi`, which extends `IPluginHostApi` the same way.
+  Check `call.Host is IPluginHostPaymentApi payment` and call `payment.RequestOrderReadAsync(gatewayOrderId, ct)`. The
+  host then calls your `GetStatusAsync` for that order and records what it answers. The host may ignore the request
+  (an unknown or settled order, a request that comes too often, or a host older than 3.11.0 that lacks the interface)
+  and never reports whether it read anything, so the plugin must work without it. A callback never marks a payment
+  paid itself.
+- Reaching the server of one of the client's services (since 3.11.0): a plugin route on a service tab can check
+  `call.Host is IPluginHostServiceConnectionApi connection` and call
+  `connection.ResolveServiceConnectionAsync(serviceId, ct)`. It answers the `PanelAccountContext` a provisioning
+  operation receives, the server with its stored credentials and the service with `ProvisioningRef`, so the route can
+  talk to the panel itself. It is allowed on a client area call for a product bound to the plugin, and another client's
+  service answers like a missing one; a refusal is a `PluginHostAccessException`. The credentials are secrets: send them
+  only to your own panel and never log or return them.
 
 ### Slots
 
@@ -312,6 +328,15 @@ exception). Override that overload and pass the id to the gateway as its idempot
 the gateway has none: a repeated id must never refund twice and should answer the same reference. A plugin that only
 implements `RefundAsync(gatewayOrderId, amountMinor, ct)` keeps working, without that protection.
 
+`RefundInstruction.TransactionId` (since 3.11.0) is the transaction id your plugin reported in
+`GatewayPaymentStatus.TransactionId` when the payment became paid, so a refund that needs it does not have to read the
+order again or keep the id in your own store. It is `null` when the host holds none, so keep a fallback for that, and a
+plugin that relies on it sets `minHostVersion` to the first host release that fills it.
+
+Since 3.11.0 the older `RefundAsync(gatewayOrderId, amountMinor, ct)` has a default body that throws
+`NotSupportedException`, so a plugin that overrides the `RefundInstruction` overload does not carry a dead method. A
+plugin that overrides neither overload refuses the refund.
+
 A gateway with no idempotency key can use `RefundInstruction.AlreadyRefundedMinor` instead of storage: it is what the
 host has already recorded as refunded through that gateway order before this `RefundId`. If the gateway reports a
 refunded total of at least `AlreadyRefundedMinor + AmountMinor`, the refund already happened (a retry), so skip it and
@@ -320,6 +345,30 @@ answer the earlier reference; otherwise send it.
 A plugin that can void a payment which was created but not settled also implements `IPaymentCancelPlugin`
 (`CancelPaymentAsync`). It is optional; a repeated cancel answers `AlreadyCancelled`, and a payment that can no longer
 be cancelled answers `NotCancellable` (a refund is the way back) instead of throwing.
+
+### Money in minor units
+
+`PluginMoney` (`Hostpanel.Sdk.Plugins.Payment`, since 3.11.0) holds the conversions every payment plugin needs, so none
+carries its own copy. The contract speaks minor units; a gateway often wants decimal text.
+
+```csharp
+var digits = PluginMoney.GetMinorUnitDigits("051");           // 2; "AMD" or "amd" give the same answer
+var text = PluginMoney.ToDecimalText(1234, "USD");            // "12.34"; 1234 for "JPY" is "1234"
+var minor = PluginMoney.ToMinorUnits("12.3", "USD");          // 1230
+```
+
+- A currency is its ISO 4217 numeric code (what `IPaymentPlugin.CurrencyCode` returns) or its three letter code in any
+  case. `TryGetMinorUnitDigits` answers `false` for a code that is not listed (precious metals, funds and test codes
+  have no minor unit); `GetMinorUnitDigits` throws `ArgumentException`. Yen, won and a few others have 0 digits, the
+  dinars of Bahrain, Kuwait and a few more have 3, `CLF` and `UYW` have 4, the rest have 2.
+- `ToDecimalText(amountMinor, currencyOrDigits)` always writes a dot, no group separator and exactly the currency's
+  fraction digits, whatever the culture of the process, and it uses whole numbers only, so nothing is rounded. A
+  negative amount keeps its sign ("-0.05").
+- `ToMinorUnits(text, currencyOrDigits)` accepts an optional minus sign, digits and an optional dot with digits. Fewer
+  fraction digits than the currency has are padded; more are accepted only when they are zero ("12.500" is 1250 for two
+  digits), because anything else would lose part of the amount. Anything else, including white space, a plus sign, a
+  comma or an exponent, is a `FormatException`; an amount that does not fit a `long` is an `OverflowException`. Neither
+  message repeats the text.
 
 ### Provisioning panel plugins
 
@@ -343,7 +392,7 @@ the list must agree with the code. One plugin serves every server of its panel t
 | `ListAccountsAsync` | `PanelListAccountsContext` | `PanelAccountListResult` | Read only, paged by `NextCursor` |
 
 - **Outcomes, not exceptions.** Every operation answers a `PanelOperationOutcome` (`Succeeded`, `AlreadyApplied`,
-  `NotFound`, `Refused`, `NotSupported`); the test answers a `PanelConnectionOutcome`. The values start at 1 and 0 is
+  `NotFound`, `Refused`, `NotSupported`, and since 3.11.0 `Pending`); the test answers a `PanelConnectionOutcome`. The values start at 1 and 0 is
   not valid. A refusal carries a `PanelRefusalReason` and the host turns it into a sentence in the caller's language.
   Throw only when you do not know what happened, for example when the panel could not be reached: the host then retries,
   which is safe because of the next point.
@@ -368,12 +417,39 @@ the list must agree with the code. One plugin serves every server of its panel t
   (`Hostpanel.Sdk.Plugins.HostingPanel`) are marked `[Obsolete]`; move to `IProvisioningPanelPlugin`. The area is removed in 4.0.0.
 - **Listing** is for reconciliation: following `NextCursor` to the end returns every account once, and a panel that
   returns everything at once answers `null` as the cursor.
+- **Pending (since 3.11.0).** A panel that accepts a create, a suspend, a terminate, a package change or a password change
+  and finishes it in the background answers `PanelOperationOutcome.Pending` through `PanelActionResult.Pending()` or
+  `PanelCreateResult.Pending(provisioningRef)`. The host repeats the same call later; the repeat answers `Pending` until
+  the work is done and then `Succeeded` or `AlreadyApplied`. A pending create already carries its `ProvisioningRef`. A host
+  built before 3.11.0 treats the unknown value as an unfinished call.
+- **Optional members (since 3.11.0).** They are init members with a `null` or default value, so every constructor keeps
+  its shape and a plugin sets or reads them with an object initializer. `PanelUsage` adds `InodesUsed`, `InodesLimit`,
+  `MailboxesUsed`, `MailboxesLimit`, `DatabasesUsed`, `DatabasesLimit`, `DomainsUsed` and `DomainsLimit`.
+  `PanelSsoContext.TargetPath` is the page of the control panel the link opens on (a path that starts with a slash; a
+  plugin that cannot map it opens the landing page). `PanelCreateAccountContext.Level` and
+  `PanelListAccountsContext.Level` are a `PanelAccountLevel` (`User` or `Reseller`), and `null` means an ordinary account;
+  a panel with no resellers refuses a reseller create with `PanelRefusalReason.Other`.
+  `PanelChangePackageContext.ProductOptions` carries the per product choices the host stores next to the package; ignore
+  a key you do not know.
+- **Addresses.** `PanelServerAddress.BaseUrl(server, defaultPort)` and `BaseUri` build the base address of a server from
+  its saved scheme, host name and port (your default when none is saved), with the brackets an IPv6 literal needs. They
+  refuse a host name that carries a path, a query, credentials or white space with an `ArgumentException`, so use them
+  instead of a copy of your own.
+
+The optional interfaces and capabilities of a panel plugin:
+
+| Interface | Capability | What it adds |
+|---|---|---|
+| `IProvisioningPanelPlugin` | `provisioningPanel` | The operations above |
+| `IProvisioningPanelLoginPlugin` | `provisioningPanelLogin` | Login details and the panel password |
+| `IProvisioningPanelPackagesPlugin` | `provisioningPanelPackages` (needs `provisioningPanel`) | `ListPackagesAsync`: the packages of a server with their limits (`PanelPackageDetails`), read only |
 
 In the plugin's own tests, run the `ProvisioningContract` checks against a stub of your panel:
 `AssertCreateIsIdempotentAsync`, `AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`,
 `AssertTerminateIsIdempotentAsync`, `AssertChangePackageIsIdempotentAsync`, `AssertChangePasswordIsIdempotentAsync`,
-`AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync` and
-`AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the promise that was broken.
+`AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync`,
+`AssertPackagesAreWellFormedAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
+promise that was broken. The idempotency checks accept `Pending`.
 
 #### Login details and a panel password
 
@@ -483,7 +559,26 @@ list must agree with the code. One plugin serves one registrar account: each cal
   `SetDnsManagementAsync`) and the WHOIS lookup (`IRegistrarWhoisPlugin`: `GetWhoisAsync`) extend
   `IRegistrarOperationsPlugin`, each with its own capability (`registrarEmailForwarding`, `registrarDnsManagement`,
   `registrarWhois`). A host treats a plugin that does not implement one as `NotSupported` for it. New operations always
-  arrive as new interfaces, never as members of an existing one.
+  arrive as new interfaces, never as members of an existing one. Since 3.11.0 there are six more:
+
+  | Interface | Capability | Operations |
+  |---|---|---|
+  | `IRegistrarChildNameserversPlugin` | `registrarChildNameservers` | `CreateChildNameserverAsync`, `UpdateChildNameserverAsync`, `DeleteChildNameserverAsync` (a host already gone is `AlreadyApplied`) |
+  | `IRegistrarDnssecPlugin` | `registrarDnssec` | `GetDnssecAsync`, `SetDnssecAsync` (the whole list of `RegistrarDsRecord`; an empty list turns DNSSEC off) |
+  | `IRegistrarRestorePlugin` | `registrarRestore` | `RestoreDomainAsync` from redemption, charged once |
+  | `IRegistrarDomainListPlugin` | `registrarDomainList` | `ListDomainsAsync`, paged by `RegistrarDomainPage.NextCursor`, for import |
+  | `IRegistrarSuggestionsPlugin` | `registrarSuggestions` | `GetSuggestionsAsync`: at most `Limit` names, each with an optional `RegistrarPremiumPrice` |
+  | `IRegistrarBalancePlugin` | `registrarBalance` | `GetBalanceAsync`: a `RegistrarBalance` of currency and amount |
+- **Optional members (since 3.11.0).** They are init members with a default, so every constructor keeps its shape and a
+  plugin that ignores them behaves as before. A registration, a transfer and a contact change carry `RoleContacts` (the
+  administrative, technical and billing contacts; read them with `AdminOr(registrant)`, `TechnicalOr` and `BillingOr`,
+  which fall back to the registrant in one place) and `ExtendedAttributes` (the registry specific attributes of a top
+  level domain, by the registry's own key). A registration and a transfer also carry `Agreement`, the end user's address
+  and the moment they accepted the terms, for a registrar that records consent. `RegistrarTransferContext.Years` is 1 by
+  default. `RegistrarDnsRecord` has `Proxied` and `Comment`, and `RegistrarDnsRecordType.Caa` is a record type. A
+  `RegistrarAvailability` may say why a name cannot be registered or what makes it special in `Reason`
+  (`RegistrarAvailabilityReason`) and carry a `PremiumPrice`; `null` means the registrar did not say. The extended
+  attributes and the agreement address are personal data and print as `***`.
 - **DNS records have no registrar id on the host side.** `RegistrarDnsRecordUpdateContext` carries the record as it is now
   and the content it should have, and `RegistrarDnsRecordRemovalContext` carries the whole record; find the record by type,
   host and value, and use `RegistrarDnsRecord.Id` only when it is given. A delete of a record that is gone is
@@ -499,8 +594,11 @@ In the plugin's own tests, run the `RegistrarContract` checks against a stub of 
 `AssertInitiateOutgoingTransferIsIdempotentAsync`, the matching checks for the optional interfaces
 (`AssertSetEmailForwardingIsIdempotentAsync`, `AssertAddEmailForwardingRuleIsIdempotentAsync`,
 `AssertUpdateEmailForwardingRuleIsIdempotentAsync`, `AssertDeleteEmailForwardingRuleIsIdempotentAsync`,
-`AssertSetDnsManagementIsIdempotentAsync`, `AssertWhoisAnswersAsync`), `AssertReadsAnswerValuesAsync`,
-`AssertUnknownDomainIsNotFoundAsync`, `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws
+`AssertSetDnsManagementIsIdempotentAsync`, `AssertWhoisAnswersAsync`, and since 3.11.0
+`AssertCreateChildNameserverIsIdempotentAsync`, `AssertUpdateChildNameserverIsIdempotentAsync`,
+`AssertDeleteChildNameserverIsIdempotentAsync`, `AssertSetDnssecIsIdempotentAsync`, `AssertRestoreIsIdempotentAsync`),
+`AssertReadsAnswerValuesAsync`, `AssertOptionalReadsAnswerValuesAsync` (the DNSSEC, domain list, suggestion and balance
+reads), `AssertUnknownDomainIsNotFoundAsync`, `AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws
 `PluginContractViolationException` naming the promise that was broken.
 
 ### Virtual server plugins
@@ -541,14 +639,36 @@ vocabulary is the one of the panel contract: the platform arrives as a `PanelSer
 - **Usage** is in bytes, and every figure is optional: report what the platform has.
 - **Suspension.** A platform with no suspension of its own powers the server off and keeps the client from starting it in
   whatever way the platform allows; `UnsuspendServerAsync` lifts that and does not power the server on.
+- **Optional members (since 3.11.0).** `VirtualServerCreateContext.ProductOptions` carries the per product choices the host
+  stores next to the plan (a region, backups, an IPv6 address); ignore a key you do not know and refuse a value you do not
+  accept with `PanelRefusalReason.Other`. `VirtualServerRebuildContext.SshPublicKey` is a key to authorize after the
+  rebuild, which erases the earlier ones. `VirtualServerInstance.PasswordUnknown` is true for a repeated create whose
+  generated password the host never received: answer `AlreadyApplied` with no `GeneratedPassword`, and the host offers a
+  root password reset. An operation the platform finishes in the background answers `Pending`, as for a panel.
+- **Optional interfaces (since 3.11.0).** Each extends `IVirtualServerPlugin`, and its capability needs `virtualServer` as
+  well:
+
+  | Interface | Capability | Operations |
+  |---|---|---|
+  | `IVirtualServerListPlugin` | `virtualServerList` | `ListServersAsync` for reconciliation |
+  | `IVirtualServerSnapshotPlugin` | `virtualServerSnapshots` | List, create (idempotent on the name the host chooses), restore and delete a snapshot |
+  | `IVirtualServerBackupPlugin` | `virtualServerBackups` | The same four operations for backups |
+  | `IVirtualServerFirewallPlugin` | `virtualServerFirewall` | `GetFirewallRulesAsync` and `SetFirewallRulesAsync`, which replaces the whole set of `VirtualServerFirewallRule` |
+
+  Snapshots and backups are listed as `VirtualServerRestorePoint`. A delete of a restore point that is gone is
+  `AlreadyApplied`, never `NotFound`, and a restore replaces the server's disk, so the host sends it only on the client's
+  explicit request. A firewall rule has ports only for TCP and UDP, between 1 and 65535, and a range does not run backwards.
 
 In the plugin's own tests, run the `VirtualServerContract` checks against a stub of your platform:
 `AssertCreateIsIdempotentAsync`, `AssertStartIsIdempotentAsync`, `AssertStopIsIdempotentAsync`,
 `AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`, `AssertTerminateIsIdempotentAsync`,
 `AssertChangePlanIsIdempotentAsync`, `AssertSuspendedServerIsNotStartedAsync`, `AssertUnknownServerIsNotFoundAsync`,
 `AssertReadsAnswerValuesAsync`, `AssertCatalogIsWellFormedAsync`, `AssertListServersIsCompleteAsync`,
-`AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
-promise that was broken.
+`AssertTestConnectionAnswersAsync` and `AssertHidesSecrets`; since 3.11.0 also `AssertLostPasswordIsReportedAsync`,
+`AssertCreateSnapshotIsIdempotentAsync`, `AssertDeleteSnapshotIsIdempotentAsync`, `AssertSnapshotsAreWellFormedAsync`,
+`AssertCreateBackupIsIdempotentAsync`, `AssertDeleteBackupIsIdempotentAsync`, `AssertBackupsAreWellFormedAsync`,
+`AssertSetFirewallRulesIsIdempotentAsync` and `AssertFirewallRulesAreWellFormedAsync`. Each throws
+`PluginContractViolationException` naming the promise that was broken.
 
 ### Choosing the session kind
 
@@ -628,6 +748,24 @@ a plugin that needs an address answers a refusal the host can show, and never in
 personal data. Send it only to your own gateway, never write it to a log, and do not undo that the record prints it as
 `***`. A plugin that does not read it needs no change.
 
+### Payer details, invoice lines and the callback address
+
+Since 3.11.0 `PaymentInstruction` carries optional members for gateways that ask for more than an amount. Every one is
+`null` when the host does not know it, and a plugin that does not read them needs no change.
+
+| Member | What it is | Printed as |
+|---|---|---|
+| `BillingCountry` | The client's billing country, ISO 3166-1 alpha-2 | as it is |
+| `PayerName`, `PayerPhone`, `ClientTaxId` | Personal data of the payer, for a gateway that requires them | `***` |
+| `DueAt` | When the invoice falls due, for a gateway that shows or enforces a deadline | as it is |
+| `Lines` | The invoice lines as `PaymentInvoiceLine(Description, Quantity, UnitAmountMinor)`; compared by reference | as it is |
+| `CallbackBaseUrl` | The absolute public base URL of the plugin's `api.callbacks` routes, no trailing slash | as it is |
+
+Append a declared callback route to `CallbackBaseUrl` to tell the gateway where to notify, so the plugin never has to
+guess its own public address; it is `null` on a host that does not fill it, and then the plugin keeps its own setting.
+It is on the instruction because `CreatePaymentAsync` is the one call that has no `PluginCall`, so no host API. A plugin
+that relies on any of these members sets `minHostVersion` to the first host release that fills them.
+
 ### Stored credential plugins
 
 A payment plugin may also implement `IStoredCredentialPlugin` to keep payment methods at the gateway and charge
@@ -665,7 +803,10 @@ agree with the code.
 - **The instruction.** `StoredChargeInstruction.AmountMinor` is positive, and the host checks `AcceptsCurrency`
   before it calls `ChargeAsync`.
 - A `SavedMethod` that is not a card leaves `Brand` and `Last4` null, and a method that does not expire reports
-  `ExpiryMonth` and `ExpiryYear` as 0.
+  `ExpiryMonth` and `ExpiryYear` as 0. Since 3.11.0 `SavedMethod.Kind` says what the method is (`SavedMethodKind.Card`,
+  `BankAccount`, `Mandate` or `Wallet`; `Card` when a plugin sets nothing, which is what every earlier plugin means), and
+  `SavedMethod.HasExpiry` is true only when both the month and the year are set. A host built on an earlier version
+  ignores `Kind` and shows every method as a card.
 - The host stores no methods: it lists them live through `ListMethodsAsync` and keeps only its consent link to a
   `MethodRef`.
 
@@ -713,7 +854,7 @@ default; pass the smallest unit of the currency for one with another number of d
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
 `showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
-implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `virtualServer` and `virtualServerList` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement` and `registrarWhois` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
+implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `provisioningPanelLogin`, `provisioningPanelPackages`, `virtualServer`, `virtualServerList`, `virtualServerSnapshots`, `virtualServerBackups` and `virtualServerFirewall` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement`, `registrarWhois`, `registrarChildNameservers`, `registrarDnssec`, `registrarRestore`, `registrarDomainList`, `registrarSuggestions` and `registrarBalance` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
 `maxHostVersion` (the range of host versions the plugin runs on, each a semantic version such as `2.1.0`; a missing
 bound means no limit, and the lower may not be above the upper) and `changelog` (notes for this version, at most 4000
 characters). The `id` is lower-case letters and digits,

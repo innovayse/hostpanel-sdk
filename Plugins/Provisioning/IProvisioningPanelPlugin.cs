@@ -27,7 +27,11 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 /// <see cref="PanelConnectionOutcome"/>). A refusal, a missing account and an operation the panel does not have are
 /// outcomes, never exceptions. A refusal carries a <see cref="PanelRefusalReason"/>, not panel text. A plugin throws only
 /// when it does not know what happened, for example when the panel could not be reached or answered something that is not
-/// its API; the host then treats the operation as unfinished and retries it, which is safe because of the next paragraph.
+/// its API; the host then treats the operation as unfinished and retries it, which is safe because of the next paragraph. A panel that
+/// accepts a create, a suspend, a terminate, a package change or a password change and finishes it in the background answers
+/// <see cref="PanelOperationOutcome.Pending"/> through <see cref="PanelActionResult.Pending"/> or
+/// <see cref="PanelCreateResult.Pending"/>; the host repeats the same call later and the repeat answers <c>Pending</c> until
+/// the work is done.
 /// </para>
 /// <para>
 /// Idempotency. The host retries after a lost answer, so a repeat must end in the same state as the first call and must

@@ -15,4 +15,12 @@ public sealed partial record VirtualServerRebuildContext(
     PanelServerConnection Server,
     PanelService Service,
     string ImageId,
-    [property: SecretMember] string RootPassword);
+    [property: SecretMember] string RootPassword)
+{
+    /// <summary>
+    /// Gets a public key to authorize for the root user after the rebuild, or <see langword="null"/> for none. A rebuild erases
+    /// the keys the earlier install had, so the host sends the key again when the client has one. A platform that cannot
+    /// install a key ignores it. Optional and null by default, so existing plugins and hosts are unchanged.
+    /// </summary>
+    public string? SshPublicKey { get; init; }
+}

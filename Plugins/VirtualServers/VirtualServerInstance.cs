@@ -11,4 +11,14 @@ namespace Hostpanel.Sdk.Plugins.VirtualServers;
 /// <param name="IpAddress">The server's primary IPv4 address when the platform already knows it, otherwise <see langword="null"/>.</param>
 /// <param name="Ipv6Address">The server's primary IPv6 address when the platform already knows it, otherwise <see langword="null"/>.</param>
 /// <param name="GeneratedPassword">The root password the platform generated because it cannot set the requested one, or <see langword="null"/> when the requested password was applied. Secret.</param>
-public sealed partial record VirtualServerInstance(string ProvisioningRef, string? IpAddress, string? Ipv6Address, [property: SecretMember] string? GeneratedPassword);
+public sealed partial record VirtualServerInstance(string ProvisioningRef, string? IpAddress, string? Ipv6Address, [property: SecretMember] string? GeneratedPassword)
+{
+    /// <summary>
+    /// Gets whether the platform generated a root password on an earlier create that the host never received, so this answer
+    /// cannot carry one. It is <see langword="true"/> only for a repeated create answered
+    /// <see cref="Enums.PanelOperationOutcome.AlreadyApplied"/>, and then <see cref="GeneratedPassword"/> is <see langword="null"/>:
+    /// the password is lost and the host offers a root password reset instead. Optional and <see langword="false"/> by default,
+    /// so existing plugins and hosts are unchanged.
+    /// </summary>
+    public bool PasswordUnknown { get; init; }
+}
