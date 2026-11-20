@@ -28,4 +28,12 @@ public enum PanelOperationOutcome
 
     /// <summary>The panel has no such operation, for example no usage figures or no single sign on. The host stops offering the feature; it is not a failure.</summary>
     NotSupported = 5,
+
+    /// <summary>
+    /// The panel accepted the operation and finishes it in the background, so the wanted state is not reached yet. It is not a failure and not
+    /// yet a success: the host keeps the service in its working state and repeats the same call later, which answers
+    /// <see cref="Pending"/> while the work runs and <see cref="Succeeded"/> or <see cref="AlreadyApplied"/> once it is done. Only an operation
+    /// whose result has a factory for it can answer this; a host built before this value existed treats an unknown outcome as an unfinished call.
+    /// </summary>
+    Pending = 6,
 }

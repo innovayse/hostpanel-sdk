@@ -341,6 +341,55 @@ public static class ProvisioningContract
     }
 
     /// <summary>
+    /// Lists the packages of a server and asserts that the listing is well formed: the call succeeds with a list (or is not
+    /// supported, and then has no entries to check), every package has a name, no name appears twice and no limit is negative.
+    /// The caller arranges a panel that lists its packages.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="server">The server whose packages are listed.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The packages the plugin listed, or an empty list when it does not support the listing.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="server"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, answered an outcome that does not fit, succeeded without a list, or returned a malformed or repeated package.</exception>
+    public static async Task<IReadOnlyList<PanelPackageDetails>> AssertPackagesAreWellFormedAsync(
+        IProvisioningPanelPackagesPlugin plugin,
+        PanelServerConnection server,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(server);
+
+        const string operation = nameof(IProvisioningPanelPackagesPlugin.ListPackagesAsync);
+        var result = await Checks.AssertReadAnswersValueAsync<ValueResult<IReadOnlyList<PanelPackageDetails>, PanelRefusalReason>, PanelRefusalReason>(
+            operation,
+            () => plugin.ListPackagesAsync(new PanelListPackagesContext(server), ct),
+            true);
+        var packages = result.Value ?? [];
+
+        var names = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var package in packages)
+        {
+            if (package is null || string.IsNullOrWhiteSpace(package.Name))
+            {
+                throw new PluginContractViolationException($"{operation} returned a package without a Name.");
+            }
+
+            if (package.DiskLimitBytes is < 0 || package.BandwidthLimitBytes is < 0 || package.InodesLimit is < 0
+                || package.MailboxesLimit is < 0 || package.DatabasesLimit is < 0 || package.DomainsLimit is < 0)
+            {
+                throw new PluginContractViolationException($"{operation} returned a package with a negative limit; a limit the panel does not report is null.");
+            }
+
+            if (!names.Add(package.Name))
+            {
+                throw new PluginContractViolationException($"{operation} returned a package name twice. Each package must be listed once.");
+            }
+        }
+
+        return packages;
+    }
+
+    /// <summary>
     /// Asserts that the printed form of a result, a context or any other object the plugin produced contains none of the
     /// given secrets. Pass the values the test fed in (the token, the password) and what the test knows the plugin must
     /// not echo; the check reads <c>ToString</c>, which is what a log line or an exception message would show.

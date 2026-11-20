@@ -47,9 +47,43 @@ public sealed class EnumValueTests
     {
         var values = Enum.GetValues<RegistrarDnsRecordType>();
 
-        values.Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5, 6, 7);
-        values.Select(value => value.ToString()).Should().Equal("A", "Aaaa", "Cname", "Mx", "Txt", "Ns", "Srv");
+        values.Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5, 6, 7, 8);
+        values.Select(value => value.ToString()).Should().Equal("A", "Aaaa", "Cname", "Mx", "Txt", "Ns", "Srv", "Caa");
         Enum.IsDefined((RegistrarDnsRecordType)0).Should().BeFalse();
+    }
+
+    /// <summary>The reasons a name cannot be registered are pinned.</summary>
+    [Fact]
+    public void RegistrarAvailabilityReason_Values_ArePinned()
+    {
+        var values = Enum.GetValues<RegistrarAvailabilityReason>();
+
+        values.Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5, 6);
+        values.Select(value => value.ToString()).Should().Equal("Registered", "Reserved", "TldNotSupported", "InvalidName", "Premium", "Other");
+        Enum.IsDefined((RegistrarAvailabilityReason)0).Should().BeFalse();
+    }
+
+    /// <summary>The kinds of a saved payment method are pinned; the card is 0, the default of a method built before kinds existed.</summary>
+    [Fact]
+    public void SavedMethodKind_Values_ArePinned()
+    {
+        var values = Enum.GetValues<SavedMethodKind>();
+
+        values.Select(value => (int)value).Should().Equal(0, 1, 2, 3);
+        values.Select(value => value.ToString()).Should().Equal("Card", "BankAccount", "Mandate", "Wallet");
+        default(SavedMethodKind).Should().Be(SavedMethodKind.Card);
+    }
+
+    /// <summary>The enums of a virtual server firewall rule are pinned, and zero is never valid.</summary>
+    [Fact]
+    public void VirtualServerFirewall_Values_ArePinned()
+    {
+        Enum.GetValues<VirtualServerFirewallDirection>().Select(value => (int)value).Should().Equal(1, 2);
+        Enum.GetValues<VirtualServerFirewallAction>().Select(value => (int)value).Should().Equal(1, 2);
+        Enum.GetValues<VirtualServerFirewallProtocol>().Select(value => (int)value).Should().Equal(1, 2, 3, 4);
+        Enum.IsDefined((VirtualServerFirewallDirection)0).Should().BeFalse();
+        Enum.IsDefined((VirtualServerFirewallAction)0).Should().BeFalse();
+        Enum.IsDefined((VirtualServerFirewallProtocol)0).Should().BeFalse();
     }
 
     /// <summary>The power states of a virtual server are pinned.</summary>
@@ -84,8 +118,20 @@ public sealed class EnumValueTests
     [Fact]
     public void SharedOutcomes_Values_ArePinned()
     {
-        Enum.GetValues<PanelOperationOutcome>().Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5);
+        Enum.GetValues<PanelOperationOutcome>().Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5, 6);
+        Enum.GetValues<PanelAccountLevel>().Select(value => (int)value).Should().Equal(1, 2);
         Enum.GetValues<PanelConnectionOutcome>().Select(value => (int)value).Should().Equal(1, 2, 3, 4);
         Enum.GetValues<PluginType>().Select(value => (int)value).Should().Equal(0, 1, 2, 3, 4, 5, 6, 7);
+    }
+
+    /// <summary>The registrar connection roles are explicit values from 1, and zero is not a role.</summary>
+    [Fact]
+    public void RegistrarConnectionRole_Values_ArePinned()
+    {
+        var values = Enum.GetValues<RegistrarConnectionRole>();
+
+        values.Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5);
+        values.Select(value => value.ToString()).Should().Equal("AccountName", "ApiKey", "ApiUrl", "ClientIp", "TestMode");
+        Enum.IsDefined((RegistrarConnectionRole)0).Should().BeFalse();
     }
 }

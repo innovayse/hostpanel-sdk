@@ -99,6 +99,7 @@ public static partial class PluginManifestChecker
             ?? CheckChangelog(manifest.Changelog)
             ?? CheckAccountIdLabel(manifest.ServerAccountIdLabel)
             ?? CheckAgentProfile(manifest.AgentProfile)
+            ?? CheckConnectionRoles(manifest)
             ?? CheckTextKeys(manifest);
     }
 
@@ -452,6 +453,68 @@ public static partial class PluginManifestChecker
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Checks the <c>connectionRole</c> of the settings: only a registrar plugin declares one, each role once, each on a
+    /// setting of the type it needs, and a plugin that declares any declares at least the account name and the API key.
+    /// </summary>
+    /// <param name="manifest">The manifest.</param>
+    /// <returns>The first violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckConnectionRoles(PluginManifest manifest)
+    {
+        HashSet<RegistrarConnectionRole> seen = [];
+        foreach (var setting in manifest.Settings)
+        {
+            if (setting.ConnectionRole is not { } role)
+            {
+                continue;
+            }
+
+            if (manifest.Type != PluginType.Registrar)
+            {
+                return new PluginManifestViolation(
+                    PluginManifestRule.ConnectionRoleNotRegistrar,
+                    $"settings '{setting.Key}' connectionRole: only a registrar plugin declares one");
+            }
+
+            if (!seen.Add(role))
+            {
+                return new PluginManifestViolation(
+                    PluginManifestRule.ConnectionRoleDuplicate,
+                    $"settings '{setting.Key}' connectionRole: {role} is declared more than once");
+            }
+
+            if (RequiredSettingType(role) is { } required && setting.Type != required)
+            {
+                return new PluginManifestViolation(
+                    PluginManifestRule.ConnectionRoleTypeMismatch,
+                    $"settings '{setting.Key}' connectionRole: {role} needs a setting of type {required}");
+            }
+        }
+
+        if (seen.Count > 0 && !(seen.Contains(RegistrarConnectionRole.AccountName) && seen.Contains(RegistrarConnectionRole.ApiKey)))
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.ConnectionRolesIncomplete,
+                $"settings: a registrar plugin that declares a connectionRole declares {RegistrarConnectionRole.AccountName} and {RegistrarConnectionRole.ApiKey}");
+        }
+
+        return null;
+    }
+
+    /// <summary>The setting type a connection role needs.</summary>
+    /// <param name="role">The role.</param>
+    /// <returns>The one type the role is allowed on, or <see langword="null"/> when any type fits.</returns>
+    private static PluginSettingType? RequiredSettingType(RegistrarConnectionRole role)
+    {
+        return role switch
+        {
+            RegistrarConnectionRole.ApiKey => PluginSettingType.Secret,
+            RegistrarConnectionRole.ApiUrl => PluginSettingType.Url,
+            RegistrarConnectionRole.TestMode => PluginSettingType.Boolean,
+            _ => null,
+        };
     }
 
     /// <summary>Checks the <c>tags</c> list: at most <see cref="PluginTags.MaxCount"/> tags, each well formed, none twice.</summary>

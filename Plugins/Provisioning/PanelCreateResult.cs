@@ -5,13 +5,13 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 
 /// <summary>
 /// Result of <see cref="IProvisioningPanelPlugin.CreateAccountAsync"/>. Build it with <see cref="Created"/>,
-/// <see cref="AlreadyExists"/> or <see cref="Refused"/>. It carries no panel text and no secret.
+/// <see cref="AlreadyExists"/>, <see cref="Pending"/> or <see cref="Refused"/>. It carries no panel text and no secret.
 /// </summary>
 /// <param name="Outcome">
 /// <see cref="PanelOperationOutcome.Succeeded"/> (created now), <see cref="PanelOperationOutcome.AlreadyApplied"/> (the account
-/// already existed under the requested user name) or <see cref="PanelOperationOutcome.Refused"/>. A create has no other outcome.
+/// already existed under the requested user name), <see cref="PanelOperationOutcome.Pending"/> (accepted, still being created) or <see cref="PanelOperationOutcome.Refused"/>. A create has no other outcome.
 /// </param>
-/// <param name="ProvisioningRef">The panel's reference for the account; set for <c>Succeeded</c> and <c>AlreadyApplied</c>, <see langword="null"/> when refused. Stable: a retry answers the same value.</param>
+/// <param name="ProvisioningRef">The panel's reference for the account; set for <c>Succeeded</c>, <c>AlreadyApplied</c> and <c>Pending</c>, <see langword="null"/> when refused. Stable: a retry answers the same value.</param>
 /// <param name="ExistingDomain">The primary domain of the account that already exists, for <c>AlreadyApplied</c> when the panel can tell; otherwise <see langword="null"/>. The host uses it to tell its own earlier attempt from an account that belongs to someone else.</param>
 /// <param name="ControlPanelUrl">The address of the account's own control panel login page when the panel can tell, otherwise <see langword="null"/>. A plain address, not a sign-in link: it carries no session or token.</param>
 /// <param name="Reason">Why the panel refused; set exactly when <paramref name="Outcome"/> is <c>Refused</c>.</param>
@@ -40,6 +40,18 @@ public sealed record PanelCreateResult(
     public static PanelCreateResult AlreadyExists(string provisioningRef, string? existingDomain, string? controlPanelUrl = null)
     {
         return new PanelCreateResult(PanelOperationOutcome.AlreadyApplied, provisioningRef, existingDomain, controlPanelUrl, null);
+    }
+
+    /// <summary>
+    /// Builds the answer for a create the panel accepted and finishes in the background. The account already has its
+    /// reference, so the host keeps it; the host repeats the same create later, and the repeat answers
+    /// <see cref="PanelOperationOutcome.Pending"/> until the account is ready, then <see cref="PanelOperationOutcome.AlreadyApplied"/>.
+    /// </summary>
+    /// <param name="provisioningRef">The panel's reference for the account being created; the same value on every repeat.</param>
+    /// <returns>A <see cref="PanelOperationOutcome.Pending"/> result.</returns>
+    public static PanelCreateResult Pending(string provisioningRef)
+    {
+        return new PanelCreateResult(PanelOperationOutcome.Pending, provisioningRef, null, null, null);
     }
 
     /// <summary>Builds the answer for a create the panel refused.</summary>

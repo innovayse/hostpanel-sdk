@@ -5,7 +5,7 @@ namespace Hostpanel.Sdk.Plugins.Provisioning;
 
 /// <summary>
 /// Result of an operation that changes an account or a virtual server and returns nothing else: suspend, unsuspend, terminate, change package
-/// and change password, or on a virtual server start, stop, reboot and change plan. Build it with <see cref="Done"/>, <see cref="AlreadyDone"/>, <see cref="NotFound"/>,
+/// and change password, or on a virtual server start, stop, reboot and change plan. Build it with <see cref="Done"/>, <see cref="AlreadyDone"/>, <see cref="Pending"/>, <see cref="NotFound"/>,
 /// <see cref="NotSupported"/> or <see cref="Refused"/>. It carries no panel text and no secret.
 /// </summary>
 /// <param name="Outcome">How the panel answered.</param>
@@ -25,6 +25,17 @@ public sealed record PanelActionResult(PanelOperationOutcome Outcome, PanelRefus
     public static PanelActionResult AlreadyDone()
     {
         return new PanelActionResult(PanelOperationOutcome.AlreadyApplied, null);
+    }
+
+    /// <summary>
+    /// Builds the answer for an operation the panel accepted and finishes in the background. The host repeats the same call
+    /// later, and the repeat answers <see cref="PanelOperationOutcome.Pending"/> until the work is done, then
+    /// <see cref="PanelOperationOutcome.Succeeded"/> or <see cref="PanelOperationOutcome.AlreadyApplied"/>.
+    /// </summary>
+    /// <returns>A <see cref="PanelOperationOutcome.Pending"/> result.</returns>
+    public static PanelActionResult Pending()
+    {
+        return new PanelActionResult(PanelOperationOutcome.Pending, null);
     }
 
     /// <summary>Builds the answer for an account the panel does not hold.</summary>

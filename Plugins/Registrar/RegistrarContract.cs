@@ -16,6 +16,15 @@ namespace Hostpanel.Sdk.Plugins.Registrar;
 /// </summary>
 public static class RegistrarContract
 {
+    /// <summary>The search term of the suggestion read.</summary>
+    private const string ContractSearchTerm = "example";
+
+    /// <summary>The most suggestions the suggestion read asks for.</summary>
+    private const int ContractSuggestionLimit = 5;
+
+    /// <summary>The name of the nameserver host for the checks that need one, under the documentation domain the contract uses.</summary>
+    private const string ContractHostName = "ns1.example.test";
+
     /// <summary>The checks this contract shares with the other contracts, worded for a registrar.</summary>
     private static readonly ContractChecks Checks = new(new ContractWords("domain", "a domain", "registrar", nameof(RegistrarOrder.RegistrarRef), "the work was done again. A repeat of the same call must answer AlreadyApplied."));
 
@@ -35,6 +44,9 @@ public static class RegistrarContract
 
     /// <summary>A DNS record for the checks that need one.</summary>
     private static readonly RegistrarDnsRecord ContractRecord = new(null, RegistrarDnsRecordType.A, "@", "192.0.2.1", 300, null);
+
+    /// <summary>A delegation signer record for the checks that need one.</summary>
+    private static readonly RegistrarDsRecord ContractDsRecord = new(12345, 13, 2, "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF");
 
     /// <summary>
     /// Calls <see cref="IRegistrarOperationsPlugin.RegisterAsync"/> repeatedly with one context and asserts the promise of
@@ -485,6 +497,175 @@ public static class RegistrarContract
     }
 
     /// <summary>
+    /// Calls <see cref="IRegistrarChildNameserversPlugin.CreateChildNameserverAsync"/> repeatedly and asserts that every call
+    /// answers <c>Succeeded</c> or <c>AlreadyApplied</c>. The caller arranges a domain the registrar holds and a host name
+    /// it accepts.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The creation to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered anything but <c>Succeeded</c> or <c>AlreadyApplied</c>.</exception>
+    public static Task<OperationResult<RegistrarRefusalReason>> AssertCreateChildNameserverIsIdempotentAsync(
+        IRegistrarChildNameserversPlugin plugin,
+        RegistrarChildNameserverContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return AssertActionIsIdempotentAsync(nameof(IRegistrarChildNameserversPlugin.CreateChildNameserverAsync), () => plugin.CreateChildNameserverAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Calls <see cref="IRegistrarChildNameserversPlugin.UpdateChildNameserverAsync"/> repeatedly and asserts that every call
+    /// answers <c>Succeeded</c> or <c>AlreadyApplied</c>. The caller arranges a host that exists.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The update to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered anything but <c>Succeeded</c> or <c>AlreadyApplied</c>.</exception>
+    public static Task<OperationResult<RegistrarRefusalReason>> AssertUpdateChildNameserverIsIdempotentAsync(
+        IRegistrarChildNameserversPlugin plugin,
+        RegistrarChildNameserverContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return AssertActionIsIdempotentAsync(nameof(IRegistrarChildNameserversPlugin.UpdateChildNameserverAsync), () => plugin.UpdateChildNameserverAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Calls <see cref="IRegistrarChildNameserversPlugin.DeleteChildNameserverAsync"/> repeatedly and asserts that every call
+    /// answers <c>Succeeded</c> or <c>AlreadyApplied</c>: a host that is already gone is <c>AlreadyApplied</c>, never
+    /// <c>NotFound</c>. The caller arranges a domain the registrar holds.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The deletion to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered anything but <c>Succeeded</c> or <c>AlreadyApplied</c>.</exception>
+    public static Task<OperationResult<RegistrarRefusalReason>> AssertDeleteChildNameserverIsIdempotentAsync(
+        IRegistrarChildNameserversPlugin plugin,
+        RegistrarChildNameserverRemovalContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return AssertActionIsIdempotentAsync(nameof(IRegistrarChildNameserversPlugin.DeleteChildNameserverAsync), () => plugin.DeleteChildNameserverAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Calls <see cref="IRegistrarDnssecPlugin.SetDnssecAsync"/> repeatedly and asserts that every call answers
+    /// <c>Succeeded</c> or <c>AlreadyApplied</c>. The caller arranges a domain the registrar holds and records it accepts.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The change to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered anything but <c>Succeeded</c> or <c>AlreadyApplied</c>.</exception>
+    public static Task<OperationResult<RegistrarRefusalReason>> AssertSetDnssecIsIdempotentAsync(
+        IRegistrarDnssecPlugin plugin,
+        RegistrarDnssecContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return AssertActionIsIdempotentAsync(nameof(IRegistrarDnssecPlugin.SetDnssecAsync), () => plugin.SetDnssecAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Calls <see cref="IRegistrarRestorePlugin.RestoreDomainAsync"/> repeatedly and asserts that the first call restores the
+    /// domain and every later call answers <see cref="PanelOperationOutcome.AlreadyApplied"/> with the same reference: the
+    /// domain is not restored, and charged, twice. The caller arranges a domain in its redemption period.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The restore to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, restored twice, or changed the reference.</exception>
+    public static Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> AssertRestoreIsIdempotentAsync(
+        IRegistrarRestorePlugin plugin,
+        RegistrarDomainContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return AssertOrderIsIdempotentAsync(nameof(IRegistrarRestorePlugin.RestoreDomainAsync), () => plugin.RestoreDomainAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Asserts that every optional read the plugin implements answers a value: the DNSSEC records of a domain
+    /// (<see cref="IRegistrarDnssecPlugin"/>), the list of domains (<see cref="IRegistrarDomainListPlugin"/>), the name
+    /// suggestions (<see cref="IRegistrarSuggestionsPlugin"/>) and the balance (<see cref="IRegistrarBalancePlugin"/>). An
+    /// optional interface the plugin does not implement is skipped. Each read may be <c>NotSupported</c>, as its interface
+    /// allows, and any other outcome but <c>Succeeded</c> is a broken promise. The caller arranges a registrar that holds the
+    /// domain.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="knownDomain">The registrar account and a domain it holds.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when every check passed.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="knownDomain"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, answered an outcome that does not fit, or succeeded without a value.</exception>
+    public static async Task AssertOptionalReadsAnswerValuesAsync(
+        IRegistrarOperationsPlugin plugin,
+        RegistrarDomainContext knownDomain,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(knownDomain);
+
+        if (plugin is IRegistrarDnssecPlugin dnssec)
+        {
+            await ReadAsync(nameof(IRegistrarDnssecPlugin.GetDnssecAsync), () => dnssec.GetDnssecAsync(knownDomain, ct), true);
+        }
+
+        if (plugin is IRegistrarDomainListPlugin domainList)
+        {
+            await ReadAsync(nameof(IRegistrarDomainListPlugin.ListDomainsAsync), () => domainList.ListDomainsAsync(new RegistrarDomainListContext(knownDomain.Connection, null), ct), true);
+        }
+
+        if (plugin is IRegistrarSuggestionsPlugin suggestions)
+        {
+            await ReadAsync(
+                nameof(IRegistrarSuggestionsPlugin.GetSuggestionsAsync),
+                () => suggestions.GetSuggestionsAsync(new RegistrarSuggestionsContext(knownDomain.Connection, ContractSearchTerm, [], ContractSuggestionLimit), ct),
+                true);
+        }
+
+        if (plugin is IRegistrarBalancePlugin balance)
+        {
+            await ReadAsync(nameof(IRegistrarBalancePlugin.GetBalanceAsync), () => balance.GetBalanceAsync(new RegistrarBalanceContext(knownDomain.Connection), ct), true);
+        }
+    }
+
+    /// <summary>
     /// Asserts that every read and list of a domain the registrar holds answers a value: the availability of the domain
     /// name, the contact, the DNS records, the authorization code, the check on a pending order and the
     /// price list. A read that succeeds without a value is a broken promise, and so is any outcome but <c>Succeeded</c>,
@@ -535,8 +716,9 @@ public static class RegistrarContract
     /// Asserts how the plugin treats a domain the registrar does not hold. Every read and every change answers
     /// <c>NotFound</c>, except that the operations a registrar may lack (the authorization code, the DNS records and their
     /// changes, the switches, the transfer cancel and prepare) may answer <c>NotSupported</c> instead. The optional
-    /// operations of <see cref="IRegistrarEmailForwardingPlugin"/>, <see cref="IRegistrarDnsManagementPlugin"/> and
-    /// <see cref="IRegistrarWhoisPlugin"/> are checked the same way when the plugin implements them. No call throws. The
+    /// operations of <see cref="IRegistrarEmailForwardingPlugin"/>, <see cref="IRegistrarDnsManagementPlugin"/>,
+    /// <see cref="IRegistrarWhoisPlugin"/>, <see cref="IRegistrarChildNameserversPlugin"/>, <see cref="IRegistrarDnssecPlugin"/>
+    /// and <see cref="IRegistrarRestorePlugin"/> are checked the same way when the plugin implements them. No call throws. The
     /// caller arranges a registrar that holds no domain under the name and reference in <paramref name="unknownDomain"/>.
     /// </summary>
     /// <param name="plugin">The plugin under test.</param>
@@ -640,6 +822,34 @@ public static class RegistrarContract
             await ExpectDataAsync(
                 nameof(IRegistrarWhoisPlugin.GetWhoisAsync),
                 () => whois.GetWhoisAsync(new RegistrarWhoisContext(connection, domain.Name), ct),
+                PanelOperationOutcome.NotFound,
+                PanelOperationOutcome.NotSupported);
+        }
+
+        if (plugin is IRegistrarChildNameserversPlugin childNameservers)
+        {
+            await ExpectUnknownChildNameserversAsync(childNameservers, connection, domain, ct);
+        }
+
+        if (plugin is IRegistrarDnssecPlugin dnssec)
+        {
+            await ExpectDataAsync(
+                nameof(IRegistrarDnssecPlugin.GetDnssecAsync),
+                () => dnssec.GetDnssecAsync(unknownDomain, ct),
+                PanelOperationOutcome.NotFound,
+                PanelOperationOutcome.NotSupported);
+            await ExpectActionAsync(
+                nameof(IRegistrarDnssecPlugin.SetDnssecAsync),
+                () => dnssec.SetDnssecAsync(new RegistrarDnssecContext(connection, domain, [ContractDsRecord]), ct),
+                PanelOperationOutcome.NotFound,
+                PanelOperationOutcome.NotSupported);
+        }
+
+        if (plugin is IRegistrarRestorePlugin restore)
+        {
+            await ExpectDataAsync(
+                nameof(IRegistrarRestorePlugin.RestoreDomainAsync),
+                () => restore.RestoreDomainAsync(unknownDomain, ct),
                 PanelOperationOutcome.NotFound,
                 PanelOperationOutcome.NotSupported);
         }
@@ -753,6 +963,37 @@ public static class RegistrarContract
         where T : class
     {
         return Checks.AssertReadAnswersValueAsync<ValueResult<T, RegistrarRefusalReason>, RegistrarRefusalReason>(operation, invoke, mayBeUnsupported);
+    }
+
+    /// <summary>Asserts that the child nameserver operations answer not found, or not supported, for a domain the registrar does not hold.</summary>
+    /// <param name="childNameservers">The plugin under test.</param>
+    /// <param name="connection">The registrar account.</param>
+    /// <param name="domain">The domain the registrar does not hold.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when every check passed.</returns>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/> or answered an outcome the promise does not allow.</exception>
+    private static async Task ExpectUnknownChildNameserversAsync(
+        IRegistrarChildNameserversPlugin childNameservers,
+        RegistrarConnection connection,
+        RegistrarDomain domain,
+        CancellationToken ct)
+    {
+        var host = new RegistrarChildNameserverContext(connection, domain, ContractHostName, ["192.0.2.53"]);
+        await ExpectActionAsync(
+            nameof(IRegistrarChildNameserversPlugin.CreateChildNameserverAsync),
+            () => childNameservers.CreateChildNameserverAsync(host, ct),
+            PanelOperationOutcome.NotFound,
+            PanelOperationOutcome.NotSupported);
+        await ExpectActionAsync(
+            nameof(IRegistrarChildNameserversPlugin.UpdateChildNameserverAsync),
+            () => childNameservers.UpdateChildNameserverAsync(host, ct),
+            PanelOperationOutcome.NotFound,
+            PanelOperationOutcome.NotSupported);
+        await ExpectActionAsync(
+            nameof(IRegistrarChildNameserversPlugin.DeleteChildNameserverAsync),
+            () => childNameservers.DeleteChildNameserverAsync(new RegistrarChildNameserverRemovalContext(connection, domain, ContractHostName), ct),
+            PanelOperationOutcome.NotFound,
+            PanelOperationOutcome.NotSupported);
     }
 
     /// <summary>Asserts that the e-mail forwarding operations answer not found, or not supported, for a domain the registrar does not hold.</summary>

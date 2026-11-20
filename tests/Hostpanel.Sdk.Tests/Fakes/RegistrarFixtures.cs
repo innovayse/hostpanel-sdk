@@ -74,6 +74,24 @@ internal static class RegistrarFixtures
     /// <summary>Gets a WHOIS lookup.</summary>
     public static RegistrarWhoisContext Whois { get; } = new(Connection, "example.test");
 
+    /// <summary>Gets a delegation signer record.</summary>
+    public static RegistrarDsRecord DsRecord { get; } = new(12345, 13, 2, "0123456789ABCDEF");
+
+    /// <summary>Gets the creation or update of a child nameserver host.</summary>
+    public static RegistrarChildNameserverContext ChildNameserver { get; } = new(Connection, Domain, "ns1.example.test", ["192.0.2.53"]);
+
+    /// <summary>Gets the removal of a child nameserver host.</summary>
+    public static RegistrarChildNameserverRemovalContext ChildNameserverRemoval { get; } = new(Connection, Domain, "ns1.example.test");
+
+    /// <summary>Gets a replacement of the delegation signer records.</summary>
+    public static RegistrarDnssecContext Dnssec { get; } = new(Connection, Domain, [DsRecord]);
+
+    /// <summary>Gets a technical contact that differs from the registrant.</summary>
+    public static RegistrarContact TechnicalContact { get; } = Contact with { FirstName = "Charles", LastName = "Babbage", Email = "charles@example.test" };
+
+    /// <summary>Gets the acceptance of the registrar's terms, with an address that must never be printed.</summary>
+    public static RegistrarAgreement Agreement { get; } = new("198.51.100.77", DateTimeOffset.UnixEpoch);
+
     /// <summary>Gets a connection test.</summary>
     public static RegistrarTestConnectionContext Test { get; } = new(Connection);
 }

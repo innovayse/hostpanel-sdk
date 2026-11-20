@@ -137,7 +137,7 @@ public static class PanelTransportContract
         {
             try
             {
-                using var response = await client.GetAsync($"https://{FormatHost(host)}:{port}/", ct);
+                using var response = await client.GetAsync($"https://{PanelServerAddress.FormatHost(host)}:{port}/", ct);
                 return response.IsSuccessStatusCode;
             }
             catch (HttpRequestException ex) when (ex.InnerException is AuthenticationException)
@@ -152,13 +152,5 @@ public static class PanelTransportContract
                     "listener unreachable), so the check says nothing about trust.");
             }
         }
-    }
-
-    /// <summary>Puts an IPv6 literal in the brackets an address needs; any other host name is unchanged.</summary>
-    /// <param name="host">The host name or address.</param>
-    /// <returns>The host as it is written in an address.</returns>
-    private static string FormatHost(string host)
-    {
-        return host.Contains(':') && !host.StartsWith('[') ? $"[{host}]" : host;
     }
 }

@@ -26,6 +26,12 @@ public static class PluginCapabilities
     public const string ProvisioningPanelLogin = "provisioningPanelLogin";
 
     /// <summary>
+    /// The provisioning plugin also implements <see cref="Hostpanel.Sdk.Plugins.Provisioning.IProvisioningPanelPackagesPlugin"/>, which lists
+    /// the packages a server offers with their limits. It needs <see cref="ProvisioningPanel"/> as well.
+    /// </summary>
+    public const string ProvisioningPanelPackages = "provisioningPanelPackages";
+
+    /// <summary>
     /// The provisioning plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerPlugin"/>, the
     /// operations of a virtual server or cloud platform. The plugin type stays <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.Provisioning"/>:
     /// a virtual server is a service provisioned on a server the host knows, like a hosting account.
@@ -44,8 +50,52 @@ public static class PluginCapabilities
     /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarWhoisPlugin"/>, the WHOIS lookup.</summary>
     public const string RegistrarWhois = "registrarWhois";
 
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarChildNameserversPlugin"/>, the child nameserver hosts of a domain.</summary>
+    public const string RegistrarChildNameservers = "registrarChildNameservers";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarDnssecPlugin"/>, the DNSSEC delegation signer records of a domain.</summary>
+    public const string RegistrarDnssec = "registrarDnssec";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarRestorePlugin"/>, the restore of a domain from redemption.</summary>
+    public const string RegistrarRestore = "registrarRestore";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarDomainListPlugin"/>, the listing of the domains an account holds, for import.</summary>
+    public const string RegistrarDomainList = "registrarDomainList";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarSuggestionsPlugin"/>, domain name suggestions.</summary>
+    public const string RegistrarSuggestions = "registrarSuggestions";
+
+    /// <summary>The registrar plugin also implements <see cref="Hostpanel.Sdk.Plugins.Registrar.IRegistrarBalancePlugin"/>, the balance of the registrar account.</summary>
+    public const string RegistrarBalance = "registrarBalance";
+
     /// <summary>The virtual server plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerListPlugin"/>, the listing of the servers a platform holds, for reconciliation.</summary>
     public const string VirtualServerList = "virtualServerList";
+
+    /// <summary>
+    /// The virtual server plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerSnapshotPlugin"/>,
+    /// the snapshots of a server. It needs <see cref="VirtualServer"/> as well.
+    /// </summary>
+    public const string VirtualServerSnapshots = "virtualServerSnapshots";
+
+    /// <summary>
+    /// The virtual server plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerBackupPlugin"/>,
+    /// the backups of a server. It needs <see cref="VirtualServer"/> as well.
+    /// </summary>
+    public const string VirtualServerBackups = "virtualServerBackups";
+
+    /// <summary>
+    /// The virtual server plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerFirewallPlugin"/>,
+    /// the firewall rules of a server. It needs <see cref="VirtualServer"/> as well.
+    /// </summary>
+    public const string VirtualServerFirewall = "virtualServerFirewall";
+
+    /// <summary>
+    /// The virtual server plugin promises that <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerPlugin.CreateConsoleSessionAsync"/>
+    /// is supported, so the host shows the console action up front. A plugin that does not declare it may still answer
+    /// <see cref="Hostpanel.Sdk.Plugins.Enums.PanelOperationOutcome.NotSupported"/> when the call is made. It needs
+    /// <see cref="VirtualServer"/> as well.
+    /// </summary>
+    public const string VirtualServerConsole = "virtualServerConsole";
 
     /// <summary>
     /// Any plugin type may declare it. It means the plugin class also implements

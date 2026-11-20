@@ -1,6 +1,6 @@
 namespace Hostpanel.Sdk.Plugins.Enums;
 
-/// <summary>The type of a DNS record in the zone a registrar hosts. The values start at 1 and 0 is not valid.</summary>
+/// <summary>The type of a DNS record in the zone a registrar hosts. The values start at 1 and 0 is not valid. New values are only ever appended.</summary>
 public enum RegistrarDnsRecordType
 {
     /// <summary>An IPv4 address.</summary>
@@ -23,4 +23,7 @@ public enum RegistrarDnsRecordType
 
     /// <summary>A service locator; the record has a priority.</summary>
     Srv = 7,
+
+    /// <summary>A certification authority authorization: the value holds the flag, the tag and the authority, as the registrar writes it.</summary>
+    Caa = 8,
 }

@@ -28,7 +28,7 @@ internal sealed class ContractChecks : ContractCalls
     }
 
     /// <summary>
-    /// Calls an operation repeatedly and asserts that each call answers <c>Succeeded</c> or <c>AlreadyApplied</c>.
+    /// Calls an operation repeatedly and asserts that each call answers <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>.
     /// </summary>
     /// <typeparam name="TResult">The result type of the operation.</typeparam>
     /// <typeparam name="TReason">The refusal reason enum of the contract.</typeparam>
@@ -55,7 +55,7 @@ internal sealed class ContractChecks : ContractCalls
 
     /// <summary>
     /// Makes one call of an idempotent operation and checks what every call must satisfy: the answer has a defined shape
-    /// and is <c>Succeeded</c> or <c>AlreadyApplied</c>.
+    /// and is <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c> (the other side finishes the work in the background).
     /// </summary>
     /// <typeparam name="TResult">The result type of the operation.</typeparam>
     /// <typeparam name="TReason">The refusal reason enum of the contract.</typeparam>
@@ -71,10 +71,10 @@ internal sealed class ContractChecks : ContractCalls
         var result = await CallAsync(operation, call, invoke);
         CheckShape(operation, call, result.Outcome, result.Reason, PanelOperationOutcome.Refused);
 
-        if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
+        if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied or PanelOperationOutcome.Pending))
         {
             throw new PluginContractViolationException(
-                $"{operation} answered {result.Outcome} on call {call}. The caller must arrange {_words.IndefiniteTarget} the {_words.Other} accepts the operation for, and a repeat must answer Succeeded or AlreadyApplied.");
+                $"{operation} answered {result.Outcome} on call {call}. The caller must arrange {_words.IndefiniteTarget} the {_words.Other} accepts the operation for, and a repeat must answer Succeeded, AlreadyApplied or Pending.");
         }
 
         return result;
@@ -83,7 +83,8 @@ internal sealed class ContractChecks : ContractCalls
     /// <summary>
     /// Calls an operation that creates or orders something repeatedly and asserts the promise of such an operation: the
     /// first call does it (or finds what an earlier attempt did), every later call answers
-    /// <see cref="PanelOperationOutcome.AlreadyApplied"/> with the same reference, and no call throws.
+    /// <see cref="PanelOperationOutcome.AlreadyApplied"/> with the same reference (or <see cref="PanelOperationOutcome.Pending"/>
+    /// while the work an earlier call answered <c>Pending</c> for is still running), and no call throws.
     /// </summary>
     /// <typeparam name="TResult">The result type of the operation.</typeparam>
     /// <typeparam name="TReason">The refusal reason enum of the contract.</typeparam>
@@ -105,11 +106,15 @@ internal sealed class ContractChecks : ContractCalls
         ArgumentOutOfRangeException.ThrowIfLessThan(calls, 2);
 
         var (first, firstReference) = await OrderStepAsync<TResult, TReason>(operation, 1, invoke, referenceOf);
+        var previous = first.Outcome;
         for (var call = 2; call <= calls; call++)
         {
             var (result, reference) = await OrderStepAsync<TResult, TReason>(operation, call, invoke, referenceOf);
 
-            if (result.Outcome != PanelOperationOutcome.AlreadyApplied)
+            // A create still running in the background keeps answering Pending until it is done; only then does a repeat answer AlreadyApplied.
+            var stillPending = previous == PanelOperationOutcome.Pending && result.Outcome == PanelOperationOutcome.Pending;
+            previous = result.Outcome;
+            if (result.Outcome != PanelOperationOutcome.AlreadyApplied && !stillPending)
             {
                 throw new PluginContractViolationException(
                     $"{operation} answered {result.Outcome} on call {call}: {_words.CreatedAgain}");
@@ -127,7 +132,7 @@ internal sealed class ContractChecks : ContractCalls
 
     /// <summary>
     /// Makes one call of a create or an order and checks what every call must satisfy: the answer has a defined shape, it is
-    /// a success or an already applied, and it carries a reference.
+    /// a success, an already applied or a pending, and it carries a reference.
     /// </summary>
     /// <typeparam name="TResult">The result type of the operation.</typeparam>
     /// <typeparam name="TReason">The refusal reason enum of the contract.</typeparam>
@@ -148,10 +153,10 @@ internal sealed class ContractChecks : ContractCalls
         var result = await CallAsync(operation, call, invoke);
         CheckShape(operation, call, result.Outcome, result.Reason, PanelOperationOutcome.Refused);
 
-        if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied))
+        if (result.Outcome is not (PanelOperationOutcome.Succeeded or PanelOperationOutcome.AlreadyApplied or PanelOperationOutcome.Pending))
         {
             throw new PluginContractViolationException(
-                $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a create the {_words.Other} accepts, and a repeat must answer AlreadyApplied.");
+                $"{operation} answered {result.Outcome} on call {call}. The caller must arrange a create the {_words.Other} accepts, and a repeat must answer AlreadyApplied (or Pending while the work is still running).");
         }
 
         var reference = referenceOf(result);
