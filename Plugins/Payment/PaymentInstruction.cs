@@ -88,7 +88,7 @@ public sealed partial record PaymentInstruction(
 
     /// <summary>
     /// Gets the absolute public base URL under which the host serves this plugin's <c>api.callbacks</c> routes, with no
-    /// trailing slash, for example <c>https://panel.example/api/plugins/acme-pay/callbacks</c>. A plugin appends a declared
+    /// trailing slash, for example <c>https://panel.example/api/plugins/acme-pay/callback</c>. A plugin appends a declared
     /// callback route to it to tell the gateway where to send notifications, so it never has to guess its own public address.
     /// It sits on the instruction because <see cref="IPaymentPlugin.CreatePaymentAsync"/> is the one call that has no
     /// <see cref="Endpoints.PluginCall"/> and so no host API. It is not a secret. <see langword="null"/> (the default) when

@@ -147,7 +147,7 @@ plugin sees no HTTP request, no token and no web framework type.
 - Hosting access: `IPluginHostApi` also carries `IssueSshAccessAsync` and `RevokeSshAccessAsync` for the `ssh` kind. Websites
   and databases arrive on a separate interface, `IPluginHostHostingApi`, which extends it, so a plugin checks
   `call.Host is IPluginHostHostingApi hosting` and does without when the host is older than 3.9.0. Declare the kinds in
-  the manifest's `hostAccess` (`PluginHostAccess.Ssh`, `Websites`, `Databases`; `PluginHostAccess.All` lists them).
+  the manifest's `hostAccess` (`PluginHostAccess.Ssh`, `Websites`, `Databases`, `ServiceConnection`; `PluginHostAccess.All` lists them).
   `GetHostingCapabilitiesAsync(serviceId)` says what the service's account supports (`PluginHostingCapabilities`: the
   three flags and the PHP versions). `EnsureWebsiteAsync(serviceId, PluginWebsiteSpec)` is safe to repeat for a host
   name; the document root is relative to the account home, and `DocumentRootMayBeLink` asks for the pool settings
@@ -166,7 +166,9 @@ plugin sees no HTTP request, no token and no web framework type.
   `call.Host is IPluginHostServiceConnectionApi connection` and call
   `connection.ResolveServiceConnectionAsync(serviceId, ct)`. It answers the `PanelAccountContext` a provisioning
   operation receives, the server with its stored credentials and the service with `ProvisioningRef`, so the route can
-  talk to the panel itself. It is allowed on a client area call for a product bound to the plugin, and another client's
+  talk to the panel itself. It is allowed on a client area call for a product bound to the plugin, and only when the
+  manifest's `hostAccess` declares `serviceConnection` (`PluginHostAccess.ServiceConnection`); the host shows declared
+  kinds to the operator at install, the same rule as `ssh`, `websites` and `databases`. Another client's
   service answers like a missing one; a refusal is a `PluginHostAccessException`. The credentials are secrets: send them
   only to your own panel and never log or return them.
 
