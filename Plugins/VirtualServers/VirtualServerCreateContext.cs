@@ -24,4 +24,13 @@ public sealed partial record VirtualServerCreateContext(
     string ImageId,
     string Name,
     [property: SecretMember] string RootPassword,
-    string? SshPublicKey);
+    string? SshPublicKey)
+{
+    /// <summary>
+    /// Gets the per product choices the host stores next to the plan, keyed by the names the plugin documents (for example a
+    /// region, backups or an IPv6 address), or <see langword="null"/> when the product has none. Never a secret. A plugin
+    /// ignores a key it does not know and refuses a value it does not accept with <see cref="Enums.PanelRefusalReason.Other"/>.
+    /// Optional and null by default, so existing plugins and hosts are unchanged.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? ProductOptions { get; init; }
+}

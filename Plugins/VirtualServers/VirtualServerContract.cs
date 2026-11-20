@@ -424,6 +424,254 @@ public static class VirtualServerContract
     }
 
     /// <summary>
+    /// Calls <see cref="IVirtualServerSnapshotPlugin.CreateSnapshotAsync"/> repeatedly with one context and asserts that every
+    /// call answers <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>: a repeat with the same name never makes a second
+    /// snapshot and never fails. The caller arranges a server that accepts the snapshot.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The snapshot to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered anything but <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>.</exception>
+    public static Task<PanelActionResult> AssertCreateSnapshotIsIdempotentAsync(
+        IVirtualServerSnapshotPlugin plugin,
+        VirtualServerRestorePointCreateContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerSnapshotPlugin.CreateSnapshotAsync), () => plugin.CreateSnapshotAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Calls <see cref="IVirtualServerSnapshotPlugin.DeleteSnapshotAsync"/> repeatedly and asserts that every call answers
+    /// <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>: once the snapshot is gone a repeat is a success, never
+    /// <c>NotFound</c>. The caller arranges an existing snapshot.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The delete to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered anything but <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>.</exception>
+    public static Task<PanelActionResult> AssertDeleteSnapshotIsIdempotentAsync(
+        IVirtualServerSnapshotPlugin plugin,
+        VirtualServerRestorePointContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerSnapshotPlugin.DeleteSnapshotAsync), () => plugin.DeleteSnapshotAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Lists the snapshots of a server and asserts that the listing is well formed: the call succeeds with a list (or is not
+    /// supported, and then has no entries to check), every snapshot has an id and a name, no size is negative and no id appears
+    /// twice. The caller arranges a platform that holds the server.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="knownServer">The platform and a server it holds.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The snapshots the plugin listed, or an empty list when it does not support them.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="knownServer"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, answered an outcome that does not fit, succeeded without a list, or returned a malformed or repeated entry.</exception>
+    public static async Task<IReadOnlyList<VirtualServerRestorePoint>> AssertSnapshotsAreWellFormedAsync(
+        IVirtualServerSnapshotPlugin plugin,
+        PanelAccountContext knownServer,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(knownServer);
+
+        const string operation = nameof(IVirtualServerSnapshotPlugin.ListSnapshotsAsync);
+        var snapshots = await ReadCatalogAsync(operation, () => plugin.ListSnapshotsAsync(knownServer, ct));
+        CheckRestorePoints(operation, snapshots);
+
+        return snapshots;
+    }
+
+    /// <summary>
+    /// Calls <see cref="IVirtualServerBackupPlugin.CreateBackupAsync"/> repeatedly with one context and asserts that every call
+    /// answers <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>: a repeat with the same name never makes a second
+    /// backup and never fails. The caller arranges a server that accepts the backup.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The backup to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered anything but <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>.</exception>
+    public static Task<PanelActionResult> AssertCreateBackupIsIdempotentAsync(
+        IVirtualServerBackupPlugin plugin,
+        VirtualServerRestorePointCreateContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerBackupPlugin.CreateBackupAsync), () => plugin.CreateBackupAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Calls <see cref="IVirtualServerBackupPlugin.DeleteBackupAsync"/> repeatedly and asserts that every call answers
+    /// <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>: once the backup is gone a repeat is a success, never
+    /// <c>NotFound</c>. The caller arranges an existing backup.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The delete to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered anything but <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>.</exception>
+    public static Task<PanelActionResult> AssertDeleteBackupIsIdempotentAsync(
+        IVirtualServerBackupPlugin plugin,
+        VirtualServerRestorePointContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerBackupPlugin.DeleteBackupAsync), () => plugin.DeleteBackupAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Lists the backups of a server and asserts that the listing is well formed: the call succeeds with a list (or is not
+    /// supported, and then has no entries to check), every backup has an id and a name, no size is negative and no id appears
+    /// twice. The caller arranges a platform that holds the server.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="knownServer">The platform and a server it holds.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The backups the plugin listed, or an empty list when it does not support them.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="knownServer"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, answered an outcome that does not fit, succeeded without a list, or returned a malformed or repeated entry.</exception>
+    public static async Task<IReadOnlyList<VirtualServerRestorePoint>> AssertBackupsAreWellFormedAsync(
+        IVirtualServerBackupPlugin plugin,
+        PanelAccountContext knownServer,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(knownServer);
+
+        const string operation = nameof(IVirtualServerBackupPlugin.ListBackupsAsync);
+        var backups = await ReadCatalogAsync(operation, () => plugin.ListBackupsAsync(knownServer, ct));
+        CheckRestorePoints(operation, backups);
+
+        return backups;
+    }
+
+    /// <summary>
+    /// Calls <see cref="IVirtualServerFirewallPlugin.SetFirewallRulesAsync"/> repeatedly with one set of rules and asserts that
+    /// every call answers <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>: a set the server already has is a success.
+    /// The caller arranges a server and a set of rules the platform accepts.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The set of rules to repeat.</param>
+    /// <param name="calls">How many times to call; at least 2.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result of the first call.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="calls"/> is less than 2.</exception>
+    /// <exception cref="PluginContractViolationException">A call threw, answered <see langword="null"/>, or answered anything but <c>Succeeded</c>, <c>AlreadyApplied</c> or <c>Pending</c>.</exception>
+    public static Task<PanelActionResult> AssertSetFirewallRulesIsIdempotentAsync(
+        IVirtualServerFirewallPlugin plugin,
+        VirtualServerFirewallContext context,
+        int calls = 3,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        return Checks.AssertIsIdempotentAsync<PanelActionResult, PanelRefusalReason>(nameof(IVirtualServerFirewallPlugin.SetFirewallRulesAsync), () => plugin.SetFirewallRulesAsync(context, ct), calls);
+    }
+
+    /// <summary>
+    /// Reads the firewall rules of a server and asserts that they are well formed: the call succeeds with a list (or is not
+    /// supported, and then has no rules to check), and every rule has defined values, ports only for TCP and UDP, ports between 1
+    /// and 65535, and a range that does not run backwards. The caller arranges a platform that holds the server.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="knownServer">The platform and a server it holds.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The rules the plugin read, or an empty list when it does not support the firewall.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="knownServer"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, answered an outcome that does not fit, succeeded without a list, or returned a malformed rule.</exception>
+    public static async Task<IReadOnlyList<VirtualServerFirewallRule>> AssertFirewallRulesAreWellFormedAsync(
+        IVirtualServerFirewallPlugin plugin,
+        PanelAccountContext knownServer,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(knownServer);
+
+        const string operation = nameof(IVirtualServerFirewallPlugin.GetFirewallRulesAsync);
+        var rules = await ReadCatalogAsync(operation, () => plugin.GetFirewallRulesAsync(knownServer, ct));
+        foreach (var rule in rules)
+        {
+            CheckFirewallRule(operation, rule);
+        }
+
+        return rules;
+    }
+
+    /// <summary>
+    /// Calls <see cref="IVirtualServerPlugin.CreateServerAsync"/> for a server the platform already holds, whose generated
+    /// password an earlier create answered and the host lost, and asserts the promise of a lost password: the answer is
+    /// <see cref="PanelOperationOutcome.AlreadyApplied"/> with a reference, <see cref="VirtualServerInstance.PasswordUnknown"/>
+    /// set and no <see cref="VirtualServerInstance.GeneratedPassword"/>. The caller arranges a platform that holds such a server.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="context">The create to repeat.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The instance the plugin answered, so the test can assert more about it.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="context"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">The call threw, answered <see langword="null"/>, answered anything but <c>AlreadyApplied</c> with an instance, did not set <c>PasswordUnknown</c>, or answered a password next to it.</exception>
+    public static async Task<VirtualServerInstance> AssertLostPasswordIsReportedAsync(
+        IVirtualServerPlugin plugin,
+        VirtualServerCreateContext context,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(context);
+
+        const string operation = nameof(IVirtualServerPlugin.CreateServerAsync);
+        var result = await Checks.CallAsync(operation, 1, () => plugin.CreateServerAsync(context, ct));
+        Checks.CheckShape(operation, 1, result.Outcome, result.Reason, PanelOperationOutcome.Refused);
+
+        if (result.Outcome != PanelOperationOutcome.AlreadyApplied || result.Value is not { } instance)
+        {
+            throw new PluginContractViolationException($"{operation} answered {result.Outcome} for a server whose generated password was lost; it must answer AlreadyApplied with the server.");
+        }
+
+        if (!instance.PasswordUnknown)
+        {
+            throw new PluginContractViolationException($"{operation} did not set PasswordUnknown for a server whose generated password was lost; the host would show no password and offer no reset.");
+        }
+
+        if (instance.GeneratedPassword is not null)
+        {
+            throw new PluginContractViolationException($"{operation} answered a GeneratedPassword together with PasswordUnknown; a lost password cannot be answered again.");
+        }
+
+        return instance;
+    }
+
+    /// <summary>
     /// Asserts that the printed form of a result, a context or any other object the plugin produced contains none of the
     /// given secrets. Pass the values the test fed in (the token, the root password) and what the test knows the plugin must
     /// not echo; the check reads <c>ToString</c>, which is what a log line or an exception message would show.
@@ -475,5 +723,64 @@ public static class VirtualServerContract
         var result = await Checks.AssertReadAnswersValueAsync<ValueResult<IReadOnlyList<T>, PanelRefusalReason>, PanelRefusalReason>(operation, invoke, true);
 
         return result.Value ?? [];
+    }
+
+    /// <summary>Asserts that the entries of a snapshot or backup listing are well formed: each has an id and a name, no size is negative and no id repeats.</summary>
+    /// <param name="operation">The operation's name, for the message.</param>
+    /// <param name="restorePoints">The entries the plugin listed.</param>
+    /// <exception cref="PluginContractViolationException">An entry has no id or name, a negative size, or an id that appeared before.</exception>
+    private static void CheckRestorePoints(string operation, IReadOnlyList<VirtualServerRestorePoint> restorePoints)
+    {
+        var ids = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var restorePoint in restorePoints)
+        {
+            if (restorePoint is null || string.IsNullOrWhiteSpace(restorePoint.Id) || string.IsNullOrWhiteSpace(restorePoint.Name))
+            {
+                throw new PluginContractViolationException($"{operation} returned an entry without an Id or a Name.");
+            }
+
+            if (restorePoint.SizeBytes is < 0)
+            {
+                throw new PluginContractViolationException($"{operation} returned an entry with a negative SizeBytes.");
+            }
+
+            if (!ids.Add(restorePoint.Id))
+            {
+                throw new PluginContractViolationException($"{operation} returned an id twice. Each entry must be listed once.");
+            }
+        }
+    }
+
+    /// <summary>Asserts that one firewall rule is valid as <see cref="VirtualServerFirewallRule"/> describes: defined values, ports only for TCP and UDP, ports between 1 and 65535 and a range that does not run backwards.</summary>
+    /// <param name="operation">The operation's name, for the message.</param>
+    /// <param name="rule">The rule the plugin read.</param>
+    /// <exception cref="PluginContractViolationException">The rule is <see langword="null"/>, has a value that is not defined, or has ports that do not fit its protocol.</exception>
+    private static void CheckFirewallRule(string operation, VirtualServerFirewallRule rule)
+    {
+        if (rule is null
+            || !Enum.IsDefined(rule.Direction)
+            || !Enum.IsDefined(rule.Action)
+            || !Enum.IsDefined(rule.Protocol))
+        {
+            throw new PluginContractViolationException($"{operation} returned a rule that is missing or has a Direction, an Action or a Protocol that is not defined.");
+        }
+
+        var hasPorts = rule.PortFrom is not null || rule.PortTo is not null;
+        var carriesPorts = rule.Protocol is VirtualServerFirewallProtocol.Tcp or VirtualServerFirewallProtocol.Udp;
+        if (hasPorts && !carriesPorts)
+        {
+            throw new PluginContractViolationException($"{operation} returned a {rule.Protocol} rule with ports; only TCP and UDP have them.");
+        }
+
+        if (rule.PortTo is not null && rule.PortFrom is null)
+        {
+            throw new PluginContractViolationException($"{operation} returned a rule with PortTo and no PortFrom.");
+        }
+
+        var portOutOfRange = rule.PortFrom is < 1 or > 65535 || rule.PortTo is < 1 or > 65535;
+        if (portOutOfRange || rule.PortTo < rule.PortFrom)
+        {
+            throw new PluginContractViolationException($"{operation} returned a rule with a port outside 1 to 65535 or a range that runs backwards.");
+        }
     }
 }

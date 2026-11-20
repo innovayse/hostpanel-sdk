@@ -1,4 +1,5 @@
 using Hostpanel.Sdk.Plugins.Diagnostics;
+using Hostpanel.Sdk.Plugins.Enums;
 
 namespace Hostpanel.Sdk.Plugins.Provisioning;
 
@@ -21,4 +22,12 @@ public sealed partial record PanelCreateAccountContext(
     PanelPackage Package,
     string DomainName,
     string Username,
-    [property: SecretMember] string Password);
+    [property: SecretMember] string Password)
+{
+    /// <summary>
+    /// Gets the kind of account to create, or <see langword="null"/> for the panel's default, an ordinary user account. A
+    /// plugin whose panel has no resellers refuses a reseller create with <see cref="PanelRefusalReason.Other"/> and never
+    /// creates a user account in its place. Optional and null by default, so existing plugins and hosts are unchanged.
+    /// </summary>
+    public PanelAccountLevel? Level { get; init; }
+}

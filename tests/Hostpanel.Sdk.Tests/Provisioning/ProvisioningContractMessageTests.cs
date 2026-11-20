@@ -31,7 +31,7 @@ public sealed class ProvisioningContractMessageTests
 
         var run = () => ProvisioningContract.AssertSuspendIsIdempotentAsync(plugin, PanelFixtures.Suspend);
 
-        await AssertExactViolationAsync(run, "SuspendAccountAsync answered NotFound on call 1. The caller must arrange an account the panel accepts the operation for, and a repeat must answer Succeeded or AlreadyApplied.");
+        await AssertExactViolationAsync(run, "SuspendAccountAsync answered NotFound on call 1. The caller must arrange an account the panel accepts the operation for, and a repeat must answer Succeeded, AlreadyApplied or Pending.");
     }
 
     /// <summary>A null answer is reported with the call number.</summary>
@@ -112,7 +112,7 @@ public sealed class ProvisioningContractMessageTests
         var twiceRun = () => ProvisioningContract.AssertCreateIsIdempotentAsync(twice, PanelFixtures.Create);
         var changesRun = () => ProvisioningContract.AssertCreateIsIdempotentAsync(changes, PanelFixtures.Create);
 
-        await AssertExactViolationAsync(refusedRun, "CreateAccountAsync answered Refused on call 1. The caller must arrange a create the panel accepts, and a repeat must answer AlreadyApplied.");
+        await AssertExactViolationAsync(refusedRun, "CreateAccountAsync answered Refused on call 1. The caller must arrange a create the panel accepts, and a repeat must answer AlreadyApplied (or Pending while the work is still running).");
         await AssertExactViolationAsync(noReferenceRun, "CreateAccountAsync answered Succeeded without a ProvisioningRef on call 1.");
         await AssertExactViolationAsync(twiceRun, "CreateAccountAsync answered Succeeded on call 2: the account was created again. A repeat with the same user name must answer AlreadyApplied.");
         await AssertExactViolationAsync(changesRun, "CreateAccountAsync answered a different ProvisioningRef on call 2 than on call 1. The reference must be stable across retries.");

@@ -35,12 +35,21 @@ public interface IPaymentPlugin
     /// <returns>The mapped payment state with the gateway transaction reference when paid.</returns>
     Task<GatewayPaymentStatus> GetStatusAsync(string gatewayOrderId, CancellationToken ct);
 
-    /// <summary>Refunds a captured payment, fully or partially.</summary>
+    /// <summary>
+    /// Refunds a captured payment, fully or partially. This is the older overload, kept for plugins written before
+    /// refund ids. It has a default body that refuses with <see cref="NotSupportedException"/>, so a plugin that
+    /// overrides <see cref="RefundAsync(RefundInstruction, CancellationToken)"/> does not carry a dead method, and a
+    /// plugin that overrides neither refuses the refund. A plugin that implements it still works as before.
+    /// </summary>
     /// <param name="gatewayOrderId">The gateway-side order id of the paid payment.</param>
     /// <param name="amountMinor">Refund amount in minor currency units.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A gateway reference for the refund operation.</returns>
-    Task<string> RefundAsync(string gatewayOrderId, long amountMinor, CancellationToken ct);
+    /// <exception cref="NotSupportedException">The plugin does not implement this overload.</exception>
+    Task<string> RefundAsync(string gatewayOrderId, long amountMinor, CancellationToken ct)
+    {
+        throw new NotSupportedException("This payment plugin does not support refunds through this overload.");
+    }
 
     /// <summary>
     /// Refunds a captured payment, fully or partially, under a host-supplied stable refund id. This is the overload
@@ -66,6 +75,7 @@ public interface IPaymentPlugin
     /// <param name="instruction">The order, the amount in minor units and the stable refund id.</param>
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A gateway reference for the refund operation; the same value on a repeat of the same refund id.</returns>
+    /// <exception cref="NotSupportedException">The plugin overrides neither refund overload.</exception>
     Task<string> RefundAsync(RefundInstruction instruction, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(instruction);

@@ -11,14 +11,15 @@ namespace Hostpanel.Sdk.Tests.Fakes;
 /// like a registrar that holds one domain: the first order is done, every repeat finds it, the changes succeed and then are
 /// already applied, and the reads answer fixed values. Setting <see cref="HoldsDomain"/> to <see langword="false"/> makes it
 /// a registrar that holds nothing. A script receives the call number of its operation, which starts at 1, and may throw.
+/// It is not sealed so <see cref="ExtendedRegistrarPlugin"/> can add the newer optional interfaces on top of it.
 /// </summary>
-internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin, IRegistrarDnsManagementPlugin, IRegistrarWhoisPlugin
+internal class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin, IRegistrarDnsManagementPlugin, IRegistrarWhoisPlugin
 {
     /// <summary>The order every default answer carries.</summary>
     private static readonly RegistrarOrder DefaultOrder = new("dom-1", DateTimeOffset.UnixEpoch, false);
 
     /// <summary>Counts the calls of each operation, by method name.</summary>
-    private readonly CallCounter _calls = new();
+    protected CallCounter Calls { get; } = new();
 
     /// <summary>Gets or sets a value telling whether the registrar holds the domain of the call; <see langword="false"/> makes every read and change answer not found.</summary>
     public bool HoldsDomain { get; set; } = true;
@@ -106,13 +107,13 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <returns>The number of calls, zero when it was never called.</returns>
     public int CallsOf(string operation)
     {
-        return _calls.CallsOf(operation);
+        return Calls.CallsOf(operation);
     }
 
     /// <inheritdoc />
     public Task<ValueResult<RegistrarAvailability, RegistrarRefusalReason>> CheckAvailabilityAsync(RegistrarAvailabilityContext context, CancellationToken ct)
     {
-        var call = _calls.Count(nameof(CheckAvailabilityAsync));
+        var call = Calls.Count(nameof(CheckAvailabilityAsync));
         return Task.FromResult(CheckAvailability is null ? ValueResult<RegistrarAvailability, RegistrarRefusalReason>.Done(new RegistrarAvailability(true)) : CheckAvailability(call));
     }
 
@@ -137,7 +138,7 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<RegistrarOrder, RegistrarRefusalReason>> CheckDomainActiveAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        var call = _calls.Count(nameof(CheckDomainActiveAsync));
+        var call = Calls.Count(nameof(CheckDomainActiveAsync));
         return Task.FromResult(CheckDomainActive is null ? DataOrNotFound(DefaultOrder) : CheckDomainActive(call));
     }
 
@@ -156,7 +157,7 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<RegistrarEppCode, RegistrarRefusalReason>> GetEppCodeAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        var call = _calls.Count(nameof(GetEppCodeAsync));
+        var call = Calls.Count(nameof(GetEppCodeAsync));
         return Task.FromResult(GetEppCode is null ? DataOrNotFound(new RegistrarEppCode(RegistrarFixtures.EppCode)) : GetEppCode(call));
     }
 
@@ -187,7 +188,7 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<RegistrarContact, RegistrarRefusalReason>> GetContactAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        var call = _calls.Count(nameof(GetContactAsync));
+        var call = Calls.Count(nameof(GetContactAsync));
         return Task.FromResult(GetContact is null ? DataOrNotFound(RegistrarFixtures.Contact) : GetContact(call));
     }
 
@@ -200,7 +201,7 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<IReadOnlyList<RegistrarDnsRecord>, RegistrarRefusalReason>> GetDnsRecordsAsync(RegistrarDomainContext context, CancellationToken ct)
     {
-        var call = _calls.Count(nameof(GetDnsRecordsAsync));
+        var call = Calls.Count(nameof(GetDnsRecordsAsync));
         return Task.FromResult(GetDnsRecords is null ? DataOrNotFound<IReadOnlyList<RegistrarDnsRecord>>([]) : GetDnsRecords(call));
     }
 
@@ -225,7 +226,7 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>> GetTldPricingAsync(RegistrarPricingContext context, CancellationToken ct)
     {
-        var call = _calls.Count(nameof(GetTldPricingAsync));
+        var call = Calls.Count(nameof(GetTldPricingAsync));
         return Task.FromResult(GetTldPricing is null ? ValueResult<IReadOnlyList<RegistrarTldPricing>, RegistrarRefusalReason>.Done([]) : GetTldPricing(call));
     }
 
@@ -262,14 +263,14 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <inheritdoc />
     public Task<ValueResult<RegistrarWhois, RegistrarRefusalReason>> GetWhoisAsync(RegistrarWhoisContext context, CancellationToken ct)
     {
-        var call = _calls.Count(nameof(GetWhoisAsync));
+        var call = Calls.Count(nameof(GetWhoisAsync));
         return Task.FromResult(GetWhois is null ? DataOrNotFound(new RegistrarWhois("Example Registrar", "Registrant Name", DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)) : GetWhois(call));
     }
 
     /// <inheritdoc />
     public Task<PanelConnectionTestResult> TestConnectionAsync(RegistrarTestConnectionContext context, CancellationToken ct)
     {
-        var call = _calls.Count(nameof(TestConnectionAsync));
+        var call = Calls.Count(nameof(TestConnectionAsync));
         return Task.FromResult(Test is null ? PanelConnectionTestResult.Connected(null, 3) : Test(call));
     }
 
@@ -278,9 +279,9 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <param name="operation">The method name.</param>
     /// <param name="createsDomain"><see langword="true"/> for an order that needs no domain yet (register, transfer).</param>
     /// <returns>The answer.</returns>
-    private ValueResult<RegistrarOrder, RegistrarRefusalReason> Order(Func<int, ValueResult<RegistrarOrder, RegistrarRefusalReason>>? script, string operation, bool createsDomain)
+    protected ValueResult<RegistrarOrder, RegistrarRefusalReason> Order(Func<int, ValueResult<RegistrarOrder, RegistrarRefusalReason>>? script, string operation, bool createsDomain)
     {
-        var call = _calls.Count(operation);
+        var call = Calls.Count(operation);
         if (script is not null)
         {
             return script(call);
@@ -300,9 +301,9 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <param name="script">The test's script, or <see langword="null"/>.</param>
     /// <param name="operation">The method name.</param>
     /// <returns>The answer.</returns>
-    private OperationResult<RegistrarRefusalReason> Change(Func<int, OperationResult<RegistrarRefusalReason>>? script, string operation)
+    protected OperationResult<RegistrarRefusalReason> Change(Func<int, OperationResult<RegistrarRefusalReason>>? script, string operation)
     {
-        var call = _calls.Count(operation);
+        var call = Calls.Count(operation);
         if (script is not null)
         {
             return script(call);
@@ -320,7 +321,7 @@ internal sealed class ScriptedRegistrarPlugin : IRegistrarEmailForwardingPlugin,
     /// <typeparam name="T">The value read.</typeparam>
     /// <param name="value">The value the registrar holds.</param>
     /// <returns>The answer.</returns>
-    private ValueResult<T, RegistrarRefusalReason> DataOrNotFound<T>(T value)
+    protected ValueResult<T, RegistrarRefusalReason> DataOrNotFound<T>(T value)
         where T : class
     {
         return HoldsDomain ? ValueResult<T, RegistrarRefusalReason>.Done(value) : ValueResult<T, RegistrarRefusalReason>.NotFound();
