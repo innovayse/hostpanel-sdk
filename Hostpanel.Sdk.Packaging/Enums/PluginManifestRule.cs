@@ -79,4 +79,16 @@ public enum PluginManifestRule
 
     /// <summary>The <c>agentProfile</c> is not one of <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginAgentProfiles.All"/>.</summary>
     AgentProfileInvalid = 23,
+
+    /// <summary>A setting declares a <c>connectionRole</c> in a plugin that is not a registrar plugin.</summary>
+    ConnectionRoleNotRegistrar = 24,
+
+    /// <summary>Two settings declare the same <c>connectionRole</c>.</summary>
+    ConnectionRoleDuplicate = 25,
+
+    /// <summary>A setting's type does not fit its <c>connectionRole</c>: <c>apiKey</c> needs a secret, <c>apiUrl</c> a url and <c>testMode</c> a boolean setting.</summary>
+    ConnectionRoleTypeMismatch = 26,
+
+    /// <summary>A registrar plugin declares a <c>connectionRole</c> but not both <c>accountName</c> and <c>apiKey</c>.</summary>
+    ConnectionRolesIncomplete = 27,
 }

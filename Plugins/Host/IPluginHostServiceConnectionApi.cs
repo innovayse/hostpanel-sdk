@@ -12,7 +12,10 @@ namespace Hostpanel.Sdk.Plugins.Host;
 /// </summary>
 /// <remarks>
 /// Allowed only on a client-area call, and only for a service whose product is bound to the plugin; otherwise a
-/// <see cref="PluginHostAccessException"/> is thrown. The answer carries the stored server credentials
+/// <see cref="PluginHostAccessException"/> is thrown. The plugin must also declare <see cref="PluginHostAccess.ServiceConnection"/>
+/// (<c>serviceConnection</c>) in its manifest <c>hostAccess</c>, or the host does not answer. The host shows the declared
+/// kinds to the operator at install, the same rule as <see cref="PluginHostAccess.Ssh"/>,
+/// <see cref="PluginHostAccess.Websites"/> and <see cref="PluginHostAccess.Databases"/>. The answer carries the stored server credentials
 /// (<see cref="PanelServerConnection"/>), so a plugin sends them only to its own panel and never logs or returns them.
 /// </remarks>
 public interface IPluginHostServiceConnectionApi : IPluginHostApi

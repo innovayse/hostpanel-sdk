@@ -48,7 +48,7 @@ public sealed class PaymentInstructionDetailsTests
         instruction.PayerPhone.Should().Be(Secrets[1]);
         instruction.ClientTaxId.Should().Be(Secrets[2]);
         instruction.DueAt.Should().Be(due);
-        instruction.CallbackBaseUrl.Should().Be("https://panel.example/api/plugins/acme-pay/callbacks");
+        instruction.CallbackBaseUrl.Should().Be("https://panel.example/api/plugins/acme-pay/callback");
         instruction.Lines.Should().Equal(lines);
         instruction.OrderNumber.Should().Be("order-1");
     }
@@ -104,7 +104,7 @@ public sealed class PaymentInstructionDetailsTests
             ClientTaxId = Secrets[2],
             DueAt = due,
             Lines = lines,
-            CallbackBaseUrl = "https://panel.example/api/plugins/acme-pay/callbacks",
+            CallbackBaseUrl = "https://panel.example/api/plugins/acme-pay/callback",
         };
     }
 }

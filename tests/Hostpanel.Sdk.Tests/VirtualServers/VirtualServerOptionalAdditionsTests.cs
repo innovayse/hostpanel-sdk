@@ -74,6 +74,7 @@ public sealed class VirtualServerOptionalAdditionsTests
         PluginCapabilities.VirtualServerSnapshots.Should().Be("virtualServerSnapshots");
         PluginCapabilities.VirtualServerBackups.Should().Be("virtualServerBackups");
         PluginCapabilities.VirtualServerFirewall.Should().Be("virtualServerFirewall");
+        PluginCapabilities.VirtualServerConsole.Should().Be("virtualServerConsole");
         typeof(IVirtualServerSnapshotPlugin).GetInterfaces().Should().Contain(typeof(IVirtualServerPlugin));
         typeof(IVirtualServerBackupPlugin).GetInterfaces().Should().Contain(typeof(IVirtualServerPlugin));
         typeof(IVirtualServerFirewallPlugin).GetInterfaces().Should().Contain(typeof(IVirtualServerPlugin));

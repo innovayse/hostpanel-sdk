@@ -24,6 +24,12 @@ public static class PluginHostAccess
     /// </summary>
     public const string Databases = "databases";
 
+    /// <summary>
+    /// The server connection of one of the caller's own services whose product is bound to the plugin:
+    /// <see cref="IPluginHostServiceConnectionApi.ResolveServiceConnectionAsync"/>. Since 3.11.0.
+    /// </summary>
+    public const string ServiceConnection = "serviceConnection";
+
     /// <summary>Gets every kind this SDK version knows, in the order the admin panel lists them.</summary>
-    public static IReadOnlyList<string> All { get; } = [Ssh, Websites, Databases];
+    public static IReadOnlyList<string> All { get; } = [Ssh, Websites, Databases, ServiceConnection];
 }

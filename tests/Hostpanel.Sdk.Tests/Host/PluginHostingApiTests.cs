@@ -11,10 +11,11 @@ public sealed class PluginHostingApiTests
     [Fact]
     public void HostAccess_All_ListsEveryKindInOrder()
     {
-        PluginHostAccess.All.Should().Equal("ssh", "websites", "databases");
+        PluginHostAccess.All.Should().Equal("ssh", "websites", "databases", "serviceConnection");
         PluginHostAccess.Ssh.Should().Be("ssh");
         PluginHostAccess.Websites.Should().Be("websites");
         PluginHostAccess.Databases.Should().Be("databases");
+        PluginHostAccess.ServiceConnection.Should().Be("serviceConnection");
     }
 
     /// <summary>The new failures are appended, so the values released before keep their numbers.</summary>
