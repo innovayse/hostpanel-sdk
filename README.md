@@ -424,6 +424,22 @@ the list must agree with the code. One plugin serves every server of its panel t
   `PanelCreateResult.Pending(provisioningRef)`. The host repeats the same call later; the repeat answers `Pending` until
   the work is done and then `Succeeded` or `AlreadyApplied`. A pending create already carries its `ProvisioningRef`. A host
   built before 3.11.0 treats the unknown value as an unfinished call.
+- **Connection roles (since 3.11.0).** The host builds the `RegistrarConnection` from the settings the admin saved for the
+  plugin, and each plugin names its settings differently, so a setting says which member it fills in `connectionRole`
+  (`RegistrarConnectionRole`: `accountName`, `apiKey`, `apiUrl`, `clientIp`, `testMode`). The member is optional and `null`
+  by default, and a plugin without roles loads and runs as before. The package checker refuses a role on a plugin that is
+  not a registrar plugin, the same role on two settings, an `apiKey` on a setting that is not `secret`, an `apiUrl` on one
+  that is not `url`, a `testMode` on one that is not `boolean`, and a registrar plugin that declares any role without
+  declaring both `accountName` and `apiKey`:
+
+  ```json
+  "settings": [
+    { "key": "username", "label": "settings.username", "type": "text", "required": true, "connectionRole": "accountName" },
+    { "key": "apiKey", "label": "settings.apiKey", "type": "secret", "required": true, "connectionRole": "apiKey" },
+    { "key": "apiUrl", "label": "settings.apiUrl", "type": "url", "connectionRole": "apiUrl" },
+    { "key": "sandbox", "label": "settings.sandbox", "type": "boolean", "connectionRole": "testMode" }
+  ]
+  ```
 - **Optional members (since 3.11.0).** They are init members with a `null` or default value, so every constructor keeps
   its shape and a plugin sets or reads them with an object initializer. `PanelUsage` adds `InodesUsed`, `InodesLimit`,
   `MailboxesUsed`, `MailboxesLimit`, `DatabasesUsed`, `DatabasesLimit`, `DomainsUsed` and `DomainsLimit`.
@@ -657,6 +673,10 @@ vocabulary is the one of the panel contract: the platform arrives as a `PanelSer
   | `IVirtualServerBackupPlugin` | `virtualServerBackups` | The same four operations for backups |
   | `IVirtualServerFirewallPlugin` | `virtualServerFirewall` | `GetFirewallRulesAsync` and `SetFirewallRulesAsync`, which replaces the whole set of `VirtualServerFirewallRule` |
 
+  The console is not a separate interface: `CreateConsoleSessionAsync` is a member of `IVirtualServerPlugin`. A plugin
+  that lists the capability `virtualServerConsole` (which needs `virtualServer` as well) promises that it supports it, so
+  the host shows the console action up front. A plugin without it may still answer `NotSupported` when the call is made.
+
   Snapshots and backups are listed as `VirtualServerRestorePoint`. A delete of a restore point that is gone is
   `AlreadyApplied`, never `NotFound`, and a restore replaces the server's disk, so the host sends it only on the client's
   explicit request. A firewall rule has ports only for TCP and UDP, between 1 and 65535, and a range does not run backwards.
@@ -856,7 +876,7 @@ default; pass the smallest unit of the currency for one with another number of d
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
 `showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
-implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `provisioningPanelLogin`, `provisioningPanelPackages`, `virtualServer`, `virtualServerList`, `virtualServerSnapshots`, `virtualServerBackups` and `virtualServerFirewall` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement`, `registrarWhois`, `registrarChildNameservers`, `registrarDnssec`, `registrarRestore`, `registrarDomainList`, `registrarSuggestions` and `registrarBalance` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
+implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `provisioningPanelLogin`, `provisioningPanelPackages`, `virtualServer`, `virtualServerList`, `virtualServerSnapshots`, `virtualServerBackups`, `virtualServerFirewall` and `virtualServerConsole` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement`, `registrarWhois`, `registrarChildNameservers`, `registrarDnssec`, `registrarRestore`, `registrarDomainList`, `registrarSuggestions` and `registrarBalance` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
 `maxHostVersion` (the range of host versions the plugin runs on, each a semantic version such as `2.1.0`; a missing
 bound means no limit, and the lower may not be above the upper) and `changelog` (notes for this version, at most 4000
 characters). The `id` is lower-case letters and digits,

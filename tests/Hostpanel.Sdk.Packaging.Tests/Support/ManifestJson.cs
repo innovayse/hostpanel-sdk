@@ -20,10 +20,21 @@ public static class ManifestJson
 
     /// <summary>Reads a manifest made of the required members plus extra members.</summary>
     /// <param name="extraMembers">More JSON members (no braces), for example <c>"manifestVersion":2</c>; empty for none.</param>
+    /// <param name="type">The plugin type name written in <c>type</c>.</param>
     /// <returns>The manifest.</returns>
-    public static PluginManifest Read(string extraMembers = "")
+    public static PluginManifest Read(string extraMembers = "", string type = "App")
     {
-        var json = "{" + Required + (extraMembers.Length == 0 ? string.Empty : "," + extraMembers) + "}";
+        var json = "{" + Required.Replace("\"type\":\"App\"", "\"type\":\"" + type + "\"") + (extraMembers.Length == 0 ? string.Empty : "," + extraMembers) + "}";
+        return JsonSerializer.Deserialize<PluginManifest>(json, Options)!;
+    }
+
+    /// <summary>Writes a manifest the way a host stores it and reads it back.</summary>
+    /// <param name="manifest">The manifest to write.</param>
+    /// <param name="json">The JSON that was written.</param>
+    /// <returns>The manifest read from that JSON.</returns>
+    public static PluginManifest RoundTrip(PluginManifest manifest, out string json)
+    {
+        json = JsonSerializer.Serialize(manifest, Options);
         return JsonSerializer.Deserialize<PluginManifest>(json, Options)!;
     }
 

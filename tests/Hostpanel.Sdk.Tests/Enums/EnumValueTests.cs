@@ -123,4 +123,15 @@ public sealed class EnumValueTests
         Enum.GetValues<PanelConnectionOutcome>().Select(value => (int)value).Should().Equal(1, 2, 3, 4);
         Enum.GetValues<PluginType>().Select(value => (int)value).Should().Equal(0, 1, 2, 3, 4, 5, 6, 7);
     }
+
+    /// <summary>The registrar connection roles are explicit values from 1, and zero is not a role.</summary>
+    [Fact]
+    public void RegistrarConnectionRole_Values_ArePinned()
+    {
+        var values = Enum.GetValues<RegistrarConnectionRole>();
+
+        values.Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5);
+        values.Select(value => value.ToString()).Should().Equal("AccountName", "ApiKey", "ApiUrl", "ClientIp", "TestMode");
+        Enum.IsDefined((RegistrarConnectionRole)0).Should().BeFalse();
+    }
 }

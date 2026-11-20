@@ -90,6 +90,14 @@ public static class PluginCapabilities
     public const string VirtualServerFirewall = "virtualServerFirewall";
 
     /// <summary>
+    /// The virtual server plugin promises that <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerPlugin.CreateConsoleSessionAsync"/>
+    /// is supported, so the host shows the console action up front. A plugin that does not declare it may still answer
+    /// <see cref="Hostpanel.Sdk.Plugins.Enums.PanelOperationOutcome.NotSupported"/> when the call is made. It needs
+    /// <see cref="VirtualServer"/> as well.
+    /// </summary>
+    public const string VirtualServerConsole = "virtualServerConsole";
+
+    /// <summary>
     /// Any plugin type may declare it. It means the plugin class also implements
     /// <see cref="Hostpanel.Sdk.Plugins.Endpoints.IPluginEndpoints"/>, so the host serves the plugin's declared
     /// <c>api</c> routes and its <c>ui</c> pages, menus and slots. An <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.App"/>

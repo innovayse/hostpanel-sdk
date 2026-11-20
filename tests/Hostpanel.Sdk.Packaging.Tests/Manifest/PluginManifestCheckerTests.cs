@@ -1,6 +1,7 @@
 using Hostpanel.Sdk.Packaging.Enums;
 using Hostpanel.Sdk.Packaging.Manifest;
 using Hostpanel.Sdk.Packaging.Tests.Support;
+using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Manifest;
 
 namespace Hostpanel.Sdk.Packaging.Tests.Manifest;
@@ -526,5 +527,137 @@ public sealed class PluginManifestCheckerTests
     public void Validate_AgentProfile_UndefinedNameBreaks(string name)
     {
         AssertBreaks("\"agentProfile\": \"" + name + "\"", PluginManifestRule.AgentProfileInvalid);
+    }
+
+    /// <summary>Builds the <c>settings</c> member of a registrar manifest from the given setting entries.</summary>
+    /// <param name="settings">The setting entries as JSON objects.</param>
+    /// <returns>The member, without braces.</returns>
+    private static string Settings(params string[] settings)
+    {
+        return "\"settings\": [" + string.Join(",", settings) + "]";
+    }
+
+    /// <summary>One setting entry with a type and, optionally, a connection role.</summary>
+    /// <param name="key">The setting key.</param>
+    /// <param name="type">The setting type name.</param>
+    /// <param name="role">The role name, or <see langword="null"/> for none.</param>
+    /// <returns>The entry as a JSON object.</returns>
+    private static string Setting(string key, string type, string? role = null)
+    {
+        var roleMember = role is null ? string.Empty : ",\"connectionRole\":\"" + role + "\"";
+        return "{\"key\":\"" + key + "\",\"label\":\"" + key + "\",\"type\":\"" + type + "\"" + roleMember + "}";
+    }
+
+    /// <summary>The two roles every registrar plugin that declares any must declare.</summary>
+    private static readonly string[] RequiredRoleSettings =
+    [
+        Setting("account", "Text", "AccountName"),
+        Setting("key", "Secret", "ApiKey"),
+    ];
+
+    /// <summary>A registrar manifest that declares every role on settings of the right types passes.</summary>
+    [Fact]
+    public void Validate_ConnectionRoles_FullRegistrarManifestPasses()
+    {
+        var members = Settings(
+            Setting("account", "Text", "AccountName"),
+            Setting("key", "Secret", "ApiKey"),
+            Setting("url", "Url", "ApiUrl"),
+            Setting("ip", "Text", "ClientIp"),
+            Setting("sandbox", "Boolean", "TestMode"),
+            Setting("other", "Text"));
+
+        PluginManifestChecker.Validate(ManifestJson.Read(members, "Registrar"), Options).Should().BeNull();
+    }
+
+    /// <summary>A registrar manifest that declares no role at all passes, as every manifest before the roles existed.</summary>
+    [Fact]
+    public void Validate_ConnectionRoles_NoRoleAtAllPasses()
+    {
+        var members = Settings(Setting("key", "Secret"), Setting("url", "Text"));
+
+        PluginManifestChecker.Validate(ManifestJson.Read(members, "Registrar"), Options).Should().BeNull();
+    }
+
+    /// <summary>A role on a plugin of any other type breaks the rule.</summary>
+    /// <param name="type">The plugin type name.</param>
+    [Theory]
+    [InlineData("App")]
+    [InlineData("Payment")]
+    [InlineData("Provisioning")]
+    public void Validate_ConnectionRoles_OnlyARegistrarPluginDeclaresOne(string type)
+    {
+        var violation = PluginManifestChecker.Validate(ManifestJson.Read(Settings(RequiredRoleSettings), type), Options);
+
+        violation!.Rule.Should().Be(PluginManifestRule.ConnectionRoleNotRegistrar);
+    }
+
+    /// <summary>The same role on two settings breaks the rule.</summary>
+    [Fact]
+    public void Validate_ConnectionRoles_EachRoleAtMostOnce()
+    {
+        var members = Settings(RequiredRoleSettings[0], RequiredRoleSettings[1], Setting("second", "Text", "AccountName"));
+
+        PluginManifestChecker.Validate(ManifestJson.Read(members, "Registrar"), Options)!.Rule
+            .Should().Be(PluginManifestRule.ConnectionRoleDuplicate);
+    }
+
+    /// <summary>An API key needs a secret setting, an API address a url setting and the test mode a boolean setting.</summary>
+    /// <param name="role">The role name.</param>
+    /// <param name="wrongType">A setting type the role does not accept.</param>
+    [Theory]
+    [InlineData("ApiKey", "Text")]
+    [InlineData("ApiKey", "Textarea")]
+    [InlineData("ApiUrl", "Text")]
+    [InlineData("TestMode", "Text")]
+    [InlineData("TestMode", "Number")]
+    public void Validate_ConnectionRoles_TypeMustFitTheRole(string role, string wrongType)
+    {
+        var members = role == "ApiKey"
+            ? Settings(RequiredRoleSettings[0], Setting("odd", wrongType, role))
+            : Settings(RequiredRoleSettings[0], RequiredRoleSettings[1], Setting("odd", wrongType, role));
+
+        PluginManifestChecker.Validate(ManifestJson.Read(members, "Registrar"), Options)!.Rule
+            .Should().Be(PluginManifestRule.ConnectionRoleTypeMismatch);
+    }
+
+    /// <summary>The account name and the client address are not tied to one setting type, so no mismatch is raised for them.</summary>
+    /// <param name="role">The role name.</param>
+    /// <param name="type">The setting type name.</param>
+    [Theory]
+    [InlineData("AccountName", "Text")]
+    [InlineData("ClientIp", "Text")]
+    public void Validate_ConnectionRoles_FreeTypedRolesAcceptTheirSetting(string role, string type)
+    {
+        var members = Settings(RequiredRoleSettings[1], Setting("free", type, role), Setting("account", "Text", role == "AccountName" ? null : "AccountName"));
+
+        PluginManifestChecker.Validate(ManifestJson.Read(members, "Registrar"), Options).Should().BeNull();
+    }
+
+    /// <summary>A registrar plugin that declares a role must declare both the account name and the API key.</summary>
+    /// <param name="missing">The index in <see cref="RequiredRoleSettings"/> of the setting left out.</param>
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Validate_ConnectionRoles_AccountNameAndApiKeyAreRequired(int missing)
+    {
+        var members = Settings(RequiredRoleSettings[1 - missing], Setting("url", "Url", "ApiUrl"));
+
+        PluginManifestChecker.Validate(ManifestJson.Read(members, "Registrar"), Options)!.Rule
+            .Should().Be(PluginManifestRule.ConnectionRolesIncomplete);
+    }
+
+    /// <summary>The role is read from <c>connectionRole</c>, kept after a write and a read, and null when absent.</summary>
+    [Fact]
+    public void ConnectionRole_RoundTrips_AndIsNullByDefault()
+    {
+        var manifest = ManifestJson.Read(Settings(RequiredRoleSettings[0], RequiredRoleSettings[1], Setting("plain", "Text")), "Registrar");
+
+        var again = ManifestJson.RoundTrip(manifest, out var json);
+
+        manifest.Settings.Select(setting => setting.ConnectionRole).Should().Equal(RegistrarConnectionRole.AccountName, RegistrarConnectionRole.ApiKey, null);
+        again.Settings.Select(setting => setting.ConnectionRole).Should().Equal(RegistrarConnectionRole.AccountName, RegistrarConnectionRole.ApiKey, null);
+        json.Should().Contain("\"connectionRole\":\"ApiKey\"");
+        PluginManifestChecker.Validate(again, Options).Should().BeNull();
     }
 }

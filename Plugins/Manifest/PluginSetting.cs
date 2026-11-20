@@ -42,6 +42,15 @@ public sealed class PluginSetting
     public decimal? Max { get; init; }
 
     /// <summary>
+    /// Gets the member of <see cref="Registrar.RegistrarConnection"/> this setting fills, so the host can build the
+    /// connection from the saved settings of a registrar plugin whatever the plugin calls them. Written as
+    /// <c>connectionRole</c> in the JSON; <see langword="null"/> (the default) for a setting that fills none. Only a
+    /// <see cref="PluginType.Registrar"/> plugin may declare it, each role at most once, and a plugin that declares any
+    /// must declare <see cref="RegistrarConnectionRole.AccountName"/> and <see cref="RegistrarConnectionRole.ApiKey"/>.
+    /// </summary>
+    public RegistrarConnectionRole? ConnectionRole { get; init; }
+
+    /// <summary>
     /// Gets the choices of a <see cref="PluginSettingType.Select"/> setting; empty for every other kind. A missing or
     /// <c>null</c> <c>options</c> in the JSON reads as an empty list, never <see langword="null"/>.
     /// </summary>
