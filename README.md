@@ -45,7 +45,7 @@ not released yet, and move to `X.Y.Z` once it is. NuGet never picks a prerelease
 The package targets `net8.0`, so a plugin can target `net8.0` or later. The version follows the
 contract: a new minor version adds members, a new major version removes or renames them. The
 manifest's `sdkVersion` field is the plugin contract level the host checks, not the package version: see
-"Manifest" below for the value to declare. It does not move with the package, so a plugin built on package 3.11.0 declares
+"Manifest" below for the value to declare. It does not move with the package, so a plugin built on package 3.12.0 declares
 the same `sdkVersion` as one built on 3.0.0. To require a host that fills a member added in a later package version,
 set `minHostVersion` in the manifest to the first host release that does.
 
@@ -76,6 +76,11 @@ delivers it to every enabled fulfilment plugin in the background.
 - `OnInvoicePaidAsync` runs when a paid invoice has a digital line. `OnInvoiceRefundedAsync` runs after the
   money moved back, to reverse the fulfilment. `OnSubscriptionLapsedAsync` runs when a renewal invoice passes
   its grace period unpaid.
+- `OnServicePlanChangedAsync` (since 3.12.0) runs when a client's service moved to another plan or changed quantity. The
+  context carries the service, the line before and after (`Previous`, `Current`), the `Kind` (`Upgrade`, `Downgrade`,
+  `QuantityChange`; check `Enum.IsDefined`, a newer host may add one) and an `IdempotencyKey` that is the same on every
+  redelivery of one change. It has a default body that does nothing, so a plugin that does not override it is not
+  affected; one that relies on it sets `minHostVersion` to the first host release that sends it.
 - `AdviseRefundAsync` runs **before** a refund moves money, with the amount the administrator asked for.
   Return a `RefundAdvice`: `MaxRefundableAmount` is the most that may still be refunded in the invoice's
   currency (return the requested amount to allow it in full) and `Reason` is a short sentence for the
