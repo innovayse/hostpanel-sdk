@@ -31,4 +31,17 @@ public interface IFulfilmentPlugin
     /// <param name="ct">Cancellation token.</param>
     /// <returns>A task that completes when the lapse is applied.</returns>
     Task OnSubscriptionLapsedAsync(SubscriptionLapsedContext context, CancellationToken ct);
+
+    /// <summary>
+    /// A client's service moved to another plan or its quantity changed. Since 3.12.0. The default does nothing, so a plugin
+    /// built on an earlier version loads and is simply not told; a plugin that fulfils plan dependent products overrides it.
+    /// Idempotent on <see cref="ServicePlanChangedContext.IdempotencyKey"/>.
+    /// </summary>
+    /// <param name="context">The service, its client, the line before and after, and the kind of change.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A task that completes when the change is applied; the default completes at once.</returns>
+    Task OnServicePlanChangedAsync(ServicePlanChangedContext context, CancellationToken ct)
+    {
+        return Task.CompletedTask;
+    }
 }
