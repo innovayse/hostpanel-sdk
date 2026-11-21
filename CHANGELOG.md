@@ -5,6 +5,14 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.12.0]
+
+### Added
+
+- `IFulfilmentPlugin.OnServicePlanChangedAsync(ServicePlanChangedContext, CancellationToken)`: the host tells a fulfilment plugin that a client's service moved to another plan or changed quantity. It is a default interface method that does nothing, so a plugin built on 3.11.0 loads and compiles unchanged and is simply not told, and a plugin that fulfils plan dependent products overrides it. Delivery is at-least-once, so the plugin is idempotent on `IdempotencyKey`. A plugin that relies on it sets `minHostVersion` to the first host release that sends it.
+- `ServicePlanChangedContext` in `Hostpanel.Sdk.Plugins.Fulfilment`, shaped like the other fulfilment contexts: `ServiceId`, `ClientId`, `ClientRef` (secret, prints as `***`), `Account`, `Previous` and `Current` (a `FulfilmentLine` each), `Kind`, `ChangedAt` (UTC) and `IdempotencyKey`, which stays the same on every redelivery of one change and differs for the next change of the service.
+- `ServicePlanChangeKind` in `Hostpanel.Sdk.Plugins.Enums`: `Upgrade = 1`, `Downgrade = 2` and `QuantityChange = 3`. A newer host may send a kind this version does not name, so a plugin checks `Enum.IsDefined`.
+
 ## [3.11.0]
 
 ### Added
