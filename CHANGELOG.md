@@ -5,6 +5,14 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.13.0]
+
+### Added
+
+- `PluginManifest.SdkPackageVersion` (`sdkPackageVersion` in `plugin.json`, `string?`, `null` by default) (innovayse/hostpanel#1389): the version of the `Hostpanel.Sdk` package the plugin was built against. It is an init property, so a manifest without it reads as before. A host built on an earlier version ignores it. It is not `sdkVersion`, which names the manifest contract and stays `1.0`.
+- `build/Hostpanel.Sdk.targets` in the `Hostpanel.Sdk` package: NuGet imports it into every project that references the package, and the build writes the referenced package's version into the project's `plugin.json` as `sdkPackageVersion`, so nobody keeps it in step by hand. The MSBuild property `HostpanelStampSdkPackageVersion` set to `false` switches it off.
+- `PluginManifestChecker.Validate` has two new rules in `PluginManifestRule`: `SdkPackageVersionInvalid` (the value is not a semantic version) and `MinHostVersionBelowSdk` (`minHostVersion` is missing or lower than the first host release that ships an SDK at least as new, from the new `PluginSdkHostReleases` table). A manifest without `sdkPackageVersion`, and an SDK no host release ships yet, are not checked. A host refuses a plugin whose `sdkPackageVersion` is newer than the SDK it ships.
+
 ## [3.12.0]
 
 ### Added

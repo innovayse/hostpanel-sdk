@@ -459,6 +459,49 @@ public sealed class PluginManifestCheckerTests
         AssertBreaks("\"minHostVersion\": \"2.0.0\", \"maxHostVersion\": \"2.0.0-preview.1\"", PluginManifestRule.HostVersionRangeInverted);
     }
 
+    /// <summary>A manifest that states no SDK package version is not compared with any host release.</summary>
+    [Fact]
+    public void Validate_NoSdkPackageVersion_ReadsNullAndPasses()
+    {
+        ManifestJson.Read().SdkPackageVersion.Should().BeNull();
+        Check("\"minHostVersion\": \"0.1.0\"").Should().BeNull();
+    }
+
+    /// <summary>An SDK package version that is not a semantic version breaks its rule.</summary>
+    /// <param name="value">The bad version.</param>
+    [Theory]
+    [InlineData("3.10")]
+    [InlineData("v3.10.0")]
+    [InlineData("")]
+    public void Validate_BadSdkPackageVersion_BreaksSdkPackageVersionInvalid(string value)
+    {
+        AssertBreaks("\"sdkPackageVersion\": \"" + value + "\"", PluginManifestRule.SdkPackageVersionInvalid);
+    }
+
+    /// <summary>A minimum host below the first release that ships the SDK, or none at all, breaks the rule.</summary>
+    /// <param name="members">The JSON members.</param>
+    [Theory]
+    [InlineData("\"sdkPackageVersion\": \"3.10.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.10.0\", \"minHostVersion\": \"0.6.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.8.0\", \"minHostVersion\": \"0.6.9\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.1.0\", \"minHostVersion\": \"0.3.0\"")]
+    public void Validate_MinHostBelowFirstHostShippingTheSdk_BreaksMinHostVersionBelowSdk(string members)
+    {
+        AssertBreaks(members, PluginManifestRule.MinHostVersionBelowSdk);
+    }
+
+    /// <summary>A minimum host at or above the first release that ships the SDK passes, and an SDK no host ships yet is not compared.</summary>
+    /// <param name="members">The JSON members.</param>
+    [Theory]
+    [InlineData("\"sdkPackageVersion\": \"3.10.0\", \"minHostVersion\": \"0.7.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.10.0\", \"minHostVersion\": \"0.8.0\", \"maxHostVersion\": \"1.0.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.1.0\", \"minHostVersion\": \"0.4.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.99.0\"")]
+    public void Validate_MinHostAtOrAboveFirstHostShippingTheSdk_Passes(string members)
+    {
+        Check(members).Should().BeNull();
+    }
+
     /// <summary>A changelog of exactly the limit passes; one character more breaks the changelog rule.</summary>
     [Fact]
     public void Validate_ChangelogLength_LimitPassesAndLongerBreaks()

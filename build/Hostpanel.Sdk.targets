@@ -1,0 +1,72 @@
+<Project>
+
+  <!-- Imported into every project that references the Hostpanel.Sdk package (NuGet imports build/<PackageId>.targets).
+       It writes the version of the referenced package into the plugin's plugin.json as "sdkPackageVersion", so nobody keeps
+       that number in step by hand. A host refuses a plugin whose number is newer than the SDK the host ships, because its
+       assembly could not load there. Set HostpanelStampSdkPackageVersion to false to switch it off. -->
+  <PropertyGroup>
+    <HostpanelStampSdkPackageVersion Condition="'$(HostpanelStampSdkPackageVersion)' == ''">true</HostpanelStampSdkPackageVersion>
+  </PropertyGroup>
+
+  <!-- Reads the version of the SDK assembly from its metadata (the assembly is not loaded) and sets it in the manifest:
+       an existing "sdkPackageVersion" is replaced, otherwise the member is added as the first one. The file is rewritten
+       only when its text changes, so an up to date manifest keeps its timestamp. -->
+  <UsingTask TaskName="HostpanelStampSdkPackageVersion"
+             TaskFactory="RoslynCodeTaskFactory"
+             AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
+    <ParameterGroup>
+      <ManifestPath ParameterType="System.String" Required="true" />
+      <SdkAssemblyPath ParameterType="System.String" Required="true" />
+    </ParameterGroup>
+    <Task>
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Reflection" />
+      <Using Namespace="System.Text" />
+      <Using Namespace="System.Text.RegularExpressions" />
+      <Code Type="Fragment" Language="cs"><![CDATA[
+        var assemblyVersion = AssemblyName.GetAssemblyName(SdkAssemblyPath).Version;
+        var member = "\"sdkPackageVersion\": \"" + assemblyVersion.Major + "." + assemblyVersion.Minor + "." + assemblyVersion.Build + "\"";
+        var text = File.ReadAllText(ManifestPath);
+        var existing = new Regex("\"sdkPackageVersion\"\\s*:\\s*\"[^\"]*\"");
+        var updated = text;
+        if (existing.IsMatch(text))
+        {
+            updated = existing.Replace(text, member, 1);
+        }
+        else
+        {
+            var open = text.IndexOf('{');
+            if (open < 0)
+            {
+                Log.LogError("{0} is not a JSON object, so the SDK package version cannot be written into it.", ManifestPath);
+            }
+            else
+            {
+                var newline = text.Contains("\r\n") ? "\r\n" : "\n";
+                var isEmpty = text.Substring(open + 1).TrimStart().StartsWith("}");
+                updated = text.Insert(open + 1, newline + "  " + member + (isEmpty ? string.Empty : ","));
+            }
+        }
+
+        if (updated != text)
+        {
+            File.WriteAllText(ManifestPath, updated, new UTF8Encoding(false));
+        }
+      ]]></Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="HostpanelStampSdkPackageVersionIntoManifest"
+          BeforeTargets="CopyFilesToOutputDirectory"
+          DependsOnTargets="ResolveAssemblyReferences"
+          Condition="'$(HostpanelStampSdkPackageVersion)' != 'false'">
+    <ItemGroup>
+      <_HostpanelSdkAssembly Include="@(ReferencePath)" Condition="'%(Filename)' == 'Hostpanel.Sdk'" />
+      <_HostpanelManifest Include="@(None)" Condition="'%(Filename)%(Extension)' == 'plugin.json'" />
+    </ItemGroup>
+    <HostpanelStampSdkPackageVersion Condition="'@(_HostpanelManifest)' != '' And '@(_HostpanelSdkAssembly)' != ''"
+                                     ManifestPath="%(_HostpanelManifest.FullPath)"
+                                     SdkAssemblyPath="@(_HostpanelSdkAssembly->'%(FullPath)')" />
+  </Target>
+
+</Project>

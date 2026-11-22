@@ -96,6 +96,7 @@ public static partial class PluginManifestChecker
             ?? CheckSlots(manifest.Ui.Slots, options)
             ?? CheckTags(manifest.Tags)
             ?? CheckHostVersions(manifest.MinHostVersion, manifest.MaxHostVersion)
+            ?? CheckSdkPackageVersion(manifest.SdkPackageVersion, manifest.MinHostVersion)
             ?? CheckChangelog(manifest.Changelog)
             ?? CheckAccountIdLabel(manifest.ServerAccountIdLabel)
             ?? CheckAgentProfile(manifest.AgentProfile)
@@ -378,6 +379,42 @@ public static partial class PluginManifestChecker
 
         return lower is not null && upper is not null && lower.CompareTo(upper) > 0
             ? new PluginManifestViolation(PluginManifestRule.HostVersionRangeInverted, $"minHostVersion {min} is above maxHostVersion {max}")
+            : null;
+    }
+
+    /// <summary>
+    /// Checks the <c>sdkPackageVersion</c>: when set it is a semantic version, and the <c>minHostVersion</c> is not below the
+    /// first host release that ships an SDK at least that new (<see cref="PluginSdkHostReleases"/>), because a lower bound
+    /// would admit hosts the plugin's assembly cannot load on. The caller has already checked that <paramref name="minHostVersion"/>,
+    /// when set, is a version.
+    /// </summary>
+    /// <param name="sdkPackageVersion">The <c>sdkPackageVersion</c>, or <see langword="null"/> when the manifest states none.</param>
+    /// <param name="minHostVersion">The <c>minHostVersion</c>, or <see langword="null"/> for no lower limit.</param>
+    /// <returns>The first violation, or <see langword="null"/>. An SDK no host release ships yet is not compared.</returns>
+    private static PluginManifestViolation? CheckSdkPackageVersion(string? sdkPackageVersion, string? minHostVersion)
+    {
+        if (sdkPackageVersion is null)
+        {
+            return null;
+        }
+
+        if (!PluginVersion.TryParse(sdkPackageVersion, out var sdk))
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.SdkPackageVersionInvalid, "sdkPackageVersion is not a valid version: use major.minor.patch, for example 3.13.0");
+        }
+
+        var firstHost = PluginSdkHostReleases.FirstHostShipping(sdk);
+        if (firstHost is null)
+        {
+            return null;
+        }
+
+        var belowFirstHost = !PluginVersion.TryParse(minHostVersion, out var min) || min.CompareTo(firstHost) < 0;
+        return belowFirstHost
+            ? new PluginManifestViolation(
+                PluginManifestRule.MinHostVersionBelowSdk,
+                $"minHostVersion {minHostVersion ?? "(none)"} is below {firstHost.Major}.{firstHost.Minor}.{firstHost.Patch}, the first host release that ships SDK {sdkPackageVersion}")
             : null;
     }
 

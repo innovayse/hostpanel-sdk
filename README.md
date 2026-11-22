@@ -1108,6 +1108,20 @@ root of the archive, and upload it in the admin panel under Plugins, or place th
 host's `plugins/<id>/` folder. Never ship `Hostpanel.Sdk.dll` or a host assembly inside the plugin:
 the host refuses such an archive, and a second copy of the SDK on disk would make every cast fail.
 
+## The SDK version in the manifest
+
+Building a plugin writes the version of the referenced `Hostpanel.Sdk` package into `plugin.json` as
+`sdkPackageVersion` (for example `"sdkPackageVersion": "3.13.0"`): the package ships `build/Hostpanel.Sdk.targets`, which
+NuGet imports into the plugin's project, and the build sets the member in the project's `plugin.json`, so there is
+nothing to keep in step by hand. Commit the changed file. Set the MSBuild property `HostpanelStampSdkPackageVersion` to
+`false` to switch it off. It is not `sdkVersion`, which names the manifest contract and stays `1.0`.
+
+A host refuses, at upload and at registry install, a plugin whose `sdkPackageVersion` is newer than the SDK the host
+ships, because the assembly would not load there. `PluginManifestChecker.Validate` fails with
+`PluginManifestRule.MinHostVersionBelowSdk` when `minHostVersion` is missing or lower than the first host release that ships
+an SDK at least that new (`PluginSdkHostReleases`), and with `SdkPackageVersionInvalid` when the value is not a version.
+A manifest without the member is not checked.
+
 ## Checking and signing a package
 
 The checks a host runs on an uploaded package (the `plugin.sig` signature, plugin id and version rules,
