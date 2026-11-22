@@ -18,7 +18,7 @@
        rewritten only when the bytes change, and by replacing the file, so an up to date manifest keeps its timestamp and a
        concurrent reader never sees a half written one. A file that is not a JSON object, or has a non-string member of that
        name, fails the build. -->
-  <UsingTask TaskName="HostpanelStampSdkPackageVersion"
+  <UsingTask TaskName="HostpanelWriteSdkPackageVersion"
              TaskFactory="RoslynCodeTaskFactory"
              AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
     <ParameterGroup>
@@ -26,6 +26,7 @@
       <SdkAssemblyPath ParameterType="System.String" Required="true" />
     </ParameterGroup>
     <Task>
+      <Using Namespace="System" />
       <Using Namespace="System.IO" />
       <Using Namespace="System.Linq" />
       <Using Namespace="System.Reflection" />
@@ -156,8 +157,25 @@
         if (changed)
         {
             var temporary = ManifestPath + ".stamp";
-            File.WriteAllBytes(temporary, updated);
-            File.Replace(temporary, ManifestPath, null);
+            try
+            {
+                File.WriteAllBytes(temporary, updated);
+                File.Replace(temporary, ManifestPath, null);
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
+            {
+                Log.LogError("{0} cannot be written (is it read only or locked?): {1}", ManifestPath, exception.Message);
+                try
+                {
+                    File.Delete(temporary);
+                }
+                catch (Exception cleanup) when (cleanup is IOException || cleanup is UnauthorizedAccessException)
+                {
+                    Log.LogWarning("{0} could not be removed: {1}", temporary, cleanup.Message);
+                }
+
+                return false;
+            }
         }
       ]]></Code>
     </Task>
@@ -173,7 +191,7 @@
     </ItemGroup>
     <Error Condition="@(_HostpanelSdkAssembly->Count()) &gt; 1"
            Text="More than one Hostpanel.Sdk reference is resolved (@(_HostpanelSdkAssembly, ', ')), so the SDK package version to write into plugin.json is ambiguous. Reference the package once." />
-    <HostpanelStampSdkPackageVersion Condition="'@(_HostpanelManifest)' != '' And '@(_HostpanelSdkAssembly)' != ''"
+    <HostpanelWriteSdkPackageVersion Condition="'@(_HostpanelManifest)' != '' And '@(_HostpanelSdkAssembly)' != ''"
                                      ManifestPath="%(_HostpanelManifest.FullPath)"
                                      SdkAssemblyPath="@(_HostpanelSdkAssembly->'%(FullPath)')" />
   </Target>

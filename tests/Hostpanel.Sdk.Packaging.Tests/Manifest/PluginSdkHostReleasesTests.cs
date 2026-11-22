@@ -32,4 +32,25 @@ public sealed class PluginSdkHostReleasesTests
 
         PluginSdkHostReleases.FirstHostShipping(sdkVersion).Should().BeNull();
     }
+
+    /// <summary>A newer SDK never maps to an older host release, which is what a table kept oldest first guarantees.</summary>
+    [Fact]
+    public void FirstHostShipping_AscendingSdkVersions_NeverReturnsAnOlderHost()
+    {
+        PluginVersion? previous = null;
+        for (var minor = 0; minor <= 10; minor++)
+        {
+            PluginVersion.TryParse($"3.{minor}.0", out var sdkVersion).Should().BeTrue();
+
+            var host = PluginSdkHostReleases.FirstHostShipping(sdkVersion);
+
+            host.Should().NotBeNull();
+            if (previous is not null)
+            {
+                host!.CompareTo(previous).Should().BeGreaterThanOrEqualTo(0);
+            }
+
+            previous = host;
+        }
+    }
 }

@@ -11,6 +11,9 @@ namespace Hostpanel.Sdk.Tests.Manifest;
 /// </summary>
 public sealed class SdkPackageVersionTargetsTests
 {
+    /// <summary>The byte order mark, written as an escape so that no editor can drop it from the source.</summary>
+    private const string ByteOrderMark = "\uFEFF";
+
     /// <summary>How long a nested build may run before the test gives up and ends it.</summary>
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromMinutes(3);
 
@@ -89,11 +92,11 @@ public sealed class SdkPackageVersionTargetsTests
     [Fact]
     public void Build_ManifestWithByteOrderMark_KeepsIt()
     {
-        var result = Build("﻿{\n  \"id\": \"demo\"\n}\n");
+        var result = Build(ByteOrderMark + "{\n  \"id\": \"demo\"\n}\n");
 
         result.Succeeded.Should().BeTrue(result.Output);
-        result.Manifest.Should().StartWith("﻿{");
-        JsonDocument.Parse(result.Manifest.TrimStart('﻿')).RootElement.GetProperty("sdkPackageVersion").GetString().Should().Be(ExpectedVersion);
+        result.Manifest.Should().StartWith(ByteOrderMark + "{");
+        JsonDocument.Parse(result.Manifest.TrimStart(ByteOrderMark[0])).RootElement.GetProperty("sdkPackageVersion").GetString().Should().Be(ExpectedVersion);
     }
 
     /// <summary>A member of the same name inside a nested object or an array is not the manifest's member and is never touched.</summary>
@@ -108,31 +111,90 @@ public sealed class SdkPackageVersionTargetsTests
         root.GetProperty("extra").GetProperty("sdkPackageVersion").GetString().Should().Be("1.0.0");
     }
 
-    /// <summary>A file that is not a JSON object fails the build with a message naming the file, and is not changed.</summary>
+    /// <summary>A quote and braces inside a string value do not confuse the scan: the escaped quote does not end the string.</summary>
+    [Fact]
+    public void Build_StringWithEscapedQuoteAndBraces_IsScannedCorrectly()
+    {
+        var result = Build("{\"note\": \"a \\\" } { b\", \"id\": \"x\"}");
+
+        result.Succeeded.Should().BeTrue(result.Output);
+        var root = JsonDocument.Parse(result.Manifest).RootElement;
+        root.GetProperty("sdkPackageVersion").GetString().Should().Be(ExpectedVersion);
+        root.GetProperty("note").GetString().Should().Be("a \" } { b");
+        root.GetProperty("id").GetString().Should().Be("x");
+    }
+
+    /// <summary>A string value that equals the member's name is a value, not the member: the real member is still added.</summary>
+    [Fact]
+    public void Build_ValueEqualToTheMemberName_IsNotTakenForTheMember()
+    {
+        var result = Build("{\"id\": \"sdkPackageVersion\"}");
+
+        result.Succeeded.Should().BeTrue(result.Output);
+        var root = JsonDocument.Parse(result.Manifest).RootElement;
+        root.GetProperty("sdkPackageVersion").GetString().Should().Be(ExpectedVersion);
+        root.GetProperty("id").GetString().Should().Be("sdkPackageVersion");
+    }
+
+    /// <summary>A file that is not a JSON object fails the build with the task's message naming the file, and is not changed.</summary>
     /// <param name="content">The text of the file.</param>
+    /// <param name="message">The part of the task's message that says why.</param>
     [Theory]
-    [InlineData("[1, 2]")]
-    [InlineData("not json")]
-    [InlineData("{\"id\": ")]
-    public void Build_FileThatIsNotAnObject_FailsAndLeavesItAlone(string content)
+    [InlineData("[1, 2]", "is not a JSON object")]
+    [InlineData("not json", "is not a JSON object")]
+    [InlineData("{\"id\": ", "is not valid JSON: it ends early")]
+    [InlineData("{\"id\": \"unclosed", "is not valid JSON: a string is not closed")]
+    public void Build_FileThatIsNotAnObject_FailsWithTheTaskMessageAndLeavesItAlone(string content, string message)
     {
         var result = Build(content);
 
         result.Succeeded.Should().BeFalse();
-        result.Output.Should().Contain("plugin.json");
+        result.Output.Should().Contain("plugin.json " + message);
         result.Manifest.Should().Be(content);
     }
 
     /// <summary>A member of that name which is not a string fails the build instead of being overwritten.</summary>
     [Fact]
-    public void Build_MemberThatIsNotAString_Fails()
+    public void Build_MemberThatIsNotAString_FailsWithTheTaskMessage()
     {
         var original = "{\n  \"sdkPackageVersion\": 3\n}\n";
 
         var result = Build(original);
 
         result.Succeeded.Should().BeFalse();
+        result.Output.Should().Contain("has an \"sdkPackageVersion\" member that is not a string");
         result.Manifest.Should().Be(original);
+    }
+
+    /// <summary>Two resolved <c>Hostpanel.Sdk</c> references make the version ambiguous, so the build fails and says why.</summary>
+    [Fact]
+    public void Build_TwoSdkReferences_FailsAndLeavesTheManifestAlone()
+    {
+        var original = "{\n  \"id\": \"demo\"\n}\n";
+
+        var result = Build(original, secondSdkReference: true);
+
+        result.Succeeded.Should().BeFalse();
+        result.Output.Should().Contain("More than one Hostpanel.Sdk reference");
+        result.Manifest.Should().Be(original);
+    }
+
+    /// <summary>
+    /// A project with two frameworks builds twice, and only the build of the first one stamps the manifest: the stamping target
+    /// runs once and the file is written, so parallel builds of a plugin never write the same source file together.
+    /// </summary>
+    [Fact]
+    public void Build_TwoTargetFrameworks_StampsOnceByTheFirstFramework()
+    {
+        var first = $"net{Environment.Version.Major}.0";
+
+        var result = Build("{\n  \"id\": \"demo\"\n}\n", targetFrameworks: $"{first};net8.0", verbosity: "detailed");
+
+        result.Succeeded.Should().BeTrue(result.Output);
+        JsonDocument.Parse(result.Manifest).RootElement.GetProperty("sdkPackageVersion").GetString().Should().Be(ExpectedVersion);
+        const string target = "Target \"HostpanelStampSdkPackageVersionIntoManifest\" in file";
+        result.Output.Split(target).Should().HaveCount(2, "the target runs in one of the two framework builds");
+        result.Output.Should().Contain("Target \"HostpanelStampSdkPackageVersionIntoManifest\" skipped", "the other framework build skips it");
     }
 
     /// <summary>The outcome of one nested build.</summary>
@@ -144,8 +206,16 @@ public sealed class SdkPackageVersionTargetsTests
     /// <summary>Builds a project that imports the targets file and references the SDK assembly, then reads its manifest back.</summary>
     /// <param name="manifest">The text of the project's <c>plugin.json</c> before the build.</param>
     /// <param name="stamp">Whether the stamping is left on, or switched off with <c>HostpanelStampSdkPackageVersion</c>.</param>
+    /// <param name="secondSdkReference">Whether a second copy of the SDK assembly is also among the resolved references.</param>
+    /// <param name="targetFrameworks">The semicolon separated frameworks of a multi targeting project; the current runtime's single one when <see langword="null"/>.</param>
+    /// <param name="verbosity">The MSBuild verbosity of the build, when its target log is needed.</param>
     /// <returns>The outcome of the build and the manifest as it is afterwards.</returns>
-    private static BuildResult Build(string manifest, bool stamp = true)
+    private static BuildResult Build(
+        string manifest,
+        bool stamp = true,
+        bool secondSdkReference = false,
+        string? targetFrameworks = null,
+        string? verbosity = null)
     {
         var folder = Path.Combine(Path.GetTempPath(), "hostpanel-sdk-targets-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -155,23 +225,40 @@ public sealed class SdkPackageVersionTargetsTests
             var targets = Path.Combine(AppContext.BaseDirectory, "build", "Hostpanel.Sdk.targets");
             var manifestPath = Path.Combine(folder, "plugin.json");
             File.WriteAllBytes(manifestPath, new UTF8Encoding(false).GetBytes(manifest));
+
+            var frameworks = targetFrameworks is null
+                ? $"<TargetFramework>net{Environment.Version.Major}.0</TargetFramework>"
+                : $"<TargetFrameworks>{targetFrameworks}</TargetFrameworks>";
+            var secondReference = string.Empty;
+            if (secondSdkReference)
+            {
+                var copyFolder = Path.Combine(folder, "second");
+                Directory.CreateDirectory(copyFolder);
+                File.Copy(sdkAssembly, Path.Combine(copyFolder, "Hostpanel.Sdk.dll"));
+
+                // A second copy of the same assembly is not a second reference to the build (references of one identity are
+                // merged), so it is added to the resolved references the way a second package or project would add it.
+                secondReference = $"<Target Name=\"AddSecondSdk\" AfterTargets=\"ResolveAssemblyReferences\"><ItemGroup><ReferencePath Include=\"{Path.Combine(copyFolder, "Hostpanel.Sdk.dll")}\" /></ItemGroup></Target>";
+            }
+
             File.WriteAllText(
                 Path.Combine(folder, "Fixture.csproj"),
                 $"""
                 <Project Sdk="Microsoft.NET.Sdk">
                   <PropertyGroup>
-                    <TargetFramework>net{Environment.Version.Major}.0</TargetFramework>
+                    {frameworks}
                     <HostpanelStampSdkPackageVersion>{(stamp ? "true" : "false")}</HostpanelStampSdkPackageVersion>
                   </PropertyGroup>
                   <ItemGroup>
                     <Reference Include="Hostpanel.Sdk"><HintPath>{sdkAssembly}</HintPath></Reference>
                   </ItemGroup>
+                  {secondReference}
                   <Import Project="{targets}" />
                 </Project>
                 """);
             File.WriteAllText(Path.Combine(folder, "Marker.cs"), "namespace Fixture; internal sealed class Marker { }");
 
-            var (succeeded, output) = RunBuild(folder);
+            var (succeeded, output) = RunBuild(folder, verbosity);
             return new BuildResult(succeeded, output, new UTF8Encoding(false).GetString(File.ReadAllBytes(manifestPath)));
         }
         finally
@@ -185,8 +272,9 @@ public sealed class SdkPackageVersionTargetsTests
     /// files of the folder open and outlive the test; a build that does not end in time is killed.
     /// </summary>
     /// <param name="folder">The folder holding the project.</param>
+    /// <param name="verbosity">The MSBuild verbosity, or <see langword="null"/> for the default.</param>
     /// <returns>Whether the build succeeded, and its output.</returns>
-    private static (bool Succeeded, string Output) RunBuild(string folder)
+    private static (bool Succeeded, string Output) RunBuild(string folder, string? verbosity)
     {
         var start = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
         {
@@ -196,9 +284,14 @@ public sealed class SdkPackageVersionTargetsTests
         };
         start.ArgumentList.Add("build");
         start.ArgumentList.Add("--nologo");
+        start.ArgumentList.Add("--disable-build-servers");
         start.ArgumentList.Add("-nodeReuse:false");
         start.ArgumentList.Add("-p:UseSharedCompilation=false");
         start.ArgumentList.Add("-p:NuGetAudit=false");
+        if (verbosity is not null)
+        {
+            start.ArgumentList.Add("-v:" + verbosity);
+        }
 
         using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEndAsync();
@@ -214,7 +307,11 @@ public sealed class SdkPackageVersionTargetsTests
         return (process.ExitCode == 0, output.Result + errors.Result);
     }
 
-    /// <summary>Deletes a test folder, trying again briefly because a process that has just ended may still hold a file.</summary>
+    /// <summary>
+    /// Deletes a test folder, trying again briefly because a process that has just ended may still hold a file. A folder that
+    /// still cannot be deleted is left in the temp directory: this runs in a <c>finally</c>, and an exception from it would
+    /// replace the failure the test is reporting.
+    /// </summary>
     /// <param name="folder">The folder to delete.</param>
     private static void DeleteFolder(string folder)
     {
@@ -226,11 +323,7 @@ public sealed class SdkPackageVersionTargetsTests
                 Directory.Delete(folder, recursive: true);
                 return;
             }
-            catch (IOException) when (attempt < attempts)
-            {
-                Thread.Sleep(200 * attempt);
-            }
-            catch (UnauthorizedAccessException) when (attempt < attempts)
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
                 Thread.Sleep(200 * attempt);
             }
