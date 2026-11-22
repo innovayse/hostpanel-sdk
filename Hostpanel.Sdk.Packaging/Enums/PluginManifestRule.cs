@@ -91,4 +91,13 @@ public enum PluginManifestRule
 
     /// <summary>A registrar plugin declares a <c>connectionRole</c> but not both <c>accountName</c> and <c>apiKey</c>.</summary>
     ConnectionRolesIncomplete = 27,
+
+    /// <summary>The <c>sdkPackageVersion</c> is not a valid semantic version.</summary>
+    SdkPackageVersionInvalid = 28,
+
+    /// <summary>
+    /// The <c>minHostVersion</c> is missing or lower than the first host release that ships an SDK at least as new as the
+    /// <c>sdkPackageVersion</c>, so the manifest admits a host the plugin cannot load on.
+    /// </summary>
+    MinHostVersionBelowSdk = 29,
 }

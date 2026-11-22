@@ -60,6 +60,9 @@
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
     <None Include="LICENSE" Pack="true" PackagePath="\" />
+    <!-- NuGet imports build/<PackageId>.targets into every project that references the package; it writes the package
+         version into the plugin's plugin.json. -->
+    <None Include="build/Hostpanel.Sdk.targets" Pack="true" PackagePath="build" />
   </ItemGroup>
 
   <ItemGroup>

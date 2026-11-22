@@ -238,6 +238,15 @@ public sealed class PluginManifest
     public string? MaxHostVersion { get; init; }
 
     /// <summary>
+    /// Gets the version of the <c>Hostpanel.Sdk</c> package the plugin was built against (the <c>sdkPackageVersion</c>
+    /// field, for example <c>3.13.0</c>): a semantic version. The build tooling the package ships writes it into the
+    /// <c>plugin.json</c> that goes into the package, from the referenced package, so nobody keeps it in step by hand.
+    /// <see langword="null"/> when the manifest states none. It is not <see cref="SdkVersion"/>,
+    /// which names the manifest contract and stays <c>1.0</c>.
+    /// </summary>
+    public string? SdkPackageVersion { get; init; }
+
+    /// <summary>
     /// Gets the notes for this plugin version (the <c>changelog</c> field), plain text of at most
     /// <see cref="MaxChangelogLength"/> characters. <see langword="null"/> when the manifest carries no notes.
     /// </summary>

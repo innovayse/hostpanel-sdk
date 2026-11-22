@@ -14,6 +14,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- The targets file the package ships; the tests build a project that imports it. -->
+    <Content Include="..\..\build\Hostpanel.Sdk.targets" Link="build\Hostpanel.Sdk.targets" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Hostpanel.Sdk.csproj" />
     <ProjectReference Include="..\..\Hostpanel.Sdk.Generators\Hostpanel.Sdk.Generators.csproj" />
   </ItemGroup>
