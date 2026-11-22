@@ -1116,8 +1116,12 @@ NuGet imports into the plugin's project, and the build sets the member in the pr
 nothing to keep in step by hand. Commit the changed file. Set the MSBuild property `HostpanelStampSdkPackageVersion` to
 `false` to switch it off. It is not `sdkVersion`, which names the manifest contract and stays `1.0`.
 
-A host refuses, at upload and at registry install, a plugin whose `sdkPackageVersion` is newer than the SDK the host
-ships, because the assembly would not load there. `PluginManifestChecker.Validate` fails with
+The build changes only the top level `sdkPackageVersion` member of `plugin.json`: the byte order mark, the line endings and
+the layout stay as they were, and a file that is not a JSON object fails the build. In a project with several
+`TargetFrameworks` only the build of the first framework writes the file. A project that resolves more than one
+`Hostpanel.Sdk` reference fails the build, because the version to write would be ambiguous.
+
+`PluginManifestChecker.Validate` fails with
 `PluginManifestRule.MinHostVersionBelowSdk` when `minHostVersion` is missing or lower than the first host release that ships
 an SDK at least that new (`PluginSdkHostReleases`), and with `SdkPackageVersionInvalid` when the value is not a version.
 A manifest without the member is not checked.

@@ -241,8 +241,7 @@ public sealed class PluginManifest
     /// Gets the version of the <c>Hostpanel.Sdk</c> package the plugin was built against (the <c>sdkPackageVersion</c>
     /// field, for example <c>3.13.0</c>): a semantic version. The build tooling the package ships writes it into the
     /// <c>plugin.json</c> that goes into the package, from the referenced package, so nobody keeps it in step by hand.
-    /// A host refuses a plugin whose value is newer than the SDK the host ships, because its assembly would not load.
-    /// <see langword="null"/> when the manifest states none, which a host does not check. It is not <see cref="SdkVersion"/>,
+    /// <see langword="null"/> when the manifest states none. It is not <see cref="SdkVersion"/>,
     /// which names the manifest contract and stays <c>1.0</c>.
     /// </summary>
     public string? SdkPackageVersion { get; init; }

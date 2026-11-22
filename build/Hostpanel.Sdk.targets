@@ -2,15 +2,22 @@
 
   <!-- Imported into every project that references the Hostpanel.Sdk package (NuGet imports build/<PackageId>.targets).
        It writes the version of the referenced package into the plugin's plugin.json as "sdkPackageVersion", so nobody keeps
-       that number in step by hand. A host refuses a plugin whose number is newer than the SDK the host ships, because its
-       assembly could not load there. Set HostpanelStampSdkPackageVersion to false to switch it off. -->
+       that number in step by hand. Set HostpanelStampSdkPackageVersion to false to switch it off. -->
   <PropertyGroup>
     <HostpanelStampSdkPackageVersion Condition="'$(HostpanelStampSdkPackageVersion)' == ''">true</HostpanelStampSdkPackageVersion>
+    <!-- A project with TargetFrameworks builds once per framework, in parallel under -m, and every one of those builds sees
+         the same source plugin.json. Only the build of the first framework stamps it, so exactly one build writes the file
+         per project; the version does not depend on the framework, so the others lose nothing. -->
+    <_HostpanelFirstTargetFramework>$([System.String]::Copy('$(TargetFrameworks)').Split(';')[0])</_HostpanelFirstTargetFramework>
   </PropertyGroup>
 
-  <!-- Reads the version of the SDK assembly from its metadata (the assembly is not loaded) and sets it in the manifest:
-       an existing "sdkPackageVersion" is replaced, otherwise the member is added as the first one. The file is rewritten
-       only when its text changes, so an up to date manifest keeps its timestamp. -->
+  <!-- Reads the version of the SDK assembly from its metadata (the assembly is not loaded) and sets it in the manifest as the
+       top level "sdkPackageVersion" member: an existing one is replaced, otherwise the member is added as the first one.
+       The manifest is scanned by structure (strings and nesting), so a member of the same name nested deeper is never touched,
+       and the file is changed only by splicing bytes, so the byte order mark, the line endings and the layout stay as they were. It is
+       rewritten only when the bytes change, and by replacing the file, so an up to date manifest keeps its timestamp and a
+       concurrent reader never sees a half written one. A file that is not a JSON object, or has a non-string member of that
+       name, fails the build. -->
   <UsingTask TaskName="HostpanelStampSdkPackageVersion"
              TaskFactory="RoslynCodeTaskFactory"
              AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
@@ -20,37 +27,137 @@
     </ParameterGroup>
     <Task>
       <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
       <Using Namespace="System.Reflection" />
       <Using Namespace="System.Text" />
-      <Using Namespace="System.Text.RegularExpressions" />
       <Code Type="Fragment" Language="cs"><![CDATA[
         var assemblyVersion = AssemblyName.GetAssemblyName(SdkAssemblyPath).Version;
-        var member = "\"sdkPackageVersion\": \"" + assemblyVersion.Major + "." + assemblyVersion.Minor + "." + assemblyVersion.Build + "\"";
-        var text = File.ReadAllText(ManifestPath);
-        var existing = new Regex("\"sdkPackageVersion\"\\s*:\\s*\"[^\"]*\"");
-        var updated = text;
-        if (existing.IsMatch(text))
+        var version = "\"" + assemblyVersion.Major + "." + assemblyVersion.Minor + "." + assemblyVersion.Build + "\"";
+        var member = "\"sdkPackageVersion\": " + version;
+        var original = File.ReadAllBytes(ManifestPath);
+        var bomLength = original.Length >= 3 && original[0] == 0xEF && original[1] == 0xBB && original[2] == 0xBF ? 3 : 0;
+
+        // Walks the structure of the document once: strings (with their escapes) and nesting depth, so only a member of the
+        // root object is ever looked at and a name inside a nested object or an array cannot be mistaken for it.
+        var rootOpen = -1;
+        var firstMemberStart = -1;
+        var valueStart = -1;
+        var valueEnd = -1;
+        var failure = (string)null;
+        var depth = 0;
+        var expectKey = false;
+        var awaitingValue = false;
+        var closed = false;
+        var name = Encoding.UTF8.GetBytes("sdkPackageVersion");
+        for (var i = bomLength; i < original.Length && failure == null; i++)
         {
-            updated = existing.Replace(text, member, 1);
-        }
-        else
-        {
-            var open = text.IndexOf('{');
-            if (open < 0)
+            var c = original[i];
+            if (c == ' ' || c == '\t' || c == '\r' || c == '\n' || (c == ':' && depth == 1))
             {
-                Log.LogError("{0} is not a JSON object, so the SDK package version cannot be written into it.", ManifestPath);
+                continue;
             }
-            else
+
+            if (closed)
             {
-                var newline = text.Contains("\r\n") ? "\r\n" : "\n";
-                var isEmpty = text.Substring(open + 1).TrimStart().StartsWith("}");
-                updated = text.Insert(open + 1, newline + "  " + member + (isEmpty ? string.Empty : ","));
+                failure = "has content after its closing brace";
+            }
+            else if (rootOpen < 0 && c != '{')
+            {
+                failure = "is not a JSON object, so the SDK package version cannot be written into it";
+            }
+            else if (awaitingValue && c != '"')
+            {
+                failure = "has an \"sdkPackageVersion\" member that is not a string";
+            }
+            else if (c == '"')
+            {
+                var end = i + 1;
+                while (end < original.Length && original[end] != '"')
+                {
+                    end += original[end] == '\\' ? 2 : 1;
+                }
+
+                if (end >= original.Length)
+                {
+                    failure = "is not valid JSON: a string is not closed";
+                    continue;
+                }
+
+                if (awaitingValue)
+                {
+                    valueStart = i;
+                    valueEnd = end + 1;
+                    awaitingValue = false;
+                }
+                else if (depth == 1 && expectKey)
+                {
+                    firstMemberStart = firstMemberStart < 0 ? i : firstMemberStart;
+                    awaitingValue = valueStart < 0 && end - i - 1 == name.Length && new ArraySegment<byte>(original, i + 1, name.Length).SequenceEqual(name);
+                    expectKey = false;
+                }
+
+                i = end;
+            }
+            else if (c == '{' || c == '[')
+            {
+                rootOpen = rootOpen < 0 ? i : rootOpen;
+                depth++;
+                expectKey = depth == 1 && c == '{';
+            }
+            else if (c == '}' || c == ']')
+            {
+                depth--;
+                closed = depth == 0;
+                expectKey = false;
+            }
+            else if (c == ',')
+            {
+                expectKey = depth == 1;
             }
         }
 
-        if (updated != text)
+        if (failure == null && (!closed || awaitingValue))
         {
-            File.WriteAllText(ManifestPath, updated, new UTF8Encoding(false));
+            failure = rootOpen < 0 ? "is not a JSON object, so the SDK package version cannot be written into it" : "is not valid JSON: it ends early";
+        }
+
+        if (failure != null)
+        {
+            Log.LogError("{0} {1}.", ManifestPath, failure);
+            return false;
+        }
+
+        byte[] updated;
+        if (valueStart >= 0)
+        {
+            var replacement = Encoding.UTF8.GetBytes(version);
+            updated = new byte[valueStart + replacement.Length + (original.Length - valueEnd)];
+            Buffer.BlockCopy(original, 0, updated, 0, valueStart);
+            Buffer.BlockCopy(replacement, 0, updated, valueStart, replacement.Length);
+            Buffer.BlockCopy(original, valueEnd, updated, valueStart + replacement.Length, original.Length - valueEnd);
+        }
+        else
+        {
+            var newline = Array.IndexOf(original, (byte)'\r') >= 0 ? "\r\n" : "\n";
+            var insertion = Encoding.UTF8.GetBytes(newline + "  " + member + (firstMemberStart < 0 ? newline : ","));
+            var at = rootOpen + 1;
+            updated = new byte[original.Length + insertion.Length];
+            Buffer.BlockCopy(original, 0, updated, 0, at);
+            Buffer.BlockCopy(insertion, 0, updated, at, insertion.Length);
+            Buffer.BlockCopy(original, at, updated, at + insertion.Length, original.Length - at);
+        }
+
+        var changed = updated.Length != original.Length;
+        for (var i = 0; !changed && i < updated.Length; i++)
+        {
+            changed = updated[i] != original[i];
+        }
+
+        if (changed)
+        {
+            var temporary = ManifestPath + ".stamp";
+            File.WriteAllBytes(temporary, updated);
+            File.Replace(temporary, ManifestPath, null);
         }
       ]]></Code>
     </Task>
@@ -59,11 +166,13 @@
   <Target Name="HostpanelStampSdkPackageVersionIntoManifest"
           BeforeTargets="CopyFilesToOutputDirectory"
           DependsOnTargets="ResolveAssemblyReferences"
-          Condition="'$(HostpanelStampSdkPackageVersion)' != 'false'">
+          Condition="'$(HostpanelStampSdkPackageVersion)' != 'false' And ('$(TargetFrameworks)' == '' Or '$(TargetFramework)' == '$(_HostpanelFirstTargetFramework)')">
     <ItemGroup>
       <_HostpanelSdkAssembly Include="@(ReferencePath)" Condition="'%(Filename)' == 'Hostpanel.Sdk'" />
       <_HostpanelManifest Include="@(None)" Condition="'%(Filename)%(Extension)' == 'plugin.json'" />
     </ItemGroup>
+    <Error Condition="@(_HostpanelSdkAssembly->Count()) &gt; 1"
+           Text="More than one Hostpanel.Sdk reference is resolved (@(_HostpanelSdkAssembly, ', ')), so the SDK package version to write into plugin.json is ambiguous. Reference the package once." />
     <HostpanelStampSdkPackageVersion Condition="'@(_HostpanelManifest)' != '' And '@(_HostpanelSdkAssembly)' != ''"
                                      ManifestPath="%(_HostpanelManifest.FullPath)"
                                      SdkAssemblyPath="@(_HostpanelSdkAssembly->'%(FullPath)')" />

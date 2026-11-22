@@ -38,12 +38,17 @@ public static class PluginSdkHostReleases
         return null;
     }
 
-    /// <summary>Reads a version written in this file, which is always a valid one.</summary>
+    /// <summary>Reads a version written in this file; a malformed entry is a defect in the table and fails loudly.</summary>
     /// <param name="text">The version text.</param>
     /// <returns>The version.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the text is not a version.</exception>
     private static PluginVersion Parse(string text)
     {
-        PluginVersion.TryParse(text, out var version);
+        if (!PluginVersion.TryParse(text, out var version))
+        {
+            throw new InvalidOperationException($"The SDK and host release table holds '{text}', which is not a version.");
+        }
+
         return version;
     }
 }
