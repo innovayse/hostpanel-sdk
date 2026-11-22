@@ -144,6 +144,8 @@ public sealed class SdkPackageVersionTargetsTests
     [InlineData("not json", "is not a JSON object")]
     [InlineData("{\"id\": ", "is not valid JSON: it ends early")]
     [InlineData("{\"id\": \"unclosed", "is not valid JSON: a string is not closed")]
+    [InlineData("{}x", "has content after its closing brace")]
+    [InlineData("{} {}", "has content after its closing brace")]
     public void Build_FileThatIsNotAnObject_FailsWithTheTaskMessageAndLeavesItAlone(string content, string message)
     {
         var result = Build(content);
@@ -186,32 +188,50 @@ public sealed class SdkPackageVersionTargetsTests
     [Fact]
     public void Build_TwoTargetFrameworks_StampsOnceByTheFirstFramework()
     {
-        var first = $"net{Environment.Version.Major}.0";
-
-        var result = Build("{\n  \"id\": \"demo\"\n}\n", targetFrameworks: $"{first};net8.0");
+        var result = Build("{\n  \"id\": \"demo\"\n}\n", targetFrameworks: "net9.0;net8.0");
 
         result.Succeeded.Should().BeTrue(result.Output);
         JsonDocument.Parse(result.Manifest).RootElement.GetProperty("sdkPackageVersion").GetString().Should().Be(ExpectedVersion);
         result.Output.Split("Hostpanel.Sdk: stamped sdkPackageVersion").Should().HaveCount(2, "the manifest is written once");
-        result.Output.Split("Hostpanel.Sdk: sdkPackageVersion is stamped by the " + first + " build").Should().HaveCount(2, "the other framework build says it skips");
+        result.Output.Split("Hostpanel.Sdk: sdkPackageVersion is stamped by the net9.0 build").Should().HaveCount(2, "the other framework build says it skips");
+    }
+
+    /// <summary>
+    /// A manifest that cannot be replaced fails the build with the task's message, stays as it was and leaves no temporary
+    /// file behind. A folder takes the name of the temporary file, so writing it throws.
+    /// </summary>
+    [Fact]
+    public void Build_TemporaryFileCannotBeWritten_FailsAndLeavesNoTemporaryFile()
+    {
+        var original = "{\n  \"id\": \"demo\"\n}\n";
+
+        var result = Build(original, blockTemporaryFile: true);
+
+        result.Succeeded.Should().BeFalse();
+        result.Output.Should().Contain("plugin.json cannot be written");
+        result.Manifest.Should().Be(original);
+        result.TemporaryFiles.Should().BeEmpty();
     }
 
     /// <summary>The outcome of one nested build.</summary>
     /// <param name="Succeeded">Whether the build ended with exit code zero.</param>
     /// <param name="Output">What the build wrote, standard output and error together.</param>
     /// <param name="Manifest">The text of the project's <c>plugin.json</c> after the build.</param>
-    private sealed record BuildResult(bool Succeeded, string Output, string Manifest);
+    /// <param name="TemporaryFiles">The files named <c>*.stamp</c> the build left next to the manifest.</param>
+    private sealed record BuildResult(bool Succeeded, string Output, string Manifest, string[] TemporaryFiles);
 
     /// <summary>Builds a project that imports the targets file and references the SDK assembly, then reads its manifest back.</summary>
     /// <param name="manifest">The text of the project's <c>plugin.json</c> before the build.</param>
     /// <param name="stamp">Whether the stamping is left on, or switched off with <c>HostpanelStampSdkPackageVersion</c>.</param>
     /// <param name="secondSdkReference">Whether a second copy of the SDK assembly is also among the resolved references.</param>
+    /// <param name="blockTemporaryFile">Whether a folder takes the name of the task's temporary file, so that writing it fails.</param>
     /// <param name="targetFrameworks">The semicolon separated frameworks of a multi targeting project; the current runtime's single one when <see langword="null"/>.</param>
-        /// <returns>The outcome of the build and the manifest as it is afterwards.</returns>
+    /// <returns>The outcome of the build and the manifest as it is afterwards.</returns>
     private static BuildResult Build(
         string manifest,
         bool stamp = true,
         bool secondSdkReference = false,
+        bool blockTemporaryFile = false,
         string? targetFrameworks = null)
     {
         var folder = Path.Combine(Path.GetTempPath(), "hostpanel-sdk-targets-" + Guid.NewGuid().ToString("N"));
@@ -222,6 +242,11 @@ public sealed class SdkPackageVersionTargetsTests
             var targets = Path.Combine(AppContext.BaseDirectory, "build", "Hostpanel.Sdk.targets");
             var manifestPath = Path.Combine(folder, "plugin.json");
             File.WriteAllBytes(manifestPath, new UTF8Encoding(false).GetBytes(manifest));
+
+            if (blockTemporaryFile)
+            {
+                Directory.CreateDirectory(manifestPath + ".stamp");
+            }
 
             var frameworks = targetFrameworks is null
                 ? $"<TargetFramework>net{Environment.Version.Major}.0</TargetFramework>"
@@ -256,7 +281,11 @@ public sealed class SdkPackageVersionTargetsTests
             File.WriteAllText(Path.Combine(folder, "Marker.cs"), "namespace Fixture; internal sealed class Marker { }");
 
             var (succeeded, output) = RunBuild(folder);
-            return new BuildResult(succeeded, output, new UTF8Encoding(false).GetString(File.ReadAllBytes(manifestPath)));
+            return new BuildResult(
+                succeeded,
+                output,
+                new UTF8Encoding(false).GetString(File.ReadAllBytes(manifestPath)),
+                Directory.GetFiles(folder, "*.stamp"));
         }
         finally
         {

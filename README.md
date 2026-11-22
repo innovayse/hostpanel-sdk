@@ -1120,6 +1120,8 @@ The build changes only the top level `sdkPackageVersion` member of `plugin.json`
 the layout stay as they were, and a file that is not a JSON object fails the build. In a project with several
 `TargetFrameworks` only the build of the first framework writes the file. A project that resolves more than one
 `Hostpanel.Sdk` reference fails the build, because the version to write would be ambiguous.
+The value is only the major, minor and patch numbers, so a prerelease suffix is ignored, and the member name must be written
+as plain `sdkPackageVersion`, without escapes, for the build to recognise it.
 
 `PluginManifestChecker.Validate` fails with
 `PluginManifestRule.MinHostVersionBelowSdk` when `minHostVersion` is missing or lower than the first host release that ships
