@@ -180,21 +180,20 @@ public sealed class SdkPackageVersionTargetsTests
     }
 
     /// <summary>
-    /// A project with two frameworks builds twice, and only the build of the first one stamps the manifest: the stamping target
-    /// runs once and the file is written, so parallel builds of a plugin never write the same source file together.
+    /// A project with two frameworks builds twice, and only the build of the first one stamps the manifest: the stamp is
+    /// written once and the other build says it skips, so parallel builds of a plugin never write the same source file together.
     /// </summary>
     [Fact]
     public void Build_TwoTargetFrameworks_StampsOnceByTheFirstFramework()
     {
         var first = $"net{Environment.Version.Major}.0";
 
-        var result = Build("{\n  \"id\": \"demo\"\n}\n", targetFrameworks: $"{first};net8.0", verbosity: "detailed");
+        var result = Build("{\n  \"id\": \"demo\"\n}\n", targetFrameworks: $"{first};net8.0");
 
         result.Succeeded.Should().BeTrue(result.Output);
         JsonDocument.Parse(result.Manifest).RootElement.GetProperty("sdkPackageVersion").GetString().Should().Be(ExpectedVersion);
-        const string target = "Target \"HostpanelStampSdkPackageVersionIntoManifest\" in file";
-        result.Output.Split(target).Should().HaveCount(2, "the target runs in one of the two framework builds");
-        result.Output.Should().Contain("Target \"HostpanelStampSdkPackageVersionIntoManifest\" skipped", "the other framework build skips it");
+        result.Output.Split("Hostpanel.Sdk: stamped sdkPackageVersion").Should().HaveCount(2, "the manifest is written once");
+        result.Output.Split("Hostpanel.Sdk: sdkPackageVersion is stamped by the " + first + " build").Should().HaveCount(2, "the other framework build says it skips");
     }
 
     /// <summary>The outcome of one nested build.</summary>
@@ -208,14 +207,12 @@ public sealed class SdkPackageVersionTargetsTests
     /// <param name="stamp">Whether the stamping is left on, or switched off with <c>HostpanelStampSdkPackageVersion</c>.</param>
     /// <param name="secondSdkReference">Whether a second copy of the SDK assembly is also among the resolved references.</param>
     /// <param name="targetFrameworks">The semicolon separated frameworks of a multi targeting project; the current runtime's single one when <see langword="null"/>.</param>
-    /// <param name="verbosity">The MSBuild verbosity of the build, when its target log is needed.</param>
-    /// <returns>The outcome of the build and the manifest as it is afterwards.</returns>
+        /// <returns>The outcome of the build and the manifest as it is afterwards.</returns>
     private static BuildResult Build(
         string manifest,
         bool stamp = true,
         bool secondSdkReference = false,
-        string? targetFrameworks = null,
-        string? verbosity = null)
+        string? targetFrameworks = null)
     {
         var folder = Path.Combine(Path.GetTempPath(), "hostpanel-sdk-targets-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(folder);
@@ -258,7 +255,7 @@ public sealed class SdkPackageVersionTargetsTests
                 """);
             File.WriteAllText(Path.Combine(folder, "Marker.cs"), "namespace Fixture; internal sealed class Marker { }");
 
-            var (succeeded, output) = RunBuild(folder, verbosity);
+            var (succeeded, output) = RunBuild(folder);
             return new BuildResult(succeeded, output, new UTF8Encoding(false).GetString(File.ReadAllBytes(manifestPath)));
         }
         finally
@@ -272,9 +269,8 @@ public sealed class SdkPackageVersionTargetsTests
     /// files of the folder open and outlive the test; a build that does not end in time is killed.
     /// </summary>
     /// <param name="folder">The folder holding the project.</param>
-    /// <param name="verbosity">The MSBuild verbosity, or <see langword="null"/> for the default.</param>
     /// <returns>Whether the build succeeded, and its output.</returns>
-    private static (bool Succeeded, string Output) RunBuild(string folder, string? verbosity)
+    private static (bool Succeeded, string Output) RunBuild(string folder)
     {
         var start = new ProcessStartInfo(Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet")
         {
@@ -288,11 +284,6 @@ public sealed class SdkPackageVersionTargetsTests
         start.ArgumentList.Add("-nodeReuse:false");
         start.ArgumentList.Add("-p:UseSharedCompilation=false");
         start.ArgumentList.Add("-p:NuGetAudit=false");
-        if (verbosity is not null)
-        {
-            start.ArgumentList.Add("-v:" + verbosity);
-        }
-
         using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEndAsync();
         var errors = process.StandardError.ReadToEndAsync();

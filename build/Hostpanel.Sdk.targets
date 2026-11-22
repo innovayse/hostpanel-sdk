@@ -161,6 +161,7 @@
             {
                 File.WriteAllBytes(temporary, updated);
                 File.Replace(temporary, ManifestPath, null);
+                Log.LogMessage(MessageImportance.High, "Hostpanel.Sdk: stamped sdkPackageVersion {0} into {1}", version.Trim('"'), ManifestPath);
             }
             catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException)
             {
@@ -181,17 +182,24 @@
     </Task>
   </UsingTask>
 
+  <!-- Runs in every framework build of the project, but only the build of the first framework stamps (see above); the others
+       say so, which is also what a build log shows for a multi targeting plugin. -->
   <Target Name="HostpanelStampSdkPackageVersionIntoManifest"
           BeforeTargets="CopyFilesToOutputDirectory"
           DependsOnTargets="ResolveAssemblyReferences"
-          Condition="'$(HostpanelStampSdkPackageVersion)' != 'false' And ('$(TargetFrameworks)' == '' Or '$(TargetFramework)' == '$(_HostpanelFirstTargetFramework)')">
-    <ItemGroup>
+          Condition="'$(HostpanelStampSdkPackageVersion)' != 'false'">
+    <PropertyGroup>
+      <_HostpanelStampsThisBuild Condition="'$(TargetFrameworks)' == '' Or '$(TargetFramework)' == '$(_HostpanelFirstTargetFramework)'">true</_HostpanelStampsThisBuild>
+    </PropertyGroup>
+    <Message Condition="'$(_HostpanelStampsThisBuild)' != 'true'" Importance="high"
+             Text="Hostpanel.Sdk: sdkPackageVersion is stamped by the $(_HostpanelFirstTargetFramework) build, so the $(TargetFramework) build skips it" />
+    <ItemGroup Condition="'$(_HostpanelStampsThisBuild)' == 'true'">
       <_HostpanelSdkAssembly Include="@(ReferencePath)" Condition="'%(Filename)' == 'Hostpanel.Sdk'" />
       <_HostpanelManifest Include="@(None)" Condition="'%(Filename)%(Extension)' == 'plugin.json'" />
     </ItemGroup>
-    <Error Condition="@(_HostpanelSdkAssembly->Count()) &gt; 1"
+    <Error Condition="'$(_HostpanelStampsThisBuild)' == 'true' And @(_HostpanelSdkAssembly->Count()) &gt; 1"
            Text="More than one Hostpanel.Sdk reference is resolved (@(_HostpanelSdkAssembly, ', ')), so the SDK package version to write into plugin.json is ambiguous. Reference the package once." />
-    <HostpanelWriteSdkPackageVersion Condition="'@(_HostpanelManifest)' != '' And '@(_HostpanelSdkAssembly)' != ''"
+    <HostpanelWriteSdkPackageVersion Condition="'$(_HostpanelStampsThisBuild)' == 'true' And '@(_HostpanelManifest)' != '' And '@(_HostpanelSdkAssembly)' != ''"
                                      ManifestPath="%(_HostpanelManifest.FullPath)"
                                      SdkAssemblyPath="@(_HostpanelSdkAssembly->'%(FullPath)')" />
   </Target>
