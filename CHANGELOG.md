@@ -5,6 +5,44 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.15.0]
+
+### Added
+
+- `PanelAccount.IpAddress` (`string?`, `null` by default): the IP address the account is served on, when the panel says. It is an init property and not a constructor parameter, so every existing constructor call compiles and reads as before, and a plugin built on 3.14.0 loads unchanged.
+- `IProvisioningPanelAccountPlugin` in `Hostpanel.Sdk.Plugins.Provisioning`: an optional interface that extends `IProvisioningPanelPlugin`, which does not change. `GetAccountAsync(PanelAccountContext, CancellationToken)` reads one account by its reference and answers a `ValueResult<PanelAccount, PanelRefusalReason>`: `Succeeded` with the account, `NotFound` when the panel holds no such account, `NotSupported` or `Refused`. It is a read and safe to repeat. A host built on an earlier version does not call it, so a plugin that relies on it sets `minHostVersion` to the first host release that does.
+- `PluginCapabilities.ProvisioningPanelAccount` (`provisioningPanelAccount`): the manifest name of the interface above. It needs `provisioningPanel` as well, like `provisioningPanelLogin` and `provisioningPanelPackages`.
+- `ProvisioningContract.AssertAccountIsWellFormedAsync` for a plugin's own tests: the call answers `Succeeded` with the reference that was asked for, a defined status and, when it has one, an `IpAddress` that is an IP address, or `NotSupported`.
+
+### Changed
+
+- `ProvisioningContract.AssertListAccountsIsCompleteAsync` and the new check share one account check, so a listed account is now also refused when its `IpAddress` is set and is not an IP address. The property is new, so no plugin built on an earlier version can break it.
+
+## [3.14.0]
+
+### Added
+
+- `PluginManifest.SshAgentProfile` (`sshAgentProfile` in `plugin.json`, `string?`, `null` by default): the id of the SSH key agent profile a panel plugin ships in its own package. It is an init property, so a manifest without it reads as before and a plugin built on 3.13.0 loads unchanged. A host built on an earlier version ignores it, so a plugin that relies on it sets `minHostVersion` to the first host release that reads it.
+- `PluginSshAgentLayout` in `Hostpanel.Sdk.Plugins.Manifest`: where the files of the profile sit in a package (`ProfileFile` is `agent/profile.conf`, `HelperDirectory` is `agent/helpers`), their limits (`MaxProfileBytes` 8 KiB, `MaxHelperCount` 32, `MaxHelperBytes` 64 KiB, `MaxProfileIdLength` 32, `MaxHelperNameLength` 64), the host's own `ReservedProfile` (`generic-linux`) that a plugin cannot name, and `IsValidProfileId` and `IsValidHelperName`.
+- `PluginAgentPackageChecker` in the new `Hostpanel.Sdk.Packaging.Agent` namespace of `Hostpanel.Sdk.Packaging`, with `PluginAgentCheck`, `PluginAgentFiles` and `PluginAgentViolation`, and the new `PluginAgentRule` (`ProfileMissing`, `ProfileInvalid`, `LinkNotAllowed`, `KeyNotAllowed`, `ProviderMismatch`, `BindingNotEmpty`, `PathOutsideHelperDirectory`, `HelperInvalid`, `TooManyHelpers`). `Check(packageDirectory, profileId)` reads the profile and the helpers of an unpacked package and returns the bytes it checked, or the first rule broken: the profile must be a small regular file in the agent's configuration format that sets only keys the agent defines, has `provider` equal to the profile id, leaves `binding` empty and keeps `account_check_command` and `helper_dir` inside the agent's standard helper folder; there are at most 32 helpers of at most 64 KiB with plain names; and no file or folder on the way is a link.
+- `PluginManifestChecker.Validate` has two new rules in `PluginManifestRule`, appended after the existing values: `SshAgentProfileInvalid` (the id is not well formed or is `generic-linux`) and `SshAgentProfileNotAllowed` (the plugin does not declare the `provisioningPanel` capability).
+
+### Changed
+
+- `PluginIconChecker` and the new agent checker share one internal reader for the files of a package, so the link, size and read rules are written once. The icon rules and their detail texts do not change.
+
+### Deprecated
+
+- `PluginManifest.AgentProfile` and `PluginAgentProfiles` are marked `[Obsolete]` and will be removed in 4.0.0, because a plugin now ships its own profile and names it in `SshAgentProfile` instead of choosing one the SDK defines. They keep working: the member still reads, and `PluginManifestChecker` still refuses a name `PluginAgentProfiles` does not define with `AgentProfileInvalid`.
+
+## [3.13.0]
+
+### Added
+
+- `PluginManifest.SdkPackageVersion` (`sdkPackageVersion` in `plugin.json`, `string?`, `null` by default) (innovayse/hostpanel#1389): the version of the `Hostpanel.Sdk` package the plugin was built against. It is an init property, so a manifest without it reads as before. It is not `sdkVersion`, which names the manifest contract and stays `1.0`.
+- `build/Hostpanel.Sdk.targets` in the `Hostpanel.Sdk` package: NuGet imports it into every project that references the package, and the build writes the referenced package's version into the project's `plugin.json` as `sdkPackageVersion`, so nobody keeps it in step by hand. Only the top level member is changed, and the byte order mark, line endings and layout are kept. With several `TargetFrameworks` only the first framework's build writes the file, and a project that resolves more than one `Hostpanel.Sdk` reference fails the build. A file that is not a JSON object fails the build. The MSBuild property `HostpanelStampSdkPackageVersion` set to `false` switches it off.
+- `PluginManifestChecker.Validate` has two new rules in `PluginManifestRule`: `SdkPackageVersionInvalid` (the value is not a semantic version) and `MinHostVersionBelowSdk` (`minHostVersion` is missing or lower than the first host release that ships an SDK at least as new, from the new `PluginSdkHostReleases` table). A manifest without `sdkPackageVersion`, and an SDK no host release ships yet, are not checked.
+
 ## [3.12.0]
 
 ### Added

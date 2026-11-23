@@ -96,9 +96,11 @@ public static partial class PluginManifestChecker
             ?? CheckSlots(manifest.Ui.Slots, options)
             ?? CheckTags(manifest.Tags)
             ?? CheckHostVersions(manifest.MinHostVersion, manifest.MaxHostVersion)
+            ?? CheckSdkPackageVersion(manifest.SdkPackageVersion, manifest.MinHostVersion)
             ?? CheckChangelog(manifest.Changelog)
             ?? CheckAccountIdLabel(manifest.ServerAccountIdLabel)
-            ?? CheckAgentProfile(manifest.AgentProfile)
+            ?? CheckAgentProfile(manifest)
+            ?? CheckSshAgentProfile(manifest)
             ?? CheckConnectionRoles(manifest)
             ?? CheckTextKeys(manifest);
     }
@@ -381,6 +383,42 @@ public static partial class PluginManifestChecker
             : null;
     }
 
+    /// <summary>
+    /// Checks the <c>sdkPackageVersion</c>: when set it is a semantic version, and the <c>minHostVersion</c> is not below the
+    /// first host release that ships an SDK at least that new (<see cref="PluginSdkHostReleases"/>), because a lower bound
+    /// would admit hosts the plugin's assembly cannot load on. The caller has already checked that <paramref name="minHostVersion"/>,
+    /// when set, is a version.
+    /// </summary>
+    /// <param name="sdkPackageVersion">The <c>sdkPackageVersion</c>, or <see langword="null"/> when the manifest states none.</param>
+    /// <param name="minHostVersion">The <c>minHostVersion</c>, or <see langword="null"/> for no lower limit.</param>
+    /// <returns>The first violation, or <see langword="null"/>. An SDK no host release ships yet is not compared.</returns>
+    private static PluginManifestViolation? CheckSdkPackageVersion(string? sdkPackageVersion, string? minHostVersion)
+    {
+        if (sdkPackageVersion is null)
+        {
+            return null;
+        }
+
+        if (!PluginVersion.TryParse(sdkPackageVersion, out var sdk))
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.SdkPackageVersionInvalid, "sdkPackageVersion is not a valid version: use major.minor.patch, for example 3.13.0");
+        }
+
+        var firstHost = PluginSdkHostReleases.FirstHostShipping(sdk);
+        if (firstHost is null)
+        {
+            return null;
+        }
+
+        var belowFirstHost = !PluginVersion.TryParse(minHostVersion, out var min) || min.CompareTo(firstHost) < 0;
+        return belowFirstHost
+            ? new PluginManifestViolation(
+                PluginManifestRule.MinHostVersionBelowSdk,
+                $"minHostVersion {minHostVersion ?? "(none)"} is below {firstHost.Major}.{firstHost.Minor}.{firstHost.Patch}, the first host release that ships SDK {sdkPackageVersion}")
+            : null;
+    }
+
     /// <summary>Reads one bound of the host version range.</summary>
     /// <param name="text">The bound as written, or <see langword="null"/> for no limit.</param>
     /// <param name="member">The name of the manifest member, for the message.</param>
@@ -440,19 +478,54 @@ public static partial class PluginManifestChecker
         return null;
     }
 
-    /// <summary>Checks the <c>agentProfile</c>: when set, it is one of <see cref="PluginAgentProfiles.All"/>.</summary>
-    /// <param name="profile">The manifest's agent profile, or <see langword="null"/> when it has none.</param>
+    /// <summary>
+    /// Checks the deprecated <c>agentProfile</c>: when set, it is one of the names the SDK still defines. The rule stays
+    /// until the member is removed in 4.0.0, so a manifest written for an earlier SDK is judged as it always was.
+    /// </summary>
+    /// <param name="manifest">The manifest.</param>
     /// <returns>The violation, or <see langword="null"/>.</returns>
-    private static PluginManifestViolation? CheckAgentProfile(string? profile)
+    private static PluginManifestViolation? CheckAgentProfile(PluginManifest manifest)
     {
-        if (profile is not null && !PluginAgentProfiles.IsKnown(profile))
+#pragma warning disable CS0618 // The deprecated member and type are read on purpose: this is the check that keeps them honest.
+        if (manifest.AgentProfile is not null && !PluginAgentProfiles.IsKnown(manifest.AgentProfile))
         {
             return new PluginManifestViolation(
                 PluginManifestRule.AgentProfileInvalid,
                 $"agentProfile: use one of {string.Join(", ", PluginAgentProfiles.All)}");
         }
+#pragma warning restore CS0618
 
         return null;
+    }
+
+    /// <summary>
+    /// Checks the <c>sshAgentProfile</c>: when set, it is a well formed profile id that is not the host's reserved one, and
+    /// the plugin declares the <see cref="PluginCapabilities.ProvisioningPanel"/> capability, because the profile is for
+    /// the servers of a panel plugin. The files the profile names are checked on the package, by <c>PluginAgentPackageChecker</c>.
+    /// </summary>
+    /// <param name="manifest">The manifest.</param>
+    /// <returns>The violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckSshAgentProfile(PluginManifest manifest)
+    {
+        var profile = manifest.SshAgentProfile;
+        if (profile is null)
+        {
+            return null;
+        }
+
+        if (!PluginSshAgentLayout.IsValidProfileId(profile)
+            || string.Equals(profile, PluginSshAgentLayout.ReservedProfile, StringComparison.Ordinal))
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.SshAgentProfileInvalid,
+                $"sshAgentProfile: use lower case letters and digits joined by single hyphens, at most {PluginSshAgentLayout.MaxProfileIdLength} characters, and not {PluginSshAgentLayout.ReservedProfile}");
+        }
+
+        return manifest.Capabilities.Contains(PluginCapabilities.ProvisioningPanel, StringComparer.Ordinal)
+            ? null
+            : new PluginManifestViolation(
+                PluginManifestRule.SshAgentProfileNotAllowed,
+                $"sshAgentProfile: only a plugin that declares the {PluginCapabilities.ProvisioningPanel} capability may name one");
     }
 
     /// <summary>

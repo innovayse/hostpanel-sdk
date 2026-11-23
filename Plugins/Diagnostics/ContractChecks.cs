@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
 using Hostpanel.Sdk.Plugins.StoredCredentials;
@@ -296,15 +298,7 @@ internal sealed class ContractChecks : ContractCalls
 
             foreach (var account in result.Accounts)
             {
-                if (account is null || string.IsNullOrWhiteSpace(account.ProvisioningRef))
-                {
-                    throw new PluginContractViolationException($"{operation} returned an account without a ProvisioningRef on page {page}.");
-                }
-
-                if (!Enum.IsDefined(account.Status))
-                {
-                    throw new PluginContractViolationException($"{operation} returned an account with a Status that is not a PanelAccountStatus on page {page}.");
-                }
+                CheckAccount(operation, account, $" on page {page}");
 
                 if (!seen.Add(account.ProvisioningRef))
                 {
@@ -328,5 +322,31 @@ internal sealed class ContractChecks : ContractCalls
         }
 
         throw new PluginContractViolationException($"{operation} was still returning cursors after {maxPages} pages.");
+    }
+
+    /// <summary>
+    /// Asserts that one account is well formed, whether it came from a listing or from a read of one account: it has a
+    /// reference and a defined status, and an <see cref="PanelAccount.IpAddress"/>, when it has one, is an IP address.
+    /// </summary>
+    /// <param name="operation">The operation's name, for the message.</param>
+    /// <param name="account">The account the plugin answered.</param>
+    /// <param name="place">Where the account came from, appended to the message (for example <c> on page 2</c>), or empty.</param>
+    /// <exception cref="PluginContractViolationException">The account is <see langword="null"/>, has no reference, has a status that is not defined, or has an address that is not an IP address. The message does not repeat the address.</exception>
+    internal static void CheckAccount(string operation, [NotNull] PanelAccount? account, string place)
+    {
+        if (account is null || string.IsNullOrWhiteSpace(account.ProvisioningRef))
+        {
+            throw new PluginContractViolationException($"{operation} returned an account without a ProvisioningRef{place}.");
+        }
+
+        if (!Enum.IsDefined(account.Status))
+        {
+            throw new PluginContractViolationException($"{operation} returned an account with a Status that is not a PanelAccountStatus{place}.");
+        }
+
+        if (account.IpAddress is not null && !IPAddress.TryParse(account.IpAddress, out _))
+        {
+            throw new PluginContractViolationException($"{operation} returned an account with an IpAddress that is not an IP address{place}. A field the panel does not report is null.");
+        }
     }
 }

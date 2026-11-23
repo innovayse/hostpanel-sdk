@@ -260,6 +260,49 @@ public static class ProvisioningContract
     }
 
     /// <summary>
+    /// Calls <see cref="IProvisioningPanelAccountPlugin.GetAccountAsync"/> for an account the panel holds and asserts that it
+    /// answers the account: <c>Succeeded</c> with the reference that was asked for, a defined status and, when it has one, an
+    /// IP address in text form, or <c>NotSupported</c> for a panel that cannot read one account. The caller arranges a panel
+    /// that holds the account.
+    /// </summary>
+    /// <param name="plugin">The plugin under test.</param>
+    /// <param name="knownAccount">The server and an account the panel holds.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The result, so the test can assert more about the account; a not supported answer has none.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="plugin"/> or <paramref name="knownAccount"/> is <see langword="null"/>.</exception>
+    /// <exception cref="PluginContractViolationException">
+    /// The call threw, answered <see langword="null"/>, answered an outcome that does not fit, succeeded without an account, or
+    /// answered an account with another reference, a status that is not defined or an <see cref="PanelAccount.IpAddress"/> that
+    /// is not an IP address.
+    /// </exception>
+    public static async Task<ValueResult<PanelAccount, PanelRefusalReason>> AssertAccountIsWellFormedAsync(
+        IProvisioningPanelAccountPlugin plugin,
+        PanelAccountContext knownAccount,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(plugin);
+        ArgumentNullException.ThrowIfNull(knownAccount);
+
+        const string operation = nameof(IProvisioningPanelAccountPlugin.GetAccountAsync);
+        var result = await Checks.AssertReadAnswersValueAsync<ValueResult<PanelAccount, PanelRefusalReason>, PanelRefusalReason>(
+            operation,
+            () => plugin.GetAccountAsync(knownAccount, ct),
+            true);
+
+        if (result.Value is { } account)
+        {
+            ContractChecks.CheckAccount(operation, account, string.Empty);
+
+            if (!string.Equals(account.ProvisioningRef, knownAccount.Service.ProvisioningRef, StringComparison.Ordinal))
+            {
+                throw new PluginContractViolationException($"{operation} answered an account with a ProvisioningRef other than the one it was asked for.");
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Asserts that <see cref="IProvisioningPanelLoginPlugin.GetLoginDetailsAsync"/> answers <c>NotFound</c> or
     /// <c>NotSupported</c> for an account the panel does not hold, and does not throw. The caller arranges a panel that holds
     /// no account under the reference in <paramref name="unknownAccount"/>.

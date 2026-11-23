@@ -419,7 +419,16 @@ the list must agree with the code. One plugin serves every server of its panel t
 - **Server modules.** List the module ids the plugin serves in `serverModules` of `plugin.json` (ASCII letters, digits,
   dash, dot, underscore, at most 50, no duplicates). `PluginServerModules.Validate` checks the list.
 - **Addresses.** `PanelAccount.ControlPanelUrl` and `PanelCreateResult.ControlPanelUrl` are the account's control panel
-  login page when the panel tells it; they are not sign-in links.
+  login page when the panel tells it; they are not sign-in links. `PanelAccount.IpAddress` (since 3.15.0, an init
+  property, `null` when the panel does not say) is the IP address the account is served on, in text form.
+- **Reading one account.** A panel that can read a single account also implements `IProvisioningPanelAccountPlugin`, which
+  extends `IProvisioningPanelPlugin`; the interface it extends does not change, so a panel plugin built earlier loads and
+  runs as before and is not asked. List `provisioningPanelAccount` (`PluginCapabilities.ProvisioningPanelAccount`) in the
+  manifest's `capabilities`; it needs `provisioningPanel` as well. `GetAccountAsync(PanelAccountContext, CancellationToken)`
+  is a read, so a repeat is safe. It answers `Succeeded` with the `PanelAccount` (its `ProvisioningRef` is the one that was
+  asked for), `NotFound` for an account the panel does not hold, `NotSupported` or `Refused` with a `PanelRefusalReason`.
+  `ProvisioningContract.AssertAccountIsWellFormedAsync` checks the promise in the plugin's own tests. A plugin that uses it
+  sets `minHostVersion` to the first host release that calls it.
 - **The old panel area is obsolete.** `IHostingPanelApiClient`, `IHostingPanelV7ApiClient` and the types beside them
   (`Hostpanel.Sdk.Plugins.HostingPanel`) are marked `[Obsolete]`; move to `IProvisioningPanelPlugin`. The area is removed in 4.0.0.
 - **Listing** is for reconciliation: following `NextCursor` to the end returns every account once, and a panel that
@@ -466,12 +475,13 @@ The optional interfaces and capabilities of a panel plugin:
 | `IProvisioningPanelPlugin` | `provisioningPanel` | The operations above |
 | `IProvisioningPanelLoginPlugin` | `provisioningPanelLogin` | Login details and the panel password |
 | `IProvisioningPanelPackagesPlugin` | `provisioningPanelPackages` (needs `provisioningPanel`) | `ListPackagesAsync`: the packages of a server with their limits (`PanelPackageDetails`), read only |
+| `IProvisioningPanelAccountPlugin` | `provisioningPanelAccount` (needs `provisioningPanel`) | `GetAccountAsync`: one account by its reference (`PanelAccount`), read only |
 
 In the plugin's own tests, run the `ProvisioningContract` checks against a stub of your panel:
 `AssertCreateIsIdempotentAsync`, `AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`,
 `AssertTerminateIsIdempotentAsync`, `AssertChangePackageIsIdempotentAsync`, `AssertChangePasswordIsIdempotentAsync`,
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync`,
-`AssertPackagesAreWellFormedAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
+`AssertPackagesAreWellFormedAsync`, `AssertAccountIsWellFormedAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
 promise that was broken. The idempotency checks accept `Pending`.
 
 #### Login details and a panel password
@@ -495,13 +505,30 @@ in the plugin's own tests.
 #### An SSH key agent profile
 
 The host keeps one SSH key agent as shared infrastructure for the servers of panel plugins. A panel plugin that wants its
-servers served by it names a profile in the manifest's `agentProfile`, for example `"agentProfile": "hostingPanelV7"`. The
-names are defined by the SDK, in `PluginAgentProfiles` (`PluginAgentProfiles.All` lists them, `IsKnown` checks one), and
-describe a kind of panel, never a vendor; a plugin cannot invent one, and a name is matched exactly, with its letter case.
-A manifest that names any other profile is refused by `PluginManifestChecker.Validate` with
-`PluginManifestRule.AgentProfileInvalid`. Without `agentProfile` (the default, `null`) the plugin's servers have no SSH key
-agent. A host that does not read the field ignores it, so a plugin that needs it sets `minHostVersion` to the first host
-release that does.
+servers served by it ships its own agent profile in its package and names it in the manifest's `sshAgentProfile`, for
+example `"sshAgentProfile": "examplepanel"`. The id is lower case letters and digits in words joined by single hyphens, at
+most 32 characters (`PluginSshAgentLayout.IsValidProfileId`), and `generic-linux` is the host's own and cannot be named.
+Only a plugin that declares the `provisioningPanel` capability may name one. A manifest that breaks this is refused by
+`PluginManifestChecker.Validate` with `PluginManifestRule.SshAgentProfileInvalid` or `SshAgentProfileNotAllowed`.
+
+The package carries the profile at `agent/profile.conf` (`PluginSshAgentLayout.ProfileFile`) and, when the profile needs
+them, one file per helper directly in `agent/helpers` (`PluginSshAgentLayout.HelperDirectory`):
+
+- the profile is at most 8 KiB, in the agent's `[agent]` section format with one `key = value` per line, sets only keys the
+  agent defines, has `provider` equal to the id in `sshAgentProfile`, leaves `binding` empty (the host fills it per
+  server) and keeps `account_check_command` and `helper_dir` inside `/usr/local/libexec/hostpanel-ssh-key-agent`;
+- a package carries at most 32 helpers of at most 64 KiB each, named by `PluginSshAgentLayout.IsValidHelperName` (a letter or
+  digit, then letters, digits, dots, underscores or hyphens, at most 64 characters);
+- nothing on the way to these files is a link.
+
+`PluginAgentPackageChecker.Check(packageDirectory, manifest.SshAgentProfile)` in `Hostpanel.Sdk.Packaging` checks all of it
+and hands back the bytes it checked, or a `PluginAgentRule` with a detail that names a package path or a profile key and never
+a value from the file; run it in your release pipeline before you publish. Without `sshAgentProfile` (the default, `null`)
+the plugin's servers have no SSH key agent profile. A host that does not read the field ignores it, so a plugin that needs
+it sets `minHostVersion` to the first host release that does.
+
+The earlier `agentProfile` member and `PluginAgentProfiles` (a fixed list of profile names) are deprecated and will be
+removed in 4.0.0; they still read and validate as before.
 
 ### Panels with a self signed certificate
 
@@ -881,7 +908,7 @@ default; pass the smallest unit of the currency for one with another number of d
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
 `showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
-implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `provisioningPanelLogin`, `provisioningPanelPackages`, `virtualServer`, `virtualServerList`, `virtualServerSnapshots`, `virtualServerBackups`, `virtualServerFirewall` and `virtualServerConsole` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement`, `registrarWhois`, `registrarChildNameservers`, `registrarDnssec`, `registrarRestore`, `registrarDomainList`, `registrarSuggestions` and `registrarBalance` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
+implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `provisioningPanelLogin`, `provisioningPanelPackages`, `provisioningPanelAccount`, `virtualServer`, `virtualServerList`, `virtualServerSnapshots`, `virtualServerBackups`, `virtualServerFirewall` and `virtualServerConsole` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement`, `registrarWhois`, `registrarChildNameservers`, `registrarDnssec`, `registrarRestore`, `registrarDomainList`, `registrarSuggestions` and `registrarBalance` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
 `maxHostVersion` (the range of host versions the plugin runs on, each a semantic version such as `2.1.0`; a missing
 bound means no limit, and the lower may not be above the upper) and `changelog` (notes for this version, at most 4000
 characters). The `id` is lower-case letters and digits,
@@ -1108,13 +1135,33 @@ root of the archive, and upload it in the admin panel under Plugins, or place th
 host's `plugins/<id>/` folder. Never ship `Hostpanel.Sdk.dll` or a host assembly inside the plugin:
 the host refuses such an archive, and a second copy of the SDK on disk would make every cast fail.
 
+## The SDK version in the manifest
+
+Building a plugin writes the version of the referenced `Hostpanel.Sdk` package into `plugin.json` as
+`sdkPackageVersion` (for example `"sdkPackageVersion": "3.13.0"`): the package ships `build/Hostpanel.Sdk.targets`, which
+NuGet imports into the plugin's project, and the build sets the member in the project's `plugin.json`, so there is
+nothing to keep in step by hand. Commit the changed file. Set the MSBuild property `HostpanelStampSdkPackageVersion` to
+`false` to switch it off. It is not `sdkVersion`, which names the manifest contract and stays `1.0`.
+
+The build changes only the top level `sdkPackageVersion` member of `plugin.json`: the byte order mark, the line endings and
+the layout stay as they were, and a file that is not a JSON object fails the build. In a project with several
+`TargetFrameworks` only the build of the first framework writes the file. A project that resolves more than one
+`Hostpanel.Sdk` reference fails the build, because the version to write would be ambiguous.
+The value is only the major, minor and patch numbers, so a prerelease suffix is ignored, and the member name must be written
+as plain `sdkPackageVersion`, without escapes, for the build to recognise it.
+
+`PluginManifestChecker.Validate` fails with
+`PluginManifestRule.MinHostVersionBelowSdk` when `minHostVersion` is missing or lower than the first host release that ships
+an SDK at least that new (`PluginSdkHostReleases`), and with `SdkPackageVersionInvalid` when the value is not a version.
+A manifest without the member is not checked.
+
 ## Checking and signing a package
 
 The checks a host runs on an uploaded package (the `plugin.sig` signature, plugin id and version rules,
 reserved assembly names, archive guards, icon safety and the structural manifest rules) are published as a
 second package, `Hostpanel.Sdk.Packaging` (MIT, `net9.0`, same version as this package), so you can run the same
 code in your release pipeline before you publish: `PluginSigner.Sign(packageDirectory, keyId, privateKey)` writes
-the signature, and `PluginManifestChecker`, `PluginIconChecker` and `PluginAssemblyNames` answer the same questions
+the signature, and `PluginManifestChecker`, `PluginIconChecker`, `PluginAgentPackageChecker` and `PluginAssemblyNames` answer the same questions
 the host will. See `Hostpanel.Sdk.Packaging/README.md`.
 
 ## Versioning

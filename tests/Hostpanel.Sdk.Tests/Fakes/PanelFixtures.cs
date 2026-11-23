@@ -1,3 +1,4 @@
+using Hostpanel.Sdk.Plugins.Enums;
 using Hostpanel.Sdk.Plugins.Provisioning;
 
 namespace Hostpanel.Sdk.Tests.Fakes;
@@ -34,6 +35,10 @@ internal static class PanelFixtures
     /// <summary>Gets the login details of the existing account, with a password.</summary>
     public static PanelLoginDetails LoginDetails { get; } =
         new("acct1", LoginPassword, "example.test", "192.0.2.10", "https://panel.example.test:2083/");
+
+    /// <summary>Gets the existing account as the panel reads it, with the address it is served on.</summary>
+    public static PanelAccount ExistingAccount { get; } =
+        new("acct1", "example.test", PanelAccountStatus.Active, "basic", "https://panel.example.test:2083/") { IpAddress = "192.0.2.10" };
 
     /// <summary>Gets a service that already has an account.</summary>
     public static PanelService Service { get; } = new(42, "acct1");

@@ -459,6 +459,49 @@ public sealed class PluginManifestCheckerTests
         AssertBreaks("\"minHostVersion\": \"2.0.0\", \"maxHostVersion\": \"2.0.0-preview.1\"", PluginManifestRule.HostVersionRangeInverted);
     }
 
+    /// <summary>A manifest that states no SDK package version is not compared with any host release.</summary>
+    [Fact]
+    public void Validate_NoSdkPackageVersion_ReadsNullAndPasses()
+    {
+        ManifestJson.Read().SdkPackageVersion.Should().BeNull();
+        Check("\"minHostVersion\": \"0.1.0\"").Should().BeNull();
+    }
+
+    /// <summary>An SDK package version that is not a semantic version breaks its rule.</summary>
+    /// <param name="value">The bad version.</param>
+    [Theory]
+    [InlineData("3.10")]
+    [InlineData("v3.10.0")]
+    [InlineData("")]
+    public void Validate_BadSdkPackageVersion_BreaksSdkPackageVersionInvalid(string value)
+    {
+        AssertBreaks("\"sdkPackageVersion\": \"" + value + "\"", PluginManifestRule.SdkPackageVersionInvalid);
+    }
+
+    /// <summary>A minimum host below the first release that ships the SDK, or none at all, breaks the rule.</summary>
+    /// <param name="members">The JSON members.</param>
+    [Theory]
+    [InlineData("\"sdkPackageVersion\": \"3.10.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.10.0\", \"minHostVersion\": \"0.6.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.8.0\", \"minHostVersion\": \"0.6.9\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.1.0\", \"minHostVersion\": \"0.3.0\"")]
+    public void Validate_MinHostBelowFirstHostShippingTheSdk_BreaksMinHostVersionBelowSdk(string members)
+    {
+        AssertBreaks(members, PluginManifestRule.MinHostVersionBelowSdk);
+    }
+
+    /// <summary>A minimum host at or above the first release that ships the SDK passes, and an SDK no host ships yet is not compared.</summary>
+    /// <param name="members">The JSON members.</param>
+    [Theory]
+    [InlineData("\"sdkPackageVersion\": \"3.10.0\", \"minHostVersion\": \"0.7.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.10.0\", \"minHostVersion\": \"0.8.0\", \"maxHostVersion\": \"1.0.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.1.0\", \"minHostVersion\": \"0.4.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.99.0\"")]
+    public void Validate_MinHostAtOrAboveFirstHostShippingTheSdk_Passes(string members)
+    {
+        Check(members).Should().BeNull();
+    }
+
     /// <summary>A changelog of exactly the limit passes; one character more breaks the changelog rule.</summary>
     [Fact]
     public void Validate_ChangelogLength_LimitPassesAndLongerBreaks()
@@ -505,6 +548,8 @@ public sealed class PluginManifestCheckerTests
         Check(key + ",\"locales\":{\"en\":{\"settings.accountId\":\"Reseller ID\"}}").Should().BeNull();
     }
 
+#pragma warning disable CS0618 // These tests are about the deprecated member and type, so they use them on purpose.
+
     /// <summary>The agent profile is read from plugin.json, and a manifest without it reads null and passes.</summary>
     [Fact]
     public void Validate_AgentProfile_IsReadFromTheJson()
@@ -527,6 +572,65 @@ public sealed class PluginManifestCheckerTests
     public void Validate_AgentProfile_UndefinedNameBreaks(string name)
     {
         AssertBreaks("\"agentProfile\": \"" + name + "\"", PluginManifestRule.AgentProfileInvalid);
+    }
+
+#pragma warning restore CS0618
+
+    /// <summary>The ssh agent profile is read from plugin.json, and a manifest without it reads null and passes.</summary>
+    [Fact]
+    public void Validate_SshAgentProfile_IsReadFromTheJson()
+    {
+        var withProfile = ManifestJson.Read("\"sshAgentProfile\": \"demo-panel\",\"capabilities\":[\"provisioningPanel\"]");
+        var without = ManifestJson.Read();
+
+        withProfile.SshAgentProfile.Should().Be("demo-panel");
+        without.SshAgentProfile.Should().BeNull();
+        PluginManifestChecker.Validate(withProfile, Options).Should().BeNull();
+        PluginManifestChecker.Validate(without, Options).Should().BeNull();
+    }
+
+    /// <summary>A well formed id that is not the reserved one passes on a panel plugin.</summary>
+    /// <param name="id">The profile id.</param>
+    [Theory]
+    [InlineData("a")]
+    [InlineData("demo-panel")]
+    [InlineData("generic-linux-2")]
+    public void Validate_SshAgentProfile_WellFormedIdPasses(string id)
+    {
+        Check("\"sshAgentProfile\": \"" + id + "\",\"capabilities\":[\"provisioningPanel\"]").Should().BeNull();
+    }
+
+    /// <summary>An id that is empty, padded, in another case, badly hyphenated, too long or the reserved one breaks the rule.</summary>
+    /// <param name="id">The profile id.</param>
+    [Theory]
+    [InlineData("")]
+    [InlineData(" demo")]
+    [InlineData("Demo")]
+    [InlineData("demo--panel")]
+    [InlineData("-demo")]
+    [InlineData("demo_panel")]
+    [InlineData("generic-linux")]
+    public void Validate_SshAgentProfile_BadIdBreaks(string id)
+    {
+        AssertBreaks("\"sshAgentProfile\": \"" + id + "\",\"capabilities\":[\"provisioningPanel\"]", PluginManifestRule.SshAgentProfileInvalid);
+    }
+
+    /// <summary>A plugin that does not declare the provisioning panel capability may not name a profile.</summary>
+    [Fact]
+    public void Validate_SshAgentProfile_WithoutThePanelCapabilityBreaks()
+    {
+        AssertBreaks("\"sshAgentProfile\": \"demo-panel\"", PluginManifestRule.SshAgentProfileNotAllowed);
+        AssertBreaks("\"sshAgentProfile\": \"demo-panel\",\"capabilities\":[\"registrarDnssec\"]", PluginManifestRule.SshAgentProfileNotAllowed);
+    }
+
+    /// <summary>An id of the longest length passes and one character more breaks the rule.</summary>
+    [Fact]
+    public void Validate_SshAgentProfile_IdLengthCapIsExact()
+    {
+        var longest = new string('a', PluginSshAgentLayout.MaxProfileIdLength);
+
+        Check("\"sshAgentProfile\": \"" + longest + "\",\"capabilities\":[\"provisioningPanel\"]").Should().BeNull();
+        AssertBreaks("\"sshAgentProfile\": \"" + longest + "a\",\"capabilities\":[\"provisioningPanel\"]", PluginManifestRule.SshAgentProfileInvalid);
     }
 
     /// <summary>Builds the <c>settings</c> member of a registrar manifest from the given setting entries.</summary>
