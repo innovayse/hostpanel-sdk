@@ -5,6 +5,14 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.16.0]
+
+### Added
+
+- `PluginWebsite.PhpCliPath` (`string?`, `null` by default): the absolute path of the PHP command line binary that matches the website's `PhpVersion`, so a plugin can tell its deployer which `php` to run. It is an init property, so every existing constructor call compiles and reads as before, and a plugin built on 3.15.0 loads unchanged.
+- `PluginSshAccess.HostKey` (`string?`, `null` by default): the server's public SSH host key as one `known_hosts` style line without the host name, so a plugin can pin it instead of trusting a first scan. `HostKeyFingerprint` is the SHA-256 fingerprint of the same key, so when both are set they name one key. It is an init property, so existing constructor calls are unchanged.
+- `IPluginHostSshSourceApi` in `Hostpanel.Sdk.Plugins.Host`: an optional interface that extends `IPluginHostApi`, which does not change. `IssueSshAccessAsync(serviceId, label, allowedFrom, ct)` issues the same identity as `IPluginHostApi.IssueSshAccessAsync`, and the issued key may only be used from the given addresses or CIDR ranges. An empty list gives the behaviour of today. The restriction is never dropped silently: a host that implements the interface enforces it or refuses with a `PluginHostAccessException`. A plugin checks `call.Host is IPluginHostSshSourceApi` and does without when the host is older, so one that relies on it sets `minHostVersion` to the first host release that has it.
+
 ## [3.15.0]
 
 ### Added
