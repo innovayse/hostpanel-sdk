@@ -99,7 +99,8 @@ public static partial class PluginManifestChecker
             ?? CheckSdkPackageVersion(manifest.SdkPackageVersion, manifest.MinHostVersion)
             ?? CheckChangelog(manifest.Changelog)
             ?? CheckAccountIdLabel(manifest.ServerAccountIdLabel)
-            ?? CheckAgentProfile(manifest.AgentProfile)
+            ?? CheckAgentProfile(manifest)
+            ?? CheckSshAgentProfile(manifest)
             ?? CheckConnectionRoles(manifest)
             ?? CheckTextKeys(manifest);
     }
@@ -477,19 +478,54 @@ public static partial class PluginManifestChecker
         return null;
     }
 
-    /// <summary>Checks the <c>agentProfile</c>: when set, it is one of <see cref="PluginAgentProfiles.All"/>.</summary>
-    /// <param name="profile">The manifest's agent profile, or <see langword="null"/> when it has none.</param>
+    /// <summary>
+    /// Checks the deprecated <c>agentProfile</c>: when set, it is one of the names the SDK still defines. The rule stays
+    /// until the member is removed in 4.0.0, so a manifest written for an earlier SDK is judged as it always was.
+    /// </summary>
+    /// <param name="manifest">The manifest.</param>
     /// <returns>The violation, or <see langword="null"/>.</returns>
-    private static PluginManifestViolation? CheckAgentProfile(string? profile)
+    private static PluginManifestViolation? CheckAgentProfile(PluginManifest manifest)
     {
-        if (profile is not null && !PluginAgentProfiles.IsKnown(profile))
+#pragma warning disable CS0618 // The deprecated member and type are read on purpose: this is the check that keeps them honest.
+        if (manifest.AgentProfile is not null && !PluginAgentProfiles.IsKnown(manifest.AgentProfile))
         {
             return new PluginManifestViolation(
                 PluginManifestRule.AgentProfileInvalid,
                 $"agentProfile: use one of {string.Join(", ", PluginAgentProfiles.All)}");
         }
+#pragma warning restore CS0618
 
         return null;
+    }
+
+    /// <summary>
+    /// Checks the <c>sshAgentProfile</c>: when set, it is a well formed profile id that is not the host's reserved one, and
+    /// the plugin declares the <see cref="PluginCapabilities.ProvisioningPanel"/> capability, because the profile is for
+    /// the servers of a panel plugin. The files the profile names are checked on the package, by <c>PluginAgentPackageChecker</c>.
+    /// </summary>
+    /// <param name="manifest">The manifest.</param>
+    /// <returns>The violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckSshAgentProfile(PluginManifest manifest)
+    {
+        var profile = manifest.SshAgentProfile;
+        if (profile is null)
+        {
+            return null;
+        }
+
+        if (!PluginSshAgentLayout.IsValidProfileId(profile)
+            || string.Equals(profile, PluginSshAgentLayout.ReservedProfile, StringComparison.Ordinal))
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.SshAgentProfileInvalid,
+                $"sshAgentProfile: use lower case letters and digits joined by single hyphens, at most {PluginSshAgentLayout.MaxProfileIdLength} characters, and not {PluginSshAgentLayout.ReservedProfile}");
+        }
+
+        return manifest.Capabilities.Contains(PluginCapabilities.ProvisioningPanel, StringComparer.Ordinal)
+            ? null
+            : new PluginManifestViolation(
+                PluginManifestRule.SshAgentProfileNotAllowed,
+                $"sshAgentProfile: only a plugin that declares the {PluginCapabilities.ProvisioningPanel} capability may name one");
     }
 
     /// <summary>

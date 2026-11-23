@@ -100,4 +100,14 @@ public enum PluginManifestRule
     /// <c>sdkPackageVersion</c>, so the manifest admits a host the plugin cannot load on.
     /// </summary>
     MinHostVersionBelowSdk = 29,
+
+    /// <summary>
+    /// The <c>sshAgentProfile</c> is not a well formed profile id (see
+    /// <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginSshAgentLayout.IsValidProfileId(string?)"/>) or is the reserved
+    /// <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginSshAgentLayout.ReservedProfile"/>.
+    /// </summary>
+    SshAgentProfileInvalid = 30,
+
+    /// <summary>The <c>sshAgentProfile</c> is set on a plugin that does not declare the <c>provisioningPanel</c> capability.</summary>
+    SshAgentProfileNotAllowed = 31,
 }

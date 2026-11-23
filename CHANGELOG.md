@@ -5,6 +5,23 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.14.0]
+
+### Added
+
+- `PluginManifest.SshAgentProfile` (`sshAgentProfile` in `plugin.json`, `string?`, `null` by default): the id of the SSH key agent profile a panel plugin ships in its own package. It is an init property, so a manifest without it reads as before and a plugin built on 3.13.0 loads unchanged. A host built on an earlier version ignores it, so a plugin that relies on it sets `minHostVersion` to the first host release that reads it.
+- `PluginSshAgentLayout` in `Hostpanel.Sdk.Plugins.Manifest`: where the files of the profile sit in a package (`ProfileFile` is `agent/profile.conf`, `HelperDirectory` is `agent/helpers`), their limits (`MaxProfileBytes` 8 KiB, `MaxHelperCount` 32, `MaxHelperBytes` 64 KiB, `MaxProfileIdLength` 32, `MaxHelperNameLength` 64), the host's own `ReservedProfile` (`generic-linux`) that a plugin cannot name, and `IsValidProfileId` and `IsValidHelperName`.
+- `PluginAgentPackageChecker` in the new `Hostpanel.Sdk.Packaging.Agent` namespace of `Hostpanel.Sdk.Packaging`, with `PluginAgentCheck`, `PluginAgentFiles` and `PluginAgentViolation`, and the new `PluginAgentRule` (`ProfileMissing`, `ProfileInvalid`, `LinkNotAllowed`, `KeyNotAllowed`, `ProviderMismatch`, `BindingNotEmpty`, `PathOutsideHelperDirectory`, `HelperInvalid`, `TooManyHelpers`). `Check(packageDirectory, profileId)` reads the profile and the helpers of an unpacked package and returns the bytes it checked, or the first rule broken: the profile must be a small regular file in the agent's configuration format that sets only keys the agent defines, has `provider` equal to the profile id, leaves `binding` empty and keeps `account_check_command` and `helper_dir` inside the agent's standard helper folder; there are at most 32 helpers of at most 64 KiB with plain names; and no file or folder on the way is a link.
+- `PluginManifestChecker.Validate` has two new rules in `PluginManifestRule`, appended after the existing values: `SshAgentProfileInvalid` (the id is not well formed or is `generic-linux`) and `SshAgentProfileNotAllowed` (the plugin does not declare the `provisioningPanel` capability).
+
+### Changed
+
+- `PluginIconChecker` and the new agent checker share one internal reader for the files of a package, so the link, size and read rules are written once. The icon rules and their detail texts do not change.
+
+### Deprecated
+
+- `PluginManifest.AgentProfile` and `PluginAgentProfiles` are marked `[Obsolete]` and will be removed in 4.0.0, because a plugin now ships its own profile and names it in `SshAgentProfile` instead of choosing one the SDK defines. They keep working: the member still reads, and `PluginManifestChecker` still refuses a name `PluginAgentProfiles` does not define with `AgentProfileInvalid`.
+
 ## [3.13.0]
 
 ### Added

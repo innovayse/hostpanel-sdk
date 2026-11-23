@@ -208,7 +208,18 @@ public sealed class PluginManifest
     /// that implements <see cref="Provisioning.IProvisioningPanelPlugin"/> and is ignored for every other plugin.
     /// <see langword="null"/> when the manifest sets none, which means the plugin's servers have no SSH key agent.
     /// </summary>
+    [Obsolete("Superseded by SshAgentProfile: a plugin now ships its own profile instead of naming one the SDK defines. This member will be removed in 4.0.0.")]
     public string? AgentProfile { get; init; }
+
+    /// <summary>
+    /// Gets the id of the SSH key agent profile a provisioning plugin ships in its own package (the <c>sshAgentProfile</c>
+    /// field, for example <c>"examplepanel"</c>): the host installs the profile file and the helpers the plugin carries
+    /// under <see cref="PluginSshAgentLayout"/> and uses them to manage SSH keys on the servers that use this plugin. The id
+    /// is checked by <see cref="PluginSshAgentLayout.IsValidProfileId(string?)"/>, and <see cref="PluginSshAgentLayout.ReservedProfile"/>
+    /// is the host's own and cannot be named. It needs the <see cref="PluginCapabilities.ProvisioningPanel"/> capability.
+    /// <see langword="null"/> when the manifest sets none, which means the plugin's servers have no SSH key agent profile.
+    /// </summary>
+    public string? SshAgentProfile { get; init; }
 
     /// <summary>
     /// Gets the plugin's tags (the <c>tags</c> field, for example <c>["backup", "billing"]</c>): short keywords that plugin
