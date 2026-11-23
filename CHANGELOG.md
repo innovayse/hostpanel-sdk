@@ -5,6 +5,19 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.15.0]
+
+### Added
+
+- `PanelAccount.IpAddress` (`string?`, `null` by default): the IP address the account is served on, when the panel says. It is an init property and not a constructor parameter, so every existing constructor call compiles and reads as before, and a plugin built on 3.14.0 loads unchanged.
+- `IProvisioningPanelAccountPlugin` in `Hostpanel.Sdk.Plugins.Provisioning`: an optional interface that extends `IProvisioningPanelPlugin`, which does not change. `GetAccountAsync(PanelAccountContext, CancellationToken)` reads one account by its reference and answers a `ValueResult<PanelAccount, PanelRefusalReason>`: `Succeeded` with the account, `NotFound` when the panel holds no such account, `NotSupported` or `Refused`. It is a read and safe to repeat. A host built on an earlier version does not call it, so a plugin that relies on it sets `minHostVersion` to the first host release that does.
+- `PluginCapabilities.ProvisioningPanelAccount` (`provisioningPanelAccount`): the manifest name of the interface above. It needs `provisioningPanel` as well, like `provisioningPanelLogin` and `provisioningPanelPackages`.
+- `ProvisioningContract.AssertAccountIsWellFormedAsync` for a plugin's own tests: the call answers `Succeeded` with the reference that was asked for, a defined status and, when it has one, an `IpAddress` that is an IP address, or `NotSupported`.
+
+### Changed
+
+- `ProvisioningContract.AssertListAccountsIsCompleteAsync` and the new check share one account check, so a listed account is now also refused when its `IpAddress` is set and is not an IP address. The property is new, so no plugin built on an earlier version can break it.
+
 ## [3.14.0]
 
 ### Added

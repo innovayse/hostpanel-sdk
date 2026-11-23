@@ -419,7 +419,16 @@ the list must agree with the code. One plugin serves every server of its panel t
 - **Server modules.** List the module ids the plugin serves in `serverModules` of `plugin.json` (ASCII letters, digits,
   dash, dot, underscore, at most 50, no duplicates). `PluginServerModules.Validate` checks the list.
 - **Addresses.** `PanelAccount.ControlPanelUrl` and `PanelCreateResult.ControlPanelUrl` are the account's control panel
-  login page when the panel tells it; they are not sign-in links.
+  login page when the panel tells it; they are not sign-in links. `PanelAccount.IpAddress` (since 3.15.0, an init
+  property, `null` when the panel does not say) is the IP address the account is served on, in text form.
+- **Reading one account.** A panel that can read a single account also implements `IProvisioningPanelAccountPlugin`, which
+  extends `IProvisioningPanelPlugin`; the interface it extends does not change, so a panel plugin built earlier loads and
+  runs as before and is not asked. List `provisioningPanelAccount` (`PluginCapabilities.ProvisioningPanelAccount`) in the
+  manifest's `capabilities`; it needs `provisioningPanel` as well. `GetAccountAsync(PanelAccountContext, CancellationToken)`
+  is a read, so a repeat is safe. It answers `Succeeded` with the `PanelAccount` (its `ProvisioningRef` is the one that was
+  asked for), `NotFound` for an account the panel does not hold, `NotSupported` or `Refused` with a `PanelRefusalReason`.
+  `ProvisioningContract.AssertAccountIsWellFormedAsync` checks the promise in the plugin's own tests. A plugin that uses it
+  sets `minHostVersion` to the first host release that calls it.
 - **The old panel area is obsolete.** `IHostingPanelApiClient`, `IHostingPanelV7ApiClient` and the types beside them
   (`Hostpanel.Sdk.Plugins.HostingPanel`) are marked `[Obsolete]`; move to `IProvisioningPanelPlugin`. The area is removed in 4.0.0.
 - **Listing** is for reconciliation: following `NextCursor` to the end returns every account once, and a panel that
@@ -466,12 +475,13 @@ The optional interfaces and capabilities of a panel plugin:
 | `IProvisioningPanelPlugin` | `provisioningPanel` | The operations above |
 | `IProvisioningPanelLoginPlugin` | `provisioningPanelLogin` | Login details and the panel password |
 | `IProvisioningPanelPackagesPlugin` | `provisioningPanelPackages` (needs `provisioningPanel`) | `ListPackagesAsync`: the packages of a server with their limits (`PanelPackageDetails`), read only |
+| `IProvisioningPanelAccountPlugin` | `provisioningPanelAccount` (needs `provisioningPanel`) | `GetAccountAsync`: one account by its reference (`PanelAccount`), read only |
 
 In the plugin's own tests, run the `ProvisioningContract` checks against a stub of your panel:
 `AssertCreateIsIdempotentAsync`, `AssertSuspendIsIdempotentAsync`, `AssertUnsuspendIsIdempotentAsync`,
 `AssertTerminateIsIdempotentAsync`, `AssertChangePackageIsIdempotentAsync`, `AssertChangePasswordIsIdempotentAsync`,
 `AssertUnknownAccountIsNotFoundAsync`, `AssertTestConnectionAnswersAsync`, `AssertListAccountsIsCompleteAsync`,
-`AssertPackagesAreWellFormedAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
+`AssertPackagesAreWellFormedAsync`, `AssertAccountIsWellFormedAsync` and `AssertHidesSecrets`. Each throws `PluginContractViolationException` naming the
 promise that was broken. The idempotency checks accept `Pending`.
 
 #### Login details and a panel password
@@ -898,7 +908,7 @@ default; pass the smallest unit of the currency for one with another number of d
 `description`, `type`, `category`, `entryPoint` (the full type name the host creates) and
 `sdkVersion`, plus optional `fields` (the settings an administrator fills in), `color`,
 `showInIntegrations`, `integrationsCategory` and `capabilities` (the optional capabilities the plugin
-implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `provisioningPanelLogin`, `provisioningPanelPackages`, `virtualServer`, `virtualServerList`, `virtualServerSnapshots`, `virtualServerBackups`, `virtualServerFirewall` and `virtualServerConsole` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement`, `registrarWhois`, `registrarChildNameservers`, `registrarDnssec`, `registrarRestore`, `registrarDomainList`, `registrarSuggestions` and `registrarBalance` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
+implements: `storedCredentials` for a payment plugin; `provisioningPanel`, `provisioningPanelLogin`, `provisioningPanelPackages`, `provisioningPanelAccount`, `virtualServer`, `virtualServerList`, `virtualServerSnapshots`, `virtualServerBackups`, `virtualServerFirewall` and `virtualServerConsole` for a provisioning plugin; `registrarOperations`, `registrarEmailForwarding`, `registrarDnsManagement`, `registrarWhois`, `registrarChildNameservers`, `registrarDnssec`, `registrarRestore`, `registrarDomainList`, `registrarSuggestions` and `registrarBalance` for a registrar plugin; `endpoints` and `tax` for any type), `minHostVersion` and
 `maxHostVersion` (the range of host versions the plugin runs on, each a semantic version such as `2.1.0`; a missing
 bound means no limit, and the lower may not be above the upper) and `changelog` (notes for this version, at most 4000
 characters). The `id` is lower-case letters and digits,

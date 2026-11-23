@@ -32,6 +32,12 @@ public static class PluginCapabilities
     public const string ProvisioningPanelPackages = "provisioningPanelPackages";
 
     /// <summary>
+    /// The provisioning plugin also implements <see cref="Hostpanel.Sdk.Plugins.Provisioning.IProvisioningPanelAccountPlugin"/>, which reads
+    /// one account by its reference. It needs <see cref="ProvisioningPanel"/> as well.
+    /// </summary>
+    public const string ProvisioningPanelAccount = "provisioningPanelAccount";
+
+    /// <summary>
     /// The provisioning plugin also implements <see cref="Hostpanel.Sdk.Plugins.VirtualServers.IVirtualServerPlugin"/>, the
     /// operations of a virtual server or cloud platform. The plugin type stays <see cref="Hostpanel.Sdk.Plugins.Enums.PluginType.Provisioning"/>:
     /// a virtual server is a service provisioned on a server the host knows, like a hosting account.
