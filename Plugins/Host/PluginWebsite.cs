@@ -11,4 +11,13 @@ public sealed record PluginWebsite(
     string Hostname,
     string DocumentRoot,
     string DocumentRootPath,
-    string? PhpVersion);
+    string? PhpVersion)
+{
+    /// <summary>
+    /// Gets the absolute path of the PHP command line binary that matches <see cref="PhpVersion"/> on the hosting server,
+    /// or null when the website has no PHP version or the host does not know the path. A plugin passes it to its deployer
+    /// so a command runs with the same PHP as the website. It is an init property and not a constructor parameter, so
+    /// every existing constructor call compiles and reads as before. Since 3.16.0.
+    /// </summary>
+    public string? PhpCliPath { get; init; }
+}

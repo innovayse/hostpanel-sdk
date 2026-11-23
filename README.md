@@ -149,7 +149,8 @@ plugin sees no HTTP request, no token and no web framework type.
   a client's values. Keep client data in `call.Store`, which is bound to the call's client.
 - Optional: implement `IPluginStatus` to report health, and `IPluginMigrations` to bring data kept outside the
   host up to date before the first call.
-- Hosting access: `IPluginHostApi` also carries `IssueSshAccessAsync` and `RevokeSshAccessAsync` for the `ssh` kind. Websites
+- Hosting access: `IPluginHostApi` also carries `IssueSshAccessAsync` and `RevokeSshAccessAsync` for the `ssh` kind. The optional `IPluginHostSshSourceApi` (since 3.16.0)
+  adds an `allowedFrom` list of addresses or CIDR ranges the issued key may be used from. Websites
   and databases arrive on a separate interface, `IPluginHostHostingApi`, which extends it, so a plugin checks
   `call.Host is IPluginHostHostingApi hosting` and does without when the host is older than 3.9.0. Declare the kinds in
   the manifest's `hostAccess` (`PluginHostAccess.Ssh`, `Websites`, `Databases`, `ServiceConnection`; `PluginHostAccess.All` lists them).

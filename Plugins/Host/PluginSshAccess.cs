@@ -23,4 +23,15 @@ public sealed partial record PluginSshAccess(
     string Username,
     string? Domain,
     [property: SecretMember] string PrivateKey,
-    string? HostKeyFingerprint);
+    string? HostKeyFingerprint)
+{
+    /// <summary>
+    /// Gets the server's public SSH host key as one line in the <c>known_hosts</c> format without the host name, for
+    /// example <c>ssh-ed25519 AAAA</c>, or null when the host holds none for the address. A plugin pins it to trust that
+    /// key from the first connection instead of accepting whatever a first scan shows. <see cref="HostKeyFingerprint"/>
+    /// is the SHA-256 fingerprint of the same key, so a plugin may check that the two agree; when both are set they name
+    /// one key. It is an init property and not a constructor parameter, so every existing constructor call compiles and
+    /// reads as before. Since 3.16.0.
+    /// </summary>
+    public string? HostKey { get; init; }
+}
