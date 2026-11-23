@@ -10,7 +10,7 @@ namespace Hostpanel.Sdk.Tests.Fakes;
 /// operation, which starts at 1, and may throw. By default the plugin behaves like a panel that holds one account: the
 /// first create creates it, every later one finds it, and the actions succeed.
 /// </summary>
-internal sealed class ScriptedPanelPlugin : IProvisioningPanelLoginPlugin, IProvisioningPanelPackagesPlugin
+internal sealed class ScriptedPanelPlugin : IProvisioningPanelLoginPlugin, IProvisioningPanelPackagesPlugin, IProvisioningPanelAccountPlugin
 {
     /// <summary>Counts the calls of each operation, by method name.</summary>
     private readonly CallCounter _calls = new();
@@ -54,6 +54,10 @@ internal sealed class ScriptedPanelPlugin : IProvisioningPanelLoginPlugin, IProv
     /// <summary>Gets or sets what <c>ListPackagesAsync</c> answers on each call.</summary>
     public Func<int, ValueResult<IReadOnlyList<PanelPackageDetails>, PanelRefusalReason>> Packages { get; set; } =
         _ => ValueResult<IReadOnlyList<PanelPackageDetails>, PanelRefusalReason>.Done([new PanelPackageDetails("basic", 1000, null, null, 10, null, 1)]);
+
+    /// <summary>Gets or sets what <c>GetAccountAsync</c> answers on each call.</summary>
+    public Func<int, ValueResult<PanelAccount, PanelRefusalReason>> Account { get; set; } =
+        _ => ValueResult<PanelAccount, PanelRefusalReason>.Done(PanelFixtures.ExistingAccount);
 
     /// <summary>Gets the server the last <c>CreateAccountAsync</c> call was given, to show that the host's context reaches the plugin.</summary>
     public PanelServerConnection? LastCreateServer { get; private set; }
@@ -113,6 +117,12 @@ internal sealed class ScriptedPanelPlugin : IProvisioningPanelLoginPlugin, IProv
     public Task<ValueResult<PanelLoginDetails, PanelRefusalReason>> GetLoginDetailsAsync(PanelAccountContext context, CancellationToken ct)
     {
         return Task.FromResult(Login(_calls.Count(nameof(GetLoginDetailsAsync))));
+    }
+
+    /// <inheritdoc />
+    public Task<ValueResult<PanelAccount, PanelRefusalReason>> GetAccountAsync(PanelAccountContext context, CancellationToken ct)
+    {
+        return Task.FromResult(Account(_calls.Count(nameof(GetAccountAsync))));
     }
 
     /// <inheritdoc />
