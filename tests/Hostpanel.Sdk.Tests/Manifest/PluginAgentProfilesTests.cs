@@ -1,6 +1,8 @@
 using Hostpanel.Sdk.Plugins.Manifest;
 using Hostpanel.Sdk.Tests.Support;
 
+#pragma warning disable CS0618 // This class tests the deprecated profile names, so it uses them on purpose.
+
 namespace Hostpanel.Sdk.Tests.Manifest;
 
 /// <summary>Tests of <see cref="PluginAgentProfiles"/> and the <see cref="PluginManifest.AgentProfile"/> member.</summary>
@@ -40,6 +42,15 @@ public sealed class PluginAgentProfilesTests
     public void IsKnown_OtherName_IsFalse(string? name)
     {
         PluginAgentProfiles.IsKnown(name).Should().BeFalse();
+    }
+
+    /// <summary>Both are deprecated in favour of the profile a plugin ships, and say so to a compiler.</summary>
+    [Fact]
+    public void ProfileNamesAndMember_AreMarkedObsolete()
+    {
+        typeof(PluginAgentProfiles).GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false).Should().ContainSingle();
+        typeof(PluginManifest).GetProperty(nameof(PluginManifest.AgentProfile))!
+            .GetCustomAttributes(typeof(ObsoleteAttribute), inherit: false).Should().ContainSingle();
     }
 
     /// <summary>A manifest without the member reads null, and one that sets it keeps the name.</summary>

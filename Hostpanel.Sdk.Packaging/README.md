@@ -9,6 +9,8 @@ author who publishes it run the same code.
   `PluginAssemblyNames` (the assembly names a package may not carry).
 - `Hostpanel.Sdk.Packaging.Archive`: `PluginArchiveGuard` (entry count, uncompressed size, path traversal).
 - `Hostpanel.Sdk.Packaging.Icons`: `PluginIconChecker`.
+- `Hostpanel.Sdk.Packaging.Agent`: `PluginAgentPackageChecker` (the SSH key agent profile and helpers a package ships, named by
+  `sshAgentProfile`; it returns the checked bytes or a `PluginAgentRule`).
 - `Hostpanel.Sdk.Packaging.Manifest`: `PluginManifestChecker` (the rules that need no host state).
 
 Every refusal is an enum value (`Hostpanel.Sdk.Packaging.Enums`) with a detail text that names a package-relative

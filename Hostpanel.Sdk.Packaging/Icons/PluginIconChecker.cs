@@ -44,9 +44,6 @@ public static partial class PluginIconChecker
     /// <summary>The separator of a package-relative path.</summary>
     private const char PackagePathSeparator = '/';
 
-    /// <summary>How many bytes are read at a time; the read stops at the first chunk that passes the cap.</summary>
-    private const int ReadChunkBytes = 8192;
-
     /// <summary>The root element name of an SVG document.</summary>
     private const string SvgRootName = "svg";
 
@@ -165,62 +162,48 @@ public static partial class PluginIconChecker
             return Invalid(label, "leaves the plugin folder");
         }
 
-        var located = CheckLocation(root, iconPath, full, label);
-        if (located is not null)
+        var read = PackageFileReader.Read(root, iconPath, MaxIconBytes);
+        if (read.Outcome != PackageFileOutcome.Read)
         {
-            return new PluginIconCheck(null, located);
+            return RefusedRead(read.Outcome, label);
         }
 
         try
         {
-            // One handle for the size and the read, so the length checked is the length of the file that is read.
-            using var stream = new FileStream(full, FileMode.Open, FileAccess.Read, FileShare.Read);
-            if (!stream.CanSeek || stream.Length > MaxIconBytes)
-            {
-                return NotARegularFile(label);
-            }
-
-            // The path could have been swapped for a link between the first look and the open: look again, now that the
-            // handle is held. The public API gives no final path of a handle, so the path is checked a second time.
-            var relocated = CheckLocation(root, iconPath, full, label);
-            if (relocated is not null)
-            {
-                return new PluginIconCheck(null, relocated);
-            }
-
-            var bytes = ReadBounded(stream);
-            if (bytes is null)
-            {
-                return NotARegularFile(label);
-            }
-
             var isSvg = iconPath.EndsWith(SvgExtension, StringComparison.Ordinal);
-            var problem = isSvg ? CheckSvg(bytes, patterns) : CheckPng(bytes);
+            var problem = isSvg ? CheckSvg(read.Content!, patterns) : CheckPng(read.Content!);
             if (problem is not null)
             {
                 return Invalid(label, problem);
             }
 
-            var tag = $"\"{Convert.ToHexStringLower(SHA256.HashData(bytes))[..EntityTagHexLength]}\"";
-            return new PluginIconCheck(new PluginIcon(isSvg ? SvgContentType : PngContentType, bytes, tag), null);
-        }
-        catch (Exception ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
-        {
-            // Removed between the look and the open: the one case of an unreadable file that is a missing one.
-            return new PluginIconCheck(
-                null, new PluginIconViolation(PluginIconRule.Missing, $"{label} does not exist in the plugin folder"));
+            var tag = $"\"{Convert.ToHexStringLower(SHA256.HashData(read.Content!))[..EntityTagHexLength]}\"";
+            return new PluginIconCheck(new PluginIcon(isSvg ? SvgContentType : PngContentType, read.Content!, tag), null);
         }
         catch (RegexMatchTimeoutException)
         {
             // A text that keeps a pattern busy for that long is hostile, not an icon.
             return Invalid(label, "takes too long to check");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or NotSupportedException)
+    }
+
+    /// <summary>Builds the result for an icon file that could not be read.</summary>
+    /// <param name="outcome">How the read ended; never <see cref="PackageFileOutcome.Read"/>.</param>
+    /// <param name="label">The fixed label of the icon, for the log.</param>
+    /// <returns>The result carrying the violation.</returns>
+    private static PluginIconCheck RefusedRead(PackageFileOutcome outcome, string label)
+    {
+        // Fixed text throughout: an I/O message carries the absolute path of the file. A file that exists but cannot be
+        // read, or that is a device or a pipe, is not a valid icon; only a missing file is a missing one.
+        return outcome switch
         {
-            // Fixed text: an I/O message carries the absolute path of the file. A file that exists but cannot be read, or
-            // that is a device or a pipe, is not a valid icon; only a missing file is a missing one.
-            return Invalid(label, "cannot be read as a regular file");
-        }
+            PackageFileOutcome.Missing => new PluginIconCheck(
+                null, new PluginIconViolation(PluginIconRule.Missing, $"{label} does not exist in the plugin folder")),
+            PackageFileOutcome.ReachedThroughLink => Invalid(label, "is reached through a link"),
+            PackageFileOutcome.IsLink => Invalid(label, "is a link"),
+            PackageFileOutcome.NotRegularFile => NotARegularFile(label),
+            _ => Invalid(label, "cannot be read as a regular file"),
+        };
     }
 
     /// <summary>
@@ -332,66 +315,6 @@ public static partial class PluginIconChecker
         {
             return false;
         }
-    }
-
-    /// <summary>
-    /// Checks that the file exists and is reached without a link: no folder between the package folder and the file, and
-    /// not the file, is a symbolic link or junction. A link would let the icon read a file outside the package.
-    /// </summary>
-    /// <param name="root">The full path of the package folder.</param>
-    /// <param name="path">The package-relative path, already checked by <see cref="IsPackageRelative"/>.</param>
-    /// <param name="full">The full path of the file.</param>
-    /// <param name="label">The label of the icon, for the log.</param>
-    /// <returns>The violation, or <see langword="null"/> when the file exists and nothing on the way is a link.</returns>
-    private static PluginIconViolation? CheckLocation(string root, string path, string full, string label)
-    {
-        var segments = path.Split(PackagePathSeparator);
-        var current = root;
-        foreach (var segment in segments.Take(segments.Length - 1))
-        {
-            current = Path.Combine(current, segment);
-            var folder = new DirectoryInfo(current);
-            if (folder.LinkTarget is not null)
-            {
-                return new PluginIconViolation(PluginIconRule.Invalid, $"{label} is reached through a link");
-            }
-
-            if (!folder.Exists)
-            {
-                return new PluginIconViolation(PluginIconRule.Missing, $"{label} does not exist in the plugin folder");
-            }
-        }
-
-        var file = new FileInfo(full);
-        if (file.LinkTarget is not null)
-        {
-            return new PluginIconViolation(PluginIconRule.Invalid, $"{label} is a link");
-        }
-
-        return file.Exists
-            ? null
-            : new PluginIconViolation(PluginIconRule.Missing, $"{label} does not exist in the plugin folder");
-    }
-
-    /// <summary>Reads the stream to its end, stopping with <see langword="null"/> as soon as it passes the cap.</summary>
-    /// <param name="stream">The open icon file.</param>
-    /// <returns>The bytes, or <see langword="null"/> when the file is over <see cref="MaxIconBytes"/>.</returns>
-    private static byte[]? ReadBounded(Stream stream)
-    {
-        using var buffer = new MemoryStream();
-        var chunk = new byte[ReadChunkBytes];
-        int read;
-        while ((read = stream.Read(chunk, 0, chunk.Length)) > 0)
-        {
-            if (buffer.Length + read > MaxIconBytes)
-            {
-                return null;
-            }
-
-            buffer.Write(chunk, 0, read);
-        }
-
-        return buffer.ToArray();
     }
 
     /// <summary>Checks the PNG signature and that the first chunk is <c>IHDR</c>.</summary>

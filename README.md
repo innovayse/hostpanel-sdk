@@ -495,13 +495,30 @@ in the plugin's own tests.
 #### An SSH key agent profile
 
 The host keeps one SSH key agent as shared infrastructure for the servers of panel plugins. A panel plugin that wants its
-servers served by it names a profile in the manifest's `agentProfile`, for example `"agentProfile": "hostingPanelV7"`. The
-names are defined by the SDK, in `PluginAgentProfiles` (`PluginAgentProfiles.All` lists them, `IsKnown` checks one), and
-describe a kind of panel, never a vendor; a plugin cannot invent one, and a name is matched exactly, with its letter case.
-A manifest that names any other profile is refused by `PluginManifestChecker.Validate` with
-`PluginManifestRule.AgentProfileInvalid`. Without `agentProfile` (the default, `null`) the plugin's servers have no SSH key
-agent. A host that does not read the field ignores it, so a plugin that needs it sets `minHostVersion` to the first host
-release that does.
+servers served by it ships its own agent profile in its package and names it in the manifest's `sshAgentProfile`, for
+example `"sshAgentProfile": "examplepanel"`. The id is lower case letters and digits in words joined by single hyphens, at
+most 32 characters (`PluginSshAgentLayout.IsValidProfileId`), and `generic-linux` is the host's own and cannot be named.
+Only a plugin that declares the `provisioningPanel` capability may name one. A manifest that breaks this is refused by
+`PluginManifestChecker.Validate` with `PluginManifestRule.SshAgentProfileInvalid` or `SshAgentProfileNotAllowed`.
+
+The package carries the profile at `agent/profile.conf` (`PluginSshAgentLayout.ProfileFile`) and, when the profile needs
+them, one file per helper directly in `agent/helpers` (`PluginSshAgentLayout.HelperDirectory`):
+
+- the profile is at most 8 KiB, in the agent's `[agent]` section format with one `key = value` per line, sets only keys the
+  agent defines, has `provider` equal to the id in `sshAgentProfile`, leaves `binding` empty (the host fills it per
+  server) and keeps `account_check_command` and `helper_dir` inside `/usr/local/libexec/hostpanel-ssh-key-agent`;
+- a package carries at most 32 helpers of at most 64 KiB each, named by `PluginSshAgentLayout.IsValidHelperName` (a letter or
+  digit, then letters, digits, dots, underscores or hyphens, at most 64 characters);
+- nothing on the way to these files is a link.
+
+`PluginAgentPackageChecker.Check(packageDirectory, manifest.SshAgentProfile)` in `Hostpanel.Sdk.Packaging` checks all of it
+and hands back the bytes it checked, or a `PluginAgentRule` with a detail that names a package path or a profile key and never
+a value from the file; run it in your release pipeline before you publish. Without `sshAgentProfile` (the default, `null`)
+the plugin's servers have no SSH key agent profile. A host that does not read the field ignores it, so a plugin that needs
+it sets `minHostVersion` to the first host release that does.
+
+The earlier `agentProfile` member and `PluginAgentProfiles` (a fixed list of profile names) are deprecated and will be
+removed in 4.0.0; they still read and validate as before.
 
 ### Panels with a self signed certificate
 
@@ -1134,7 +1151,7 @@ The checks a host runs on an uploaded package (the `plugin.sig` signature, plugi
 reserved assembly names, archive guards, icon safety and the structural manifest rules) are published as a
 second package, `Hostpanel.Sdk.Packaging` (MIT, `net9.0`, same version as this package), so you can run the same
 code in your release pipeline before you publish: `PluginSigner.Sign(packageDirectory, keyId, privateKey)` writes
-the signature, and `PluginManifestChecker`, `PluginIconChecker` and `PluginAssemblyNames` answer the same questions
+the signature, and `PluginManifestChecker`, `PluginIconChecker`, `PluginAgentPackageChecker` and `PluginAssemblyNames` answer the same questions
 the host will. See `Hostpanel.Sdk.Packaging/README.md`.
 
 ## Versioning

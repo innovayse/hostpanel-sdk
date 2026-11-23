@@ -548,6 +548,8 @@ public sealed class PluginManifestCheckerTests
         Check(key + ",\"locales\":{\"en\":{\"settings.accountId\":\"Reseller ID\"}}").Should().BeNull();
     }
 
+#pragma warning disable CS0618 // These tests are about the deprecated member and type, so they use them on purpose.
+
     /// <summary>The agent profile is read from plugin.json, and a manifest without it reads null and passes.</summary>
     [Fact]
     public void Validate_AgentProfile_IsReadFromTheJson()
@@ -570,6 +572,65 @@ public sealed class PluginManifestCheckerTests
     public void Validate_AgentProfile_UndefinedNameBreaks(string name)
     {
         AssertBreaks("\"agentProfile\": \"" + name + "\"", PluginManifestRule.AgentProfileInvalid);
+    }
+
+#pragma warning restore CS0618
+
+    /// <summary>The ssh agent profile is read from plugin.json, and a manifest without it reads null and passes.</summary>
+    [Fact]
+    public void Validate_SshAgentProfile_IsReadFromTheJson()
+    {
+        var withProfile = ManifestJson.Read("\"sshAgentProfile\": \"demo-panel\",\"capabilities\":[\"provisioningPanel\"]");
+        var without = ManifestJson.Read();
+
+        withProfile.SshAgentProfile.Should().Be("demo-panel");
+        without.SshAgentProfile.Should().BeNull();
+        PluginManifestChecker.Validate(withProfile, Options).Should().BeNull();
+        PluginManifestChecker.Validate(without, Options).Should().BeNull();
+    }
+
+    /// <summary>A well formed id that is not the reserved one passes on a panel plugin.</summary>
+    /// <param name="id">The profile id.</param>
+    [Theory]
+    [InlineData("a")]
+    [InlineData("demo-panel")]
+    [InlineData("generic-linux-2")]
+    public void Validate_SshAgentProfile_WellFormedIdPasses(string id)
+    {
+        Check("\"sshAgentProfile\": \"" + id + "\",\"capabilities\":[\"provisioningPanel\"]").Should().BeNull();
+    }
+
+    /// <summary>An id that is empty, padded, in another case, badly hyphenated, too long or the reserved one breaks the rule.</summary>
+    /// <param name="id">The profile id.</param>
+    [Theory]
+    [InlineData("")]
+    [InlineData(" demo")]
+    [InlineData("Demo")]
+    [InlineData("demo--panel")]
+    [InlineData("-demo")]
+    [InlineData("demo_panel")]
+    [InlineData("generic-linux")]
+    public void Validate_SshAgentProfile_BadIdBreaks(string id)
+    {
+        AssertBreaks("\"sshAgentProfile\": \"" + id + "\",\"capabilities\":[\"provisioningPanel\"]", PluginManifestRule.SshAgentProfileInvalid);
+    }
+
+    /// <summary>A plugin that does not declare the provisioning panel capability may not name a profile.</summary>
+    [Fact]
+    public void Validate_SshAgentProfile_WithoutThePanelCapabilityBreaks()
+    {
+        AssertBreaks("\"sshAgentProfile\": \"demo-panel\"", PluginManifestRule.SshAgentProfileNotAllowed);
+        AssertBreaks("\"sshAgentProfile\": \"demo-panel\",\"capabilities\":[\"registrarDnssec\"]", PluginManifestRule.SshAgentProfileNotAllowed);
+    }
+
+    /// <summary>An id of the longest length passes and one character more breaks the rule.</summary>
+    [Fact]
+    public void Validate_SshAgentProfile_IdLengthCapIsExact()
+    {
+        var longest = new string('a', PluginSshAgentLayout.MaxProfileIdLength);
+
+        Check("\"sshAgentProfile\": \"" + longest + "\",\"capabilities\":[\"provisioningPanel\"]").Should().BeNull();
+        AssertBreaks("\"sshAgentProfile\": \"" + longest + "a\",\"capabilities\":[\"provisioningPanel\"]", PluginManifestRule.SshAgentProfileInvalid);
     }
 
     /// <summary>Builds the <c>settings</c> member of a registrar manifest from the given setting entries.</summary>

@@ -6,6 +6,7 @@ namespace Hostpanel.Sdk.Plugins.Manifest;
 /// panel's hosts. The names are defined here, by the SDK, so they stay neutral: a name describes a kind of panel, never a
 /// vendor, and a plugin cannot invent one. A name is matched exactly, with its letter case.
 /// </summary>
+[Obsolete("Superseded by PluginSshAgentLayout: a plugin now ships its own profile and names it in SshAgentProfile. This type will be removed in 4.0.0.")]
 public static class PluginAgentProfiles
 {
     /// <summary>The profile for the hosting control panel family of version 7.</summary>
