@@ -97,7 +97,8 @@ public enum PluginManifestRule
 
     /// <summary>
     /// The <c>minHostVersion</c> is missing or lower than the first host release that ships an SDK at least as new as the
-    /// <c>sdkPackageVersion</c>, so the manifest admits a host the plugin cannot load on.
+    /// <c>sdkPackageVersion</c>, so the manifest admits a host the plugin cannot load on; or no host release ships an SDK that
+    /// new yet, so there is no host to admit.
     /// </summary>
     MinHostVersionBelowSdk = 29,
 
