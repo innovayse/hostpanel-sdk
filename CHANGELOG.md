@@ -5,6 +5,14 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.16.1]
+
+### Fixed
+
+- `PluginSdkHostReleases` stopped at SDK 3.10.0, so `MinHostVersionBelowSdk` let a plugin built on SDK 3.11.0 or newer ship a `minHostVersion` of a host that cannot load it. The table now holds every host release that moved to a new SDK: 3.13.0 is first shipped by host 0.9.0 (so 3.11.0 and 3.12.0 need 0.9.0 as well) and 3.16.0 by host 0.10.0 (so 3.14.0 and 3.15.0 need 0.10.0).
+- `PluginManifestChecker.Validate` no longer passes a manifest whose `sdkPackageVersion` is newer than the SDK of every host release. It breaks `MinHostVersionBelowSdk` with a message that says no host can load the plugin yet, because there is no host to compare its `minHostVersion` with.
+- A test fails when the package is built as a new minor or major SDK version that has no row in the table, so the row for the host release that ships it cannot be forgotten.
+
 ## [3.16.0]
 
 ### Added

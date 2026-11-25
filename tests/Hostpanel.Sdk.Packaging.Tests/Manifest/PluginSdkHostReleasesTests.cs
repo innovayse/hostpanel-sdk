@@ -1,3 +1,4 @@
+using System.Reflection;
 using Hostpanel.Sdk.Packaging.Manifest;
 using Hostpanel.Sdk.Packaging.Naming;
 
@@ -16,6 +17,12 @@ public sealed class PluginSdkHostReleasesTests
     [InlineData("3.7.0", "0.5.0")]
     [InlineData("3.8.1", "0.7.0")]
     [InlineData("3.10.0", "0.7.0")]
+    [InlineData("3.11.0", "0.9.0")]
+    [InlineData("3.12.0", "0.9.0")]
+    [InlineData("3.13.0", "0.9.0")]
+    [InlineData("3.14.0", "0.10.0")]
+    [InlineData("3.15.0", "0.10.0")]
+    [InlineData("3.16.0", "0.10.0")]
     public void FirstHostShipping_KnownSdk_ReturnsTheFirstHostThatCarriesIt(string sdk, string host)
     {
         PluginVersion.TryParse(sdk, out var sdkVersion).Should().BeTrue();
@@ -28,7 +35,7 @@ public sealed class PluginSdkHostReleasesTests
     [Fact]
     public void FirstHostShipping_SdkNoHostShipsYet_ReturnsNull()
     {
-        PluginVersion.TryParse("3.10.1", out var sdkVersion).Should().BeTrue();
+        PluginVersion.TryParse("3.99.0", out var sdkVersion).Should().BeTrue();
 
         PluginSdkHostReleases.FirstHostShipping(sdkVersion).Should().BeNull();
     }
@@ -38,7 +45,7 @@ public sealed class PluginSdkHostReleasesTests
     public void FirstHostShipping_AscendingSdkVersions_NeverReturnsAnOlderHost()
     {
         PluginVersion? previous = null;
-        for (var minor = 0; minor <= 10; minor++)
+        for (var minor = 0; minor <= 16; minor++)
         {
             PluginVersion.TryParse($"3.{minor}.0", out var sdkVersion).Should().BeTrue();
 
@@ -52,5 +59,21 @@ public sealed class PluginSdkHostReleasesTests
 
             previous = host;
         }
+    }
+
+    /// <summary>
+    /// The table reaches the SDK this package is built as: a new minor or major SDK version is not published without the row
+    /// that names the host release shipping it, so a plugin built on it is never left without a lower bound to check.
+    /// </summary>
+    [Fact]
+    public void FirstHostShipping_SdkOfThisPackage_HasARow()
+    {
+        var packageVersion = typeof(PluginSdkHostReleases).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
+        PluginVersion.TryParse(packageVersion.Split('+')[0], out var current).Should().BeTrue();
+        PluginVersion.TryParse($"{current.Major}.{current.Minor}.0", out var firstOfSeries).Should().BeTrue();
+
+        PluginSdkHostReleases.FirstHostShipping(firstOfSeries).Should().NotBeNull(
+            $"SDK {packageVersion} is new, so add the row for the host release that ships SDK {firstOfSeries.Major}.{firstOfSeries.Minor}.0 to PluginSdkHostReleases");
     }
 }

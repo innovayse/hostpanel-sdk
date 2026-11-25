@@ -1153,7 +1153,7 @@ as plain `sdkPackageVersion`, without escapes, for the build to recognise it.
 
 `PluginManifestChecker.Validate` fails with
 `PluginManifestRule.MinHostVersionBelowSdk` when `minHostVersion` is missing or lower than the first host release that ships
-an SDK at least that new (`PluginSdkHostReleases`), and with `SdkPackageVersionInvalid` when the value is not a version.
+an SDK at least that new (`PluginSdkHostReleases`), or when no host release ships an SDK that new yet, and with `SdkPackageVersionInvalid` when the value is not a version.
 A manifest without the member is not checked.
 
 ## Checking and signing a package

@@ -386,12 +386,13 @@ public static partial class PluginManifestChecker
     /// <summary>
     /// Checks the <c>sdkPackageVersion</c>: when set it is a semantic version, and the <c>minHostVersion</c> is not below the
     /// first host release that ships an SDK at least that new (<see cref="PluginSdkHostReleases"/>), because a lower bound
-    /// would admit hosts the plugin's assembly cannot load on. The caller has already checked that <paramref name="minHostVersion"/>,
+    /// would admit hosts the plugin's assembly cannot load on. An SDK no host release ships yet is refused too, because there
+    /// is no host it can load on. The caller has already checked that <paramref name="minHostVersion"/>,
     /// when set, is a version.
     /// </summary>
     /// <param name="sdkPackageVersion">The <c>sdkPackageVersion</c>, or <see langword="null"/> when the manifest states none.</param>
     /// <param name="minHostVersion">The <c>minHostVersion</c>, or <see langword="null"/> for no lower limit.</param>
-    /// <returns>The first violation, or <see langword="null"/>. An SDK no host release ships yet is not compared.</returns>
+    /// <returns>The first violation, or <see langword="null"/>.</returns>
     private static PluginManifestViolation? CheckSdkPackageVersion(string? sdkPackageVersion, string? minHostVersion)
     {
         if (sdkPackageVersion is null)
@@ -408,7 +409,9 @@ public static partial class PluginManifestChecker
         var firstHost = PluginSdkHostReleases.FirstHostShipping(sdk);
         if (firstHost is null)
         {
-            return null;
+            return new PluginManifestViolation(
+                PluginManifestRule.MinHostVersionBelowSdk,
+                $"sdkPackageVersion {sdkPackageVersion} is newer than the SDK of every host release, so no host can load this plugin yet: build it on the SDK of a released host or wait for the host that ships it");
         }
 
         var belowFirstHost = !PluginVersion.TryParse(minHostVersion, out var min) || min.CompareTo(firstHost) < 0;
