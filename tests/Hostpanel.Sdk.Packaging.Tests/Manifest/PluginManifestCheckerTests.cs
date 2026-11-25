@@ -485,21 +485,34 @@ public sealed class PluginManifestCheckerTests
     [InlineData("\"sdkPackageVersion\": \"3.10.0\", \"minHostVersion\": \"0.6.0\"")]
     [InlineData("\"sdkPackageVersion\": \"3.8.0\", \"minHostVersion\": \"0.6.9\"")]
     [InlineData("\"sdkPackageVersion\": \"3.1.0\", \"minHostVersion\": \"0.3.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.11.0\", \"minHostVersion\": \"0.8.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.15.0\", \"minHostVersion\": \"0.9.0\"")]
     public void Validate_MinHostBelowFirstHostShippingTheSdk_BreaksMinHostVersionBelowSdk(string members)
     {
         AssertBreaks(members, PluginManifestRule.MinHostVersionBelowSdk);
     }
 
-    /// <summary>A minimum host at or above the first release that ships the SDK passes, and an SDK no host ships yet is not compared.</summary>
+    /// <summary>A minimum host at or above the first release that ships the SDK passes.</summary>
     /// <param name="members">The JSON members.</param>
     [Theory]
     [InlineData("\"sdkPackageVersion\": \"3.10.0\", \"minHostVersion\": \"0.7.0\"")]
     [InlineData("\"sdkPackageVersion\": \"3.10.0\", \"minHostVersion\": \"0.8.0\", \"maxHostVersion\": \"1.0.0\"")]
     [InlineData("\"sdkPackageVersion\": \"3.1.0\", \"minHostVersion\": \"0.4.0\"")]
-    [InlineData("\"sdkPackageVersion\": \"3.99.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.11.0\", \"minHostVersion\": \"0.9.0\"")]
+    [InlineData("\"sdkPackageVersion\": \"3.16.0\", \"minHostVersion\": \"0.10.0\"")]
     public void Validate_MinHostAtOrAboveFirstHostShippingTheSdk_Passes(string members)
     {
         Check(members).Should().BeNull();
+    }
+
+    /// <summary>An SDK no host release ships yet breaks the rule whatever the minimum host is, and the message says so.</summary>
+    /// <param name="members">The JSON members.</param>
+    [Theory]
+    [InlineData("\"sdkPackageVersion\": \"3.99.0\"")]
+    public void Validate_SdkNoHostShipsYet_BreaksMinHostVersionBelowSdkNamingTheCause(string members)
+    {
+        AssertBreaks(members, PluginManifestRule.MinHostVersionBelowSdk);
+        Check(members)!.Detail.Should().Contain("no host can load this plugin yet");
     }
 
     /// <summary>A changelog of exactly the limit passes; one character more breaks the changelog rule.</summary>
