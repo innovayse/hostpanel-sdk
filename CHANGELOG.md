@@ -5,6 +5,19 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.17.0]
+
+### Added
+
+- `PluginManifest.DomainFields` (`IReadOnlyList<PluginDomainFieldSet>`, empty when the manifest has none, a `null` reads as empty like `Settings`): the `domainFields` block of manifest version 2 for registrar plugins, so a registrar can tell the host which extra registrant fields a zone needs. A `PluginDomainFieldSet` has `Zones` (lower case ASCII or punycode suffixes, the longest suffix wins), `Holder` (`PluginDomainHolder`: `Any`, `Individual`, `Organization`), `Operations` (`PluginDomainOperations` flags `Register`, `Transfer`, `ContactChange`, `All` by default) and `Fields`. A `PluginDomainField` has `Key` (passed back unchanged as the `ExtendedAttributes` key), `Label`, `Description`, `Placeholder`, `Type` (`PluginDomainFieldType`: `Text`, `Textarea`, `Select`, `Date`, `Number`, `Url`), `Required`, `Pattern`, `MinLength`, `MaxLength` and `Options` (`PluginSettingOption`). A date travels as `yyyy-MM-dd`. All members are new, so no manifest or plugin built on 3.16.x changes.
+- `PluginDomainFieldRules`: the one implementation of the rules for the host and for a plugin's tests. `Match(manifest, domainName, holder, operation)` answers the fields that apply to a domain; `Validate(fields, attributes)` answers a `PluginDomainFieldViolation` (key and `PluginDomainFieldViolationReason`: `Unknown`, `Required`, `Pattern`, `Length`, `Option`, `Format`) for every value that is refused. `IsValidKey`, `IsValidZone` and `CreatePattern` give the shapes the manifest rules use.
+- `PluginManifestChecker.Validate` checks the block with the new `PluginManifestRule` values `DomainFieldsNotRegistrar`, `DomainFieldKeyInvalid`, `DomainZoneInvalid`, `DomainZoneDuplicate`, `DomainOperationsInvalid`, `DomainFieldOptionsInvalid`, `DomainFieldPatternInvalid` and `DomainFieldLengthInvalid`. Every label, description, placeholder and option label that is a text key needs an `en` text, like the texts of settings.
+- `PluginSdkHostReleases` has the row for SDK 3.17.0 (host release 0.11.0).
+
+### Changed
+
+- The documentation of `ExtendedAttributes` on `RegistrarRegisterContext`, `RegistrarTransferContext` and `RegistrarContactContext` says the keys are the keys of the domain fields the manifest declares. The type and the values it carries are unchanged. A plugin that uses the block sets `minHostVersion` to the first host release that asks for the fields.
+
 ## [3.16.1]
 
 ### Fixed

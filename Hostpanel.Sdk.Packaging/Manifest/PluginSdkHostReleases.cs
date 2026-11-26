@@ -19,6 +19,7 @@ public static class PluginSdkHostReleases
         (Parse("3.10.0"), Parse("0.7.0")),
         (Parse("3.13.0"), Parse("0.9.0")),
         (Parse("3.16.0"), Parse("0.10.0")),
+        (Parse("3.17.0"), Parse("0.11.0")),
     ];
 
     /// <summary>Finds the first host release whose SDK is at least as new as the one a plugin was built against.</summary>

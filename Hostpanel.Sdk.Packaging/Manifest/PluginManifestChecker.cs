@@ -102,6 +102,7 @@ public static partial class PluginManifestChecker
             ?? CheckAgentProfile(manifest)
             ?? CheckSshAgentProfile(manifest)
             ?? CheckConnectionRoles(manifest)
+            ?? CheckDomainFields(manifest)
             ?? CheckTextKeys(manifest);
     }
 
@@ -579,6 +580,156 @@ public static partial class PluginManifestChecker
         return null;
     }
 
+    /// <summary>
+    /// Checks the <c>domainFields</c>: only a registrar plugin declares any; each set names well formed zones and a valid
+    /// operation list; no zone is named by two sets that apply to the same registrant and operation; and each field has a
+    /// well formed key that its set does not use twice, options that fit its type, a valid bounded pattern and sane length bounds.
+    /// </summary>
+    /// <param name="manifest">The manifest.</param>
+    /// <returns>The first violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckDomainFields(PluginManifest manifest)
+    {
+        if (manifest.DomainFields.Count == 0)
+        {
+            return null;
+        }
+
+        if (manifest.Type != PluginType.Registrar)
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.DomainFieldsNotRegistrar, "domainFields: only a registrar plugin declares them");
+        }
+
+        for (var index = 0; index < manifest.DomainFields.Count; index++)
+        {
+            var where = $"domainFields[{index}]";
+            var violation = CheckDomainSet(manifest.DomainFields[index], where) ?? CheckDomainZoneOverlap(manifest.DomainFields, index, where);
+            if (violation is not null)
+            {
+                return violation;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Checks one set of domain fields on its own: zones, operations and every field.</summary>
+    /// <param name="set">The set.</param>
+    /// <param name="where">Where the set is declared, for the log.</param>
+    /// <returns>The first violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckDomainSet(PluginDomainFieldSet set, string where)
+    {
+        if (set.Zones.Count == 0 || set.Zones.Any(zone => !PluginDomainFieldRules.IsValidZone(zone)))
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.DomainZoneInvalid,
+                $"{where} zones: list at least one zone of lower case letters, digits and hyphens in dot separated labels, with no leading dot (punycode for a unicode zone)");
+        }
+
+        if (set.Operations == PluginDomainOperations.None || (set.Operations & ~PluginDomainOperations.All) != 0)
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.DomainOperationsInvalid, $"{where} operations: use register, transfer and contactChange");
+        }
+
+        var seenKeys = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var field in set.Fields)
+        {
+            var fieldWhere = $"{where} fields '{field.Key}'";
+            if (!PluginDomainFieldRules.IsValidKey(field.Key) || !seenKeys.Add(field.Key))
+            {
+                return new PluginManifestViolation(
+                    PluginManifestRule.DomainFieldKeyInvalid,
+                    $"{fieldWhere}: a key is 1 to {PluginDomainField.MaxKeyLength} letters, digits, dots, underscores, colons and hyphens, starts with a letter or digit and is used once per set");
+            }
+
+            var violation = CheckDomainField(field, fieldWhere);
+            if (violation is not null)
+            {
+                return violation;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Checks one domain field: options, pattern and length bounds.</summary>
+    /// <param name="field">The field.</param>
+    /// <param name="where">Where the field is declared, for the log.</param>
+    /// <returns>The first violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckDomainField(PluginDomainField field, string where)
+    {
+        var isSelect = field.Type == PluginDomainFieldType.Select;
+        var optionsFit = isSelect
+            ? field.Options.Count > 0
+                && field.Options.All(option => !string.IsNullOrEmpty(option.Value))
+                && field.Options.Select(option => option.Value).Distinct(StringComparer.Ordinal).Count() == field.Options.Count
+            : field.Options.Count == 0;
+        if (!optionsFit)
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.DomainFieldOptionsInvalid,
+                $"{where}: only a select field has options, and it lists at least one, each with a distinct non-empty value");
+        }
+
+        if (field.Pattern is not null && !IsUsablePattern(field.Pattern))
+        {
+            return new PluginManifestViolation(
+                PluginManifestRule.DomainFieldPatternInvalid,
+                $"{where} pattern: use a valid regular expression of at most {PluginDomainField.MaxPatternLength} characters");
+        }
+
+        var lengthsFit = field.MinLength is not < 0 && field.MaxLength is not < 0
+            && (field.MinLength is not { } min || field.MaxLength is not { } max || min <= max);
+        return lengthsFit
+            ? null
+            : new PluginManifestViolation(
+                PluginManifestRule.DomainFieldLengthInvalid, $"{where}: minLength and maxLength are not negative and minLength is not above maxLength");
+    }
+
+    /// <summary>Tells whether a pattern builds under the length limit and the one time limit of this package.</summary>
+    /// <param name="pattern">The pattern of a domain field.</param>
+    /// <returns><see langword="true"/> when <see cref="PluginDomainFieldRules.CreatePattern"/> accepts it.</returns>
+    private static bool IsUsablePattern(string pattern)
+    {
+        try
+        {
+            _ = PluginDomainFieldRules.CreatePattern(pattern, TimeSpan.FromMilliseconds(RegexLimits.TimeoutMilliseconds));
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks that no earlier set names a zone of this set while applying to the same registrant and the same operation:
+    /// that pair of sets would leave the winner undefined.
+    /// </summary>
+    /// <param name="sets">All sets of the manifest.</param>
+    /// <param name="index">The position of the set being checked.</param>
+    /// <param name="where">Where the set is declared, for the log.</param>
+    /// <returns>The violation, or <see langword="null"/>.</returns>
+    private static PluginManifestViolation? CheckDomainZoneOverlap(IReadOnlyList<PluginDomainFieldSet> sets, int index, string where)
+    {
+        var set = sets[index];
+        for (var earlier = 0; earlier < index; earlier++)
+        {
+            var other = sets[earlier];
+            var sameHolder = set.Holder == PluginDomainHolder.Any || other.Holder == PluginDomainHolder.Any || set.Holder == other.Holder;
+            var shared = set.Zones.Intersect(other.Zones, StringComparer.Ordinal).FirstOrDefault();
+            if (sameHolder && (set.Operations & other.Operations) != 0 && shared is not null)
+            {
+                return new PluginManifestViolation(
+                    PluginManifestRule.DomainZoneDuplicate,
+                    $"{where} zones: '{shared}' is also named by domainFields[{earlier}] for the same registrant and operation");
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>The setting type a connection role needs.</summary>
     /// <param name="role">The role.</param>
     /// <returns>The one type the role is allowed on, or <see langword="null"/> when any type fits.</returns>
@@ -769,6 +920,20 @@ public static partial class PluginManifestChecker
             yield return ($"settings '{setting.Key}' label", setting.Label, false);
             yield return ($"settings '{setting.Key}' description", setting.Description, true);
             yield return ($"settings '{setting.Key}' placeholder", setting.Placeholder, true);
+        }
+
+        foreach (var set in manifest.DomainFields)
+        {
+            foreach (var field in set.Fields)
+            {
+                yield return ($"domainFields '{field.Key}' label", field.Label, false);
+                yield return ($"domainFields '{field.Key}' description", field.Description, true);
+                yield return ($"domainFields '{field.Key}' placeholder", field.Placeholder, true);
+                foreach (var option in field.Options)
+                {
+                    yield return ($"domainFields '{field.Key}' option '{option.Value}' label", option.Label, false);
+                }
+            }
         }
     }
 
