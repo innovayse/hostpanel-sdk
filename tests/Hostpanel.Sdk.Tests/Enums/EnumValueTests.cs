@@ -134,4 +134,22 @@ public sealed class EnumValueTests
         values.Select(value => value.ToString()).Should().Equal("AccountName", "ApiKey", "ApiUrl", "ClientIp", "TestMode");
         Enum.IsDefined((RegistrarConnectionRole)0).Should().BeFalse();
     }
+
+    /// <summary>The domain field enums are explicit values and zero is none of them; the operations are bit flags.</summary>
+    [Fact]
+    public void DomainFieldEnums_Values_ArePinned()
+    {
+        Enum.GetValues<PluginDomainFieldType>().Select(value => value.ToString()).Should().Equal("Text", "Textarea", "Select", "Date", "Number", "Url");
+        Enum.GetValues<PluginDomainFieldType>().Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5, 6);
+        Enum.GetValues<PluginDomainHolder>().Select(value => value.ToString()).Should().Equal("Any", "Individual", "Organization");
+        Enum.GetValues<PluginDomainHolder>().Select(value => (int)value).Should().Equal(1, 2, 3);
+        Enum.GetValues<PluginDomainFieldViolationReason>().Select(value => value.ToString())
+            .Should().Equal("Unknown", "Required", "Pattern", "Length", "Option", "Format");
+        Enum.GetValues<PluginDomainFieldViolationReason>().Select(value => (int)value).Should().Equal(1, 2, 3, 4, 5, 6);
+        Enum.GetValues<PluginDomainOperations>().Select(value => (int)value).Should().Equal(0, 1, 2, 4, 7);
+        Enum.IsDefined((PluginDomainFieldType)0).Should().BeFalse();
+        Enum.IsDefined((PluginDomainHolder)0).Should().BeFalse();
+        Enum.IsDefined((PluginDomainFieldViolationReason)0).Should().BeFalse();
+        PluginDomainOperations.All.Should().Be(PluginDomainOperations.Register | PluginDomainOperations.Transfer | PluginDomainOperations.ContactChange);
+    }
 }

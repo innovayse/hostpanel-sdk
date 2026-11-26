@@ -31,6 +31,9 @@ public sealed class PluginManifest
     /// <summary>Backing field of <see cref="Settings"/>; empty unless the manifest lists some.</summary>
     private readonly IReadOnlyList<PluginSetting> _settings = [];
 
+    /// <summary>Backing field of <see cref="DomainFields"/>; empty unless the manifest lists some.</summary>
+    private readonly IReadOnlyList<PluginDomainFieldSet> _domainFields = [];
+
     /// <summary>Backing field of <see cref="Locales"/>; empty unless the manifest ships some.</summary>
     private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> _locales =
         new Dictionary<string, IReadOnlyDictionary<string, string>>();
@@ -47,7 +50,7 @@ public sealed class PluginManifest
     /// <summary>
     /// Gets the version of the manifest format. An absent <c>manifestVersion</c> reads as <c>1</c>, the format
     /// that has only <see cref="Fields"/>; <c>2</c> adds <see cref="Settings"/>, <see cref="Locales"/>,
-    /// <see cref="Api"/>, <see cref="Ui"/> and <see cref="ExternalOrigins"/>.
+    /// <see cref="Api"/>, <see cref="Ui"/>, <see cref="ExternalOrigins"/> and <see cref="DomainFields"/>.
     /// </summary>
     public int ManifestVersion { get; init; } = 1;
 
@@ -108,6 +111,18 @@ public sealed class PluginManifest
     {
         get => _settings;
         init => _settings = value ?? [];
+    }
+
+    /// <summary>
+    /// Gets the extra domain fields a registrar plugin asks for, per group of zones (the <c>domainFields</c> field, manifest
+    /// version 2). Only a <see cref="PluginType.Registrar"/> plugin declares any. <see cref="PluginDomainFieldRules.Match"/>
+    /// answers the fields of one domain and <see cref="PluginDomainFieldRules.Validate"/> checks the values given for them. A
+    /// missing or <c>null</c> <c>domainFields</c> reads as an empty list, never <see langword="null"/>.
+    /// </summary>
+    public IReadOnlyList<PluginDomainFieldSet> DomainFields
+    {
+        get => _domainFields;
+        init => _domainFields = value ?? [];
     }
 
     /// <summary>

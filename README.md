@@ -630,6 +630,41 @@ list must agree with the code. One plugin serves one registrar account: each cal
   `RegistrarAvailability` may say why a name cannot be registered or what makes it special in `Reason`
   (`RegistrarAvailabilityReason`) and carry a `PremiumPrice`; `null` means the registrar did not say. The extended
   attributes and the agreement address are personal data and print as `***`.
+- **Domain fields (since 3.17.0).** A registry that needs more than the standard contact says so in the manifest, so the
+  host knows what to ask for and the order can be placed. `domainFields` is a block of manifest version 2 for registrar
+  plugins only (`PluginManifest.DomainFields`, empty when absent). Each entry is a `PluginDomainFieldSet`: `zones`
+  (lower case ASCII suffixes without a leading dot, such as `com`, `co.uk` or the punycode `xn--p1ai`; a domain belongs to
+  a zone when it ends with a dot and the zone, and the longest zone wins), `holder` (`PluginDomainHolder`: `any`, the
+  default, `individual` or `organization`), `operations` (`PluginDomainOperations` flags, written as a comma separated
+  list of `register`, `transfer` and `contactChange`; all three when absent) and `fields`. A set with no fields states
+  that its zones need none, which overrides a shorter zone. Each `PluginDomainField` has `key` (the registry's own name,
+  passed back unchanged as the key of `ExtendedAttributes`), `label`, `description` and `placeholder` (text keys of the
+  manifest locales, or plain text), `type` (`PluginDomainFieldType`: `text`, `textarea`, `select`, `date`, `number`,
+  `url`), `required`, `pattern` (a regular expression the whole value must match), `minLength`, `maxLength` and, for a
+  `select`, `options` (`value` and `label`). A date travels as `yyyy-MM-dd`.
+
+  ```json
+  "manifestVersion": 2,
+  "domainFields": [
+    { "zones": ["us"], "holder": "organization", "operations": "register, transfer",
+      "fields": [
+        { "key": "nexus", "label": "domain.nexus", "type": "select", "required": true,
+          "options": [ { "value": "c11", "label": "domain.nexus.c11" }, { "value": "c21", "label": "domain.nexus.c21" } ] },
+        { "key": "taxId", "label": "domain.taxId", "type": "text", "pattern": "[0-9]{9}", "minLength": 9, "maxLength": 9 }
+      ] }
+  ]
+  ```
+
+  `PluginDomainFieldRules` is the one implementation of the rules, for the host and for a plugin's own tests.
+  `Match(manifest, domainName, holder, operation)` answers the fields of one domain (case is ignored, a unicode name is read
+  as punycode, and a holder of `any` matches only the sets written for any holder). `Validate(fields, attributes)` answers
+  a `PluginDomainFieldViolation` (the key and a `PluginDomainFieldViolationReason`: `Unknown`, `Required`, `Pattern`,
+  `Length`, `Option` or `Format`) for each value that is refused, and an empty list when they are acceptable. The package
+  checker refuses the block on any other plugin type, a key or zone that is not well formed, a key twice in a set, a
+  zone named twice by sets that apply to the same registrant and operation, options on a field that is not a `select` (or
+  a `select` without them), a pattern that is invalid, over 200 characters or runs too long, and bad length bounds; every
+  label, description, placeholder and option label that is a text key needs an `en` text. A plugin that declares the block
+  sets `minHostVersion` to the first host release that asks for the fields.
 - **DNS records have no registrar id on the host side.** `RegistrarDnsRecordUpdateContext` carries the record as it is now
   and the content it should have, and `RegistrarDnsRecordRemovalContext` carries the whole record; find the record by type,
   host and value, and use `RegistrarDnsRecord.Id` only when it is given. A delete of a record that is gone is
@@ -928,6 +963,7 @@ code runs. Every block is optional and an absent or `null` block reads as empty.
 | `api.client`, `api.admin` | The routes the plugin answers, one list per panel. Each has `method` (`get`, `post`, `put`, `patch`, `delete`), `path`, an optional `rateLimit` (`default`, `strict`, `heavy`; absent means `default`) and `streaming` (`true` for a route that replies with a stream of events). A client route may have a `permission`; an admin route never has one, so its `Permission` reads as `null`. |
 | `ui.client`, `ui.admin` | What the plugin adds to each panel: `menus` (`id`, `label`, `page`, optional `icon` and `order`) and `pages` (`id`, `path`, `title`, `view`, optional `permission` on the client panel). |
 | `ui.slots` | Content for the slots the host offers: `id` (the widget id, unique within the plugin), `slot`, `view` and optional `title`, `order` (lowest first), `permission` (client slots only), `productIds` (show only for services of these products; empty means every product) and `contextKeys` (the slot context the widget needs, for example `serviceId`). |
+| `domainFields` | Registrar plugins only: the extra registrant fields a zone needs, per set of `zones`, `holder`, `operations` and `fields` (see "Registrar plugins"). |
 | `externalOrigins` | The web origins the plugin's pages may load content from or link to. |
 
 A version 2 manifest declares `"sdkVersion": "1.0"`. The host accepts exactly that value today and skips or

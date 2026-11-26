@@ -23,6 +23,7 @@ public sealed class PluginSdkHostReleasesTests
     [InlineData("3.14.0", "0.10.0")]
     [InlineData("3.15.0", "0.10.0")]
     [InlineData("3.16.0", "0.10.0")]
+    [InlineData("3.17.0", "0.11.0")]
     public void FirstHostShipping_KnownSdk_ReturnsTheFirstHostThatCarriesIt(string sdk, string host)
     {
         PluginVersion.TryParse(sdk, out var sdkVersion).Should().BeTrue();
@@ -45,7 +46,7 @@ public sealed class PluginSdkHostReleasesTests
     public void FirstHostShipping_AscendingSdkVersions_NeverReturnsAnOlderHost()
     {
         PluginVersion? previous = null;
-        for (var minor = 0; minor <= 16; minor++)
+        for (var minor = 0; minor <= 17; minor++)
         {
             PluginVersion.TryParse($"3.{minor}.0", out var sdkVersion).Should().BeTrue();
 

@@ -111,4 +111,28 @@ public enum PluginManifestRule
 
     /// <summary>The <c>sshAgentProfile</c> is set on a plugin that does not declare the <c>provisioningPanel</c> capability.</summary>
     SshAgentProfileNotAllowed = 31,
+
+    /// <summary>A plugin that is not a registrar plugin declares <c>domainFields</c>.</summary>
+    DomainFieldsNotRegistrar = 32,
+
+    /// <summary>A domain field key is not well formed (see <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginDomainFieldRules.IsValidKey(string?)"/>) or two fields of one set share a key.</summary>
+    DomainFieldKeyInvalid = 33,
+
+    /// <summary>A set of domain fields names no zone, or a zone that is not well formed (see <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginDomainFieldRules.IsValidZone(string?)"/>).</summary>
+    DomainZoneInvalid = 34,
+
+    /// <summary>A zone is named by two sets that apply to the same registrant and the same operation, so the set that wins would be undefined.</summary>
+    DomainZoneDuplicate = 35,
+
+    /// <summary>A set of domain fields names no operation or a bit that is not an operation.</summary>
+    DomainOperationsInvalid = 36,
+
+    /// <summary>A domain field has options but is not a select field, or a select field has none or lists a value twice or one that is empty.</summary>
+    DomainFieldOptionsInvalid = 37,
+
+    /// <summary>A domain field pattern is not a valid regular expression, is longer than <see cref="Hostpanel.Sdk.Plugins.Manifest.PluginDomainField.MaxPatternLength"/> characters or runs too long.</summary>
+    DomainFieldPatternInvalid = 38,
+
+    /// <summary>A domain field has a negative length bound or a minimum length above its maximum.</summary>
+    DomainFieldLengthInvalid = 39,
 }
