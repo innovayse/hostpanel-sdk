@@ -5,6 +5,12 @@ All notable changes to the `Hostpanel.Sdk` package are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this package adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.17.1]
+
+### Fixed
+
+- `PluginSdkHostReleases` maps 3.17.0 to Hostpanel 0.10.0, the release line that ships it, instead of an unreleased 0.11.0, so a plugin built on 3.17 can ask for the Hostpanel it actually runs on.
+
 ## [3.17.0]
 
 ### Added
